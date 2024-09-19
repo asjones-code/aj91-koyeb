@@ -3,25 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <link href="css/base.css" rel="stylesheet">
+    <link href="css/terminal.css" rel="stylesheet">
+
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>aj91</title>
 </head>
-<body class = ""> 
-    <section class="h-lvh bg-emerald-600">
+<body class = "bg-black"> 
+    <nav class =''>
+        <ul class="font-tabular grid grid-cols-4 list-none">
+            <li class="mr-6">
+              <a class="text-blue-500 hover:text-blue-800" href="#">Active</a>
+            </li>
+            <li class="mr-6">
+              <a class="text-blue-500 hover:text-blue-800" href="#">Link</a>
+            </li>
+            <li class="mr-6">
+              <a class="text-blue-500 hover:text-blue-800" href="#">Link</a>
+            </li>
+            <li class="mr-6">
+              <a class="text-gray-400 cursor-not-allowed" href="#">Disabled</a>
+            </li>
+          </ul>
+    </nav>
+    <section class="h-lvh mx-auto">
         <div class ="m-4">
-            <p class="text-white font-geo">
-                Hello, world!
-            </p>
+            <h1 class="text-white font-tabular font-light f-text-64-128 text-center">
+                Internet Hustler
+            </h1>     
+        </div>
+        <div class="flex flex-col wrap md:flex-row">
+            <div class="f-w-250-400">
+                <p class ="font-excon f-text-16-24 text-white">
+                    I'm a digital entrepreneur based in New York City with close to a decade of experience in software implementation and solutions engineering.
+                    I empower businesses to solve complex problems, leveraging open-source technologies, modern AI frameworks, and actionable analysis. 
+                 </p>
+
+            </div>
+            <div class="f-w-650-500 terminal-window">
+                <header>
+                  <div class="button green"></div>
+                  <div class="button yellow"></div>
+                  <div class="button red"></div>
+                </header>
+                <section class="terminal">
+                  <div class="history"></div>
+                  $ <span class="prompt"></span>
+                  <span class="typed-cursor"></span>
+                </section>
+              </div>
+              <!-- data -->
+                <div class="terminal-data mimik-run-output">
+                  <br>Found 1 feature<br>
+                  ----------------------------------------------<br>
+                  Feature: Bottles  <span class="gray"># ./features/bottles.feature</span><br><br> 
+              
+                  Scenario: A bottle falls from the wall<br>
+                  <span class="green">✓</span> <span class="gray">Given 100 green bottles are standing</span><br>
+                  <span class="green">✓</span> <span class="gray">when 1 green bottle accidentally falls</span><br>
+                  <span class="green">✓</span> <span class="gray">then there are 99 green bottles standing</span><br>
+                  <br>
+                  <span class="gray">---------- ----------- ------- -------- --------</span><br>
+                  Features  Scenarios  Steps  Passed  Failed<br>
+                  <span class="gray">---------- ----------- ------- -------- --------</span><br>
+                  1          1          4      <span class="green">✓ 4</span>      0<br>
+                  <br>
+                  Completed 1 feature in 0.01s<br>
+                  <br>
+                </div>
+              
+            
+            
+          
+          
         </div>
     </section>
+    
+   
 
-    <section class="h-lvh bg-teal-900">
-        <p class="text-white font-geo">
-            Hello, world!
-        </p>
-    </section>
  
     
 </body>
+
 </html>
