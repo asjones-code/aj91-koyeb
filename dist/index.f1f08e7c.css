@@ -18,46 +18,6 @@ canvas {
   display: block;
 }
 
-.col {
-  padding: calc(.3 * var(--m)) calc(.8 * var(--m));
-  flex-direction: column;
-  justify-content: flex-start;
-  align-items: flex-start;
-  width: 28%;
-}
-
-.col2, .col3 {
-  border-radius: calc(.5 * var(--m));
-  background-color: #121212;
-}
-
-img {
-  height: calc(.3 * var(--m));
-  object-fit: cover;
-}
-
-.social {
-  flex-direction: row;
-  justify-content: flex-start;
-  gap: 1rem;
-  display: flex;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-.link {
-  width: calc(.8 * var(--m));
-  height: calc(.8 * var(--m));
-  border-radius: calc(.1 * var(--m));
-  background-color: #ffffff1a;
-  justify-content: center;
-  align-items: center;
-  display: flex;
-}
-
 @media screen and (width <= 300px) {
   :root {
     --m: 3rem;
