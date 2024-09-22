@@ -35,39 +35,47 @@ export default defineConfig({
     presetWebFonts({
       provider: 'fontshare',
       fonts: {
-        geo:  [
+        geo: [
           {
             name: 'Geologica',
             weights: ['400', '700'],
             italic: true,
             provider: 'google',
           },
-          
+
         ],
-        tabular:  [
+        tabular: [
           {
             name: 'Tabular',
             weights: ['100', '400', '700'],
             italic: false,
             provider: 'fontshare',
           },
-          
+
         ],
-        outfit:  [
+        outfit: [
           {
             name: 'Outfit',
-            weights: ['100', '300', '400', '700' , '900'],
+            weights: ['100', '300', '400', '700', '900'],
             italic: false,
             provider: 'fontshare',
           },
-          
         ],
-        excon: ['Excon', 'Excon:100,300,400,700,900'],
-        mono: ['Fira Code', 'Fira Mono:400,700'],
+        technor: [
+          {
+            name: 'Technor',
+            weights: ['100', '300', '400', '700', '900'],
+            italic: false,
+            provider: 'fontshare',
+          },
+
+        ],
+          excon: ['Excon', 'Excon:100,300,400,700,900'],
+          mono: ['Fira Code', 'Fira Mono:400,700'],
       },
     },
-    
-  ),
+
+    ),
   ],
   transformers: [
 
