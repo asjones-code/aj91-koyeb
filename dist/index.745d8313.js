@@ -592,37 +592,49 @@ var _locomotiveScroll = require("locomotive-scroll");
 var _locomotiveScrollDefault = parcelHelpers.interopDefault(_locomotiveScroll);
 (0, _gsapDefault.default).registerPlugin((0, _scrollTrigger.ScrollTrigger));
 const pageContainer = document.querySelector(".container");
-const produtoSection = document.querySelector(".produto_section");
-let painel = document.querySelector(".painel");
-let sections = (0, _gsapDefault.default).utils.toArray(".painel");
 /* SMOOTH SCROLL */ const scroller = new (0, _locomotiveScrollDefault.default)({
     el: pageContainer,
     smooth: true
 });
-(0, _gsapDefault.default).registerPlugin((0, _scrollTrigger.ScrollTrigger));
-const produtoSection = document.querySelector(".produto_section");
-let painel = document.querySelector(".painel");
-let sections = (0, _gsapDefault.default).utils.toArray(".painel");
-let scrollTween = (0, _gsapDefault.default).to(sections, {
-    xPercent: -100 * (sections.length - 1),
-    ease: "none",
-    scrollTrigger: {
-        trigger: produtoSection,
-        pin: true,
-        scrub: .01,
-        end: "+=3000"
-    }
+scroller.on("scroll", (0, _scrollTrigger.ScrollTrigger).update);
+(0, _scrollTrigger.ScrollTrigger).scrollerProxy(pageContainer, {
+    scrollTop (value) {
+        return arguments.length ? scroller.scrollTo(value, 0, 0) : scroller.scroll.instance.scroll.y;
+    },
+    getBoundingClientRect () {
+        return {
+            left: 0,
+            top: 0,
+            width: window.innerWidth,
+            height: window.innerHeight
+        };
+    },
+    pinType: pageContainer.style.transform ? "transform" : "fixed"
 });
-// Lenis
-const lenis = new Lenis();
-lenis.on("scroll", (e)=>{
-// console.log(e);
+////////////////////////////////////
+////////////////////////////////////
+window.addEventListener("load", function() {
+    let pinBoxes = document.querySelectorAll(".pin-wrap > *");
+    let pinWrap = document.querySelector(".pin-wrap");
+    let pinWrapWidth = pinWrap.offsetWidth;
+    let horizontalScrollLength = pinWrapWidth - window.innerWidth;
+    // Pinning and horizontal scrolling
+    (0, _gsapDefault.default).to(".pin-wrap", {
+        scrollTrigger: {
+            scroller: pageContainer,
+            scrub: true,
+            trigger: "#sectionPin",
+            pin: true,
+            // anticipatePin: 1,
+            start: "top top",
+            end: pinWrapWidth
+        },
+        x: -horizontalScrollLength,
+        ease: "none"
+    });
+    (0, _scrollTrigger.ScrollTrigger).addEventListener("refresh", ()=>scroller.update()); //locomotive-scroll
+    (0, _scrollTrigger.ScrollTrigger).refresh();
 });
-function raf(time) {
-    lenis.raf(time);
-    requestAnimationFrame(raf);
-}
-requestAnimationFrame(raf);
 
 },{"gsap":"fPSuC","gsap/ScrollTrigger":"7wnFk","locomotive-scroll":"iDXE3","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"fPSuC":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
