@@ -214,6 +214,17 @@
   font-style: normal;
 }
 
+/* Kihim */
+@font-face {
+  font-family: 'Kihim';
+  src: url('//cdn.fontshare.com/wf/KOGNLTCKMHYTVPJIEQEW4B7BPUKAQGXM/XLAHRPYFN6ZW2PAIAUG3R33QFYFJN5QB/4TN7YRXJ3XQYLUTKR4IXYSO62CQLPOJO.woff2') format('woff2'),
+       url('//cdn.fontshare.com/wf/KOGNLTCKMHYTVPJIEQEW4B7BPUKAQGXM/XLAHRPYFN6ZW2PAIAUG3R33QFYFJN5QB/4TN7YRXJ3XQYLUTKR4IXYSO62CQLPOJO.woff') format('woff'),
+       url('//cdn.fontshare.com/wf/KOGNLTCKMHYTVPJIEQEW4B7BPUKAQGXM/XLAHRPYFN6ZW2PAIAUG3R33QFYFJN5QB/4TN7YRXJ3XQYLUTKR4IXYSO62CQLPOJO.ttf') format('truetype');
+  font-weight: 400;
+  font-display: swap;
+  font-style: normal;
+}
+
 /* Excon */
 @font-face {
   font-family: 'Excon';
@@ -275,6 +286,7 @@
 
 
 /* layer: default */
+.f-text-16-32{font-size:clamp(1rem, 0.6479rem + 1.5023vw, 2rem);}
 .f-text-20-28{font-size:clamp(1.25rem, 1.0739rem + 0.7512vw, 1.75rem);}
 .f-text-64-128{font-size:clamp(4rem, 2.5915rem + 6.0094vw, 8rem);}
 .f-w-250-600{width:clamp(15.625rem, 7.9225rem + 32.8638vw, 37.5rem);}
@@ -284,21 +296,25 @@
 .mx-auto{margin-left:auto;margin-right:auto;}
 .mr-6{margin-right:1.5rem;}
 .h-screen{height:100vh;}
+.w-\[80\%\]{width:80%;}
 .flex{display:flex;}
 .basis-1\/2{flex-basis:50%;}
 .flex-row{flex-direction:row;}
 .flex-col{flex-direction:column;}
 .list-none{list-style-type:none;}
 .items-center{align-items:center;}
+.justify-between{justify-content:space-between;}
 .gap-16{gap:4rem;}
 .bg-black{--un-bg-opacity:1;background-color:rgb(0 0 0 / var(--un-bg-opacity)) /* #000 */;}
 .p-2{padding:0.5rem;}
+.px-8{padding-left:2rem;padding-right:2rem;}
 .text-center{text-align:center;}
 .text-green-500{--un-text-opacity:1;color:rgb(34 197 94 / var(--un-text-opacity)) /* #22c55e */;}
 .text-white{--un-text-opacity:1;color:rgb(255 255 255 / var(--un-text-opacity)) /* #fff */;}
 .hover\:text-blue-800:hover{--un-text-opacity:1;color:rgb(30 64 175 / var(--un-text-opacity)) /* #1e40af */;}
 .font-bold{font-weight:700;}
 .font-medium{font-weight:500;}
+.font-kihim{font-family:"Kihim";}
 .font-outfit{font-family:"Outfit";}
 .font-tabular{font-family:"Tabular";}
 @media (min-width: 768px){

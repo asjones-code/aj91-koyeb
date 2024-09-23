@@ -70,6 +70,15 @@ export default defineConfig({
           },
 
         ],
+        kihim: [
+          {
+            name: 'Kihim',
+            weights: ['100', '300', '400', '700', '900'],
+            italic: false,
+            provider: 'fontshare',
+          },
+
+        ],
           excon: ['Excon', 'Excon:100,300,400,700,900'],
           mono: ['Fira Code', 'Fira Mono:400,700'],
       },
