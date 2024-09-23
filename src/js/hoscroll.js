@@ -4,10 +4,7 @@ import LocomotiveScroll from 'locomotive-scroll';
 import Lenis from "lenis";
 
 gsap.registerPlugin(ScrollTrigger);
-const scroll = new LocomotiveScroll({
-  el: document.querySelector('[data-scroll-container]'),
-  smooth: true
-});
+
 
 const produtoSection = document.querySelector(".produto_section");
 let painel = document.querySelector(".painel");
