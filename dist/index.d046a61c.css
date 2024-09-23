@@ -248,6 +248,14 @@
 }
 
 @font-face {
+  font-family: Kihim;
+  src: url("//cdn.fontshare.com/wf/KOGNLTCKMHYTVPJIEQEW4B7BPUKAQGXM/XLAHRPYFN6ZW2PAIAUG3R33QFYFJN5QB/4TN7YRXJ3XQYLUTKR4IXYSO62CQLPOJO.woff2") format("woff2"), url("//cdn.fontshare.com/wf/KOGNLTCKMHYTVPJIEQEW4B7BPUKAQGXM/XLAHRPYFN6ZW2PAIAUG3R33QFYFJN5QB/4TN7YRXJ3XQYLUTKR4IXYSO62CQLPOJO.woff") format("woff"), url("//cdn.fontshare.com/wf/KOGNLTCKMHYTVPJIEQEW4B7BPUKAQGXM/XLAHRPYFN6ZW2PAIAUG3R33QFYFJN5QB/4TN7YRXJ3XQYLUTKR4IXYSO62CQLPOJO.ttf") format("truetype");
+  font-weight: 400;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
   font-family: Excon;
   src: url("//cdn.fontshare.com/wf/UOR3GKGGYKSXOPARPVX2LJSFIQ5PMFIP/ALZ7XEMFCRLSTJ343FMZX7JLYI4PVW5W/PWFSX23HSOTS4S5H2EZBA72ULDLBSG3V.woff2") format("woff2"), url("//cdn.fontshare.com/wf/UOR3GKGGYKSXOPARPVX2LJSFIQ5PMFIP/ALZ7XEMFCRLSTJ343FMZX7JLYI4PVW5W/PWFSX23HSOTS4S5H2EZBA72ULDLBSG3V.woff") format("woff"), url("//cdn.fontshare.com/wf/UOR3GKGGYKSXOPARPVX2LJSFIQ5PMFIP/ALZ7XEMFCRLSTJ343FMZX7JLYI4PVW5W/PWFSX23HSOTS4S5H2EZBA72ULDLBSG3V.ttf") format("truetype");
   font-weight: 100 900;
@@ -295,6 +303,10 @@
   font-style: normal;
 }
 
+.f-text-16-32 {
+  font-size: clamp(1rem, .6479rem + 1.5023vw, 2rem);
+}
+
 .f-text-20-28 {
   font-size: clamp(1.25rem, 1.0739rem + .7512vw, 1.75rem);
 }
@@ -332,6 +344,10 @@
   height: 100vh;
 }
 
+.w-\[80\%\] {
+  width: 80%;
+}
+
 .flex {
   display: flex;
 }
@@ -356,6 +372,10 @@
   align-items: center;
 }
 
+.justify-between {
+  justify-content: space-between;
+}
+
 .gap-16 {
   gap: 4rem;
 }
@@ -367,6 +387,11 @@
 
 .p-2 {
   padding: .5rem;
+}
+
+.px-8 {
+  padding-left: 2rem;
+  padding-right: 2rem;
 }
 
 .text-center {
@@ -394,6 +419,10 @@
 
 .font-medium {
   font-weight: 500;
+}
+
+.font-kihim {
+  font-family: Kihim;
 }
 
 .font-outfit {
