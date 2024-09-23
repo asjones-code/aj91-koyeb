@@ -11,12 +11,57 @@ body {
   font-size: calc(0.3 * var(--m));
 }
 
-img {
-  height: 80vh;
-  width: auto;
-  object-fit: cover;
+
+
+.hero {
+  position: relative;
+  height: 100vh;
+  border-radius: 2rem;
+  overflow: hidden;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  transform: scale(0.8);
 }
 
+img {
+  position: absolute;
+  width: 50%;
+  height: 50%;
+  object-fit: cover;
+  cursor: pointer;
+
+  transition: filter 1.5s ease-out;
+}
+
+.image1 {
+  filter: url(#pixelate);
+  z-index: 1;
+}
+
+.image2 {
+  mask: url(#circleMask);
+  z-index: 500;
+}
+
+.main-title {
+  position: absolute;
+  z-index: 1000;
+  top: 10rem;
+  color: white;
+}
+
+svg#svg-mask,
+svg#svgFilter {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  overflow: visible;
+}
 
 
 
