@@ -5,11 +5,11 @@ var $ = require( "jquery" );
 
 const commands = {
 	presentation: {
-		cmd: 'intro',
-		res: 'AJ<br>Web Developer - HTML - CSS - Python<br>AI Consultant<br><br>Founder of Goodgrow.io<br><br><b>Tapez \'help\' pour plus de détails sur les commandes</b>'},
+		cmd: '',
+		res: ''},
 	visitors: {
-		cmd: 'visitors',
-		res: '<span class="blue">2626</span> visites'
+		cmd: '',
+		res: ''
 	},
 	whoami: {
 		cmd: 'whoami',
@@ -19,30 +19,70 @@ const commands = {
 		cmd: 'help',
 		res: ' Aide commandes disponibles<br><br> hello	- Dis bonjour<br> clear	- Efface le terminal<br> date	- Renvoie la date<br> help	- Liste des commandes disponibles<br> whoami	- Affiche les informations sur l\'utilisateur'
 	},
-	visitors : { cmd: 'visitors', res: '<span class="blue">2626</span> visites'},
-	hello: { cmd: 'hello', res: 'Salut, mec !'},
-	date: { cmd: 'date', res: 'ceci est la date'}
+    askai: {
+		cmd: 'askai',
+		res: 'Calling ARLIAI API...'
+	}
+	
 }
 
-const prephrase = '<span class="green">website</span> <span class="yellow"> (therolf)</span> <span class="red">#</span> ';
 
-var form = $('<div>' + prephrase + '<form id="form"><input type="text" class="nostyle" autofocus /></form>').appendTo('#content');
+const prephrase = '<span class="text-green-500">aj91.online</span> <span class="yellow"> (home)</span> <span class="red">#</span> ';
+
+var form = $('<div class = "flex flex-row">'+ prephrase  + 
+    '<form id="form">' + 
+    '<input type="text" class="nostyle text-white font-mono" autofocus style="background-color: transparent; border: none; outline: none;" />' + 
+    '</form>' + 
+    '</div>').appendTo('#content');
+
 
 function launchCommand(command) {
-	$('<div>' + prephrase + command.cmd + '<p>' + command.res + '</p></div>').insertBefore(form)
+    if (command.cmd.includes('askai ')) {
+	console.log('yes')
+    
+    var userInput= ($('input').val().split('askai')[1]);
+    fetch("https://api.arliai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Authorization": 'Bearer 616a6e78-2b4f-478d-bdbd-2d884bb6208b',
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            "model": "Meta-Llama-3.1-8B-Instruct",
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": userInput},
+                {"role": "assistant", "content": "Hi!, how can I help you today?"}
+            ],
+            "repetition_penalty": 1.1,
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "top_k": 40,
+            "max_tokens": 1024,
+            "stream": false
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        const apiResponse = data.choices[0].message.content;  // Adjust this according to API response format
+        // Insert the result without triggering another command
+        $('<div>' + prephrase + 'askai<p>' + apiResponse + '</p></div>').insertBefore(form);
+    })
+    .catch(error => {
+        $('<div>' + prephrase + 'askai<p>API call failed: ' + error.message + '</p></div>').insertBefore(form);
+    });
+  
+}
+else{
+    $('<div>'  + command.cmd + '<p>' + command.res + '</p></div>').insertBefore(form)
+
+
+}
 }
 
-launchCommand(commands.presentation);
+//launchCommand(commands.presentation);
 launchCommand(commands.visitors);
 
-$('#content').niceScroll({
-	cursorcolor: '#303030',
-	cursorborder: '0px none',
-	autohidemode: false,
-	cursorwidth: "8px",
-	cursorborderradius: "4px",
-	railpadding: { top: 0, left: 0, right: 0, bottom: 10 }
-});
 
 $('form').on('submit', function(e) {
 	e.preventDefault();
@@ -50,14 +90,18 @@ $('form').on('submit', function(e) {
 		if($('input').val().trim() !== '') {
 			launchCommand(commands[$('input').val()]);
 		}
+        
+        
 	} catch(error) {
 		launchCommand({
-			cmd: $('input').val(),
+			cmd: prephrase+ $('input').val(),
 			res: '<div><p>' + $('input').val() + ': command not found</p></div>'
 		});
 		if($('input').val() === 'clear') {
 			$('#content > *').not(':last').remove();
 		}
+       
 	}
-	$('input').val('');$('#content').getNiceScroll(0).resize().doScrollTop($('#content')[0].scrollHeight, 0);
+    $('input').val('');
+	//$('input').val('');$('#content');
 })
