@@ -6,57 +6,44 @@ gsap.registerPlugin(ScrollTrigger);
 
 const pageContainer = document.querySelector(".container");
 
+const produtoSection = document.querySelector(".produto_section");
+let painel = document.querySelector(".painel");
+let sections = gsap.utils.toArray(".painel");
+
 /* SMOOTH SCROLL */
 const scroller = new LocomotiveScroll({
   el: pageContainer,
   smooth: true
 });
 
-scroller.on("scroll", ScrollTrigger.update);
+gsap.registerPlugin(ScrollTrigger);
 
-ScrollTrigger.scrollerProxy(pageContainer, {
-  scrollTop(value) {
-    return arguments.length
-      ? scroller.scrollTo(value, 0, 0)
-      : scroller.scroll.instance.scroll.y;
-  },
-  getBoundingClientRect() {
-    return {
-      left: 0,
-      top: 0,
-      width: window.innerWidth,
-      height: window.innerHeight
-    };
-  },
-  pinType: pageContainer.style.transform ? "transform" : "fixed"
-});
+const produtoSection = document.querySelector(".produto_section");
+let painel = document.querySelector(".painel");
 
-////////////////////////////////////
-////////////////////////////////////
-window.addEventListener("load", function () {
-  let pinBoxes = document.querySelectorAll(".pin-wrap > *");
-  let pinWrap = document.querySelector(".pin-wrap");
-  let pinWrapWidth = pinWrap.offsetWidth;
-  let horizontalScrollLength = pinWrapWidth - window.innerWidth;
+let sections = gsap.utils.toArray(".painel");
 
-  // Pinning and horizontal scrolling
-
-  gsap.to(".pin-wrap", {
+let scrollTween = gsap.to(sections, {
+    xPercent: -100 * (sections.length - 1),
+    ease:"none", //Importante!!
     scrollTrigger: {
-      scroller: pageContainer, //locomotive-scroll
-      scrub: true,
-      trigger: "#sectionPin",
-      pin: true,
-      // anticipatePin: 1,
-      start: "top top",
-      end: pinWrapWidth
-    },
-    x: -horizontalScrollLength,
-    ease: "none"
-  });
+        trigger:produtoSection,
+        pin:true, 
+        scrub:.01,
+        end:"+=3000"
+    }
+})
 
-  ScrollTrigger.addEventListener("refresh", () => scroller.update()); //locomotive-scroll
+// Lenis
+const lenis = new Lenis();
 
-  ScrollTrigger.refresh();
-});
+lenis.on('scroll', (e) => {
+    // console.log(e);
+})
 
+function raf(time) {
+    lenis.raf(time)
+    requestAnimationFrame(raf)
+}
+
+requestAnimationFrame(raf);
