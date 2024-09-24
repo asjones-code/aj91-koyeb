@@ -61,6 +61,14 @@ export default defineConfig({
             provider: 'fontshare',
           },
         ],
+        satoshi: [
+          {
+            name: 'Satoshi',
+            weights: ['100', '300', '400', '700', '900'],
+            italic: false,
+            provider: 'fontshare',
+          },
+        ],
         technor: [
           {
             name: 'Technor',
