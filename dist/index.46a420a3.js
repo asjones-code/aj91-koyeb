@@ -142,14 +142,14 @@
       this[globalName] = mainExports;
     }
   }
-})({"5E5BO":[function(require,module,exports) {
+})({"9QdRC":[function(require,module,exports) {
 var global = arguments[3];
 var HMR_HOST = null;
 var HMR_PORT = null;
 var HMR_SECURE = false;
 var HMR_ENV_HASH = "d6ea1d42532a7575";
 var HMR_USE_SSE = false;
-module.bundle.HMR_BUNDLE_ID = "ed26170ee05b590d";
+module.bundle.HMR_BUNDLE_ID = "727f764846a420a3";
 "use strict";
 /* global HMR_HOST, HMR_PORT, HMR_ENV_HASH, HMR_SECURE, HMR_USE_SSE, chrome, browser, __parcel__import__, __parcel__importScripts__, ServiceWorkerGlobalScope */ /*::
 import type {
@@ -583,65 +583,71 @@ function hmrAccept(bundle /*: ParcelRequire */ , id /*: string */ ) {
     });
 }
 
-},{}],"4DZYd":[function(require,module,exports) {
-const el = document.getElementById("char");
-const cursor = document.getElementById("cursor");
-const cursorWidth = cursor.offsetWidth;
-const cursorHeight = cursor.offsetHeight;
-const speed = 0.30;
-const clamp = (x, min, max)=>Math.min(Math.max(x, min), max);
-const toRange = (x, min, max)=>clamp(Math.round(x * (max - min) + min), min, max);
-const mix = (a, b, t)=>a * (1 - t) + b * t;
-let x = 0.5, y = 0.5;
-let tx = 0.5, ty = 0.5;
-document.body.addEventListener("mousemove", (e)=>{
-    tx = e.clientX / window.innerWidth;
-    ty = e.clientY / window.innerHeight;
-});
-let skip = 0;
-function loop() {
-    requestAnimationFrame(loop);
-    x = mix(x, tx, speed);
-    y = mix(y, ty, speed);
-    cursor.style.left = `${x * window.innerWidth - cursorWidth / 2}px`;
-    //cursor.style.top = `${y * window.innerHeight - cursorHeight / 2}px`; 
-    cursor.style.top = `${y * window.innerHeight - 40 + window.scrollY}px`;
-    if (skip++ % 5 != 0) return;
-    // Switch unicode range mapping
-    const currencySymbols = [
-        0x0024,
-        0x00A2,
-        0x00A3,
-        0x00A5,
-        0x20A3,
-        0x20A4,
-        0x20AC,
-        0x20A6,
-        0x20A8,
-        0x20AA,
-        0x20AB,
-        0x20AD,
-        0x20AE,
-        0x20AF,
-        0x20B9,
-        0x20B1,
-        0x20B2,
-        0x20B5,
-        0x20B8,
-        0x20BA,
-        0x20BE,
-        0x20BF,
-        0x0C78 // Somali Shilling
-    ];
-    const cx = currencySymbols[Math.floor(x * currencySymbols.length)];
-    try {
-        el.innerText = String.fromCodePoint(cx);
-        el.title = String.fromCodePoint(cx);
-        info.innerText = `U+${cx.toString(16).toUpperCase()}`;
-    } catch  {}
+},{}],"jvBLU":[function(require,module,exports) {
+// Create a canvas element but do not append it to the DOM
+const canvas = document.createElement("canvas");
+const ctx = canvas.getContext("2d");
+// Assuming .us-canvas is a <canvas> element
+const ucanvas = document.querySelector(".us-canvas");
+const footer = document.querySelector("footer");
+// Convert the canvas content to a data URL
+const canvasBackground = canvas.toDataURL();
+// Apply the canvas background to the footer
+// Function to resize the canvas
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 }
-loop();
+resizeCanvas();
+class Particle {
+    constructor(){
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.size = Math.random() * 5 + 1;
+        this.speedX = Math.random() * 3 - 1.5;
+        this.speedY = Math.random() * 3 - 1.5;
+    }
+    update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+        if (this.size > 0.2) this.size -= 0.1;
+    }
+    draw() {
+        ctx.fillStyle = "white";
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+const particleArray = [];
+for(let i = 0; i < 100; i++)particleArray.push(new Particle());
+function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for(let i = 0; i < particleArray.length; i++){
+        particleArray[i].update();
+        particleArray[i].draw();
+        if (particleArray[i].size <= 0.2) {
+            particleArray.splice(i, 1);
+            i--;
+            particleArray.push(new Particle());
+        }
+    }
+    requestAnimationFrame(animate);
+}
+animate();
+UnicornStudio.init().then((scenes)=>{
+    const layer = scenes[0].layers[1];
+    layer.getPlane().loadCanvas(canvas, {
+        premultipliedAlpha: true,
+        sampler: "uTexture"
+    }, (tex)=>{
+        layer.preloadedCanvasTexture = tex;
+    });
+});
+window.addEventListener("resize", resizeCanvas);
+footer.style.backgroundImage = `url(${canvasBackground})`;
+console.log("here");
 
-},{}]},["5E5BO","4DZYd"], "4DZYd", "parcelRequire86c2")
+},{}]},["9QdRC","jvBLU"], "jvBLU", "parcelRequire86c2")
 
-//# sourceMappingURL=index.e05b590d.js.map
+//# sourceMappingURL=index.46a420a3.js.map
