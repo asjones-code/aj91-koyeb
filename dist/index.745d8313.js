@@ -593,10 +593,6 @@ var _locomotiveScrollDefault = parcelHelpers.interopDefault(_locomotiveScroll);
 var _lenis = require("lenis");
 var _lenisDefault = parcelHelpers.interopDefault(_lenis);
 (0, _gsapDefault.default).registerPlugin((0, _scrollTrigger.ScrollTrigger));
-const scroll = new (0, _locomotiveScrollDefault.default)({
-    el: document.querySelector("[data-scroll-container]"),
-    smooth: true
-});
 const produtoSection = document.querySelector(".produto_section");
 let painel = document.querySelector(".painel");
 let sections = (0, _gsapDefault.default).utils.toArray(".painel");
@@ -620,40 +616,6 @@ function raf(time) {
     requestAnimationFrame(raf);
 }
 requestAnimationFrame(raf);
-const tl = (0, _gsapDefault.default).timeline({
-    defaults: {
-        ease: "power2.out"
-    }
-});
-function smoothMoves(event) {
-    const mouseX = event.clientX;
-    const mouseY = event.clientY;
-    (0, _gsapDefault.default).to(circle, {
-        duration: 1.5,
-        attr: {
-            cx: mouseX,
-            cy: mouseY
-        }
-    });
-}
-function expandHero() {
-    tl.to(circle, {
-        duration: 1,
-        attr: {
-            r: "1000"
-        },
-        ease: "power2.inOut"
-    }).to(hero, {
-        duration: 1,
-        scale: 1,
-        borderRadius: 0,
-        ease: "power2.inOut"
-    }, "-=0.5").to(body, {
-        overflow: "auto"
-    });
-}
-document.addEventListener("mousemove", smoothMoves);
-hero.addEventListener("click", expandHero);
 
 },{"gsap":"fPSuC","gsap/ScrollTrigger":"7wnFk","locomotive-scroll":"iDXE3","lenis":"JS2ak","@parcel/transformer-js/src/esmodule-helpers.js":"gkKU3"}],"fPSuC":[function(require,module,exports) {
 var parcelHelpers = require("@parcel/transformer-js/src/esmodule-helpers.js");
