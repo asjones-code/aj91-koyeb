@@ -10,6 +10,7 @@
 </head>
 
 <body id="body" class=" bg-neutral-950">
+  
   <div data-scroll-container class="container">
     <nav class='flex flex-row mx-auto px-8 justify-between'>
       <h1 class="font-kihim f-text-16-32 text-white">
@@ -28,63 +29,55 @@
       </ul>
     </nav>
 
-    <section  class=" h-screen mx-auto">
-      <div data-scroll-section class="m-4 ">
+    <section class=" f-h-400-300 mx-auto">
+      <div data-scroll-section class="m-4 flex-flex-col justify-center ">
+
         <h1 data-scroll data-scroll-speed=".8" class="text-white font-tabular font-light f-text-64-128 text-center">
           Internet Hustler
         </h1>
-      </div>
-      <div data-scroll-section class="flex flex-col items-center wrap md:flex-row gap-16 f-m-20-40 mx-auto">
-        <div class="f-w-250-600 basis-1/2">
-          <p data-scroll data-scroll-speed="1.25" class="p-2 font-outfit font-medium f-text-20-28 text-white">
-            I'm a digital entrepreneur based in New York City with close to a decade of experience in software
-            implementation and solutions engineering.
-            I empower businesses to solve complex problems, leveraging open-source technologies, modern AI frameworks,
-            and
-            actionable analysis.
-          </p>
+        <h1 class="text-white text-center font-feds absolute left-[50%] top-[20%] f-text-48-64" id="char">?</h1>
 
+       
+      </div>
+      <div>
+        <div id="cursor"></div>
+      </div>
+  </div>
+  <div data-scroll-section class="flex flex-col items-center wrap md:flex-row gap-16 f-m-20-40 mx-auto">
+    <div class="f-w-250-600 basis-1/2">
+      <p data-scroll data-scroll-speed="1.25" class="p-2 font-outfit font-medium f-text-20-28 text-white">
+        I'm a digital entrepreneur based in New York City with close to a decade of experience in software
+        implementation and solutions engineering.
+        I empower businesses to solve complex problems, leveraging open-source technologies, modern AI frameworks,
+        and
+        actionable analysis.
+      </p>
+
+    </div>
+    <div data-scroll data-scroll-speed=".5" class="f-w-300-500 terminal-window">
+      <header>
+        <div class="button green"></div>
+        <div class="button yellow"></div>
+        <div class="button red"></div>
+      </header>
+      <section class="terminal">
+        <div class="history"></div>
+        <div id="content">
         </div>
-        <div data-scroll data-scroll-speed=".5" class="f-w-300-500 terminal-window">
-          <header>
-            <div class="button green"></div>
-            <div class="button yellow"></div>
-            <div class="button red"></div>
-          </header>
-          <section class="terminal">
-            <div class="history"></div>
-            <div id="content">
-            </div>
-            <span class="typed-cursor"></span>
-          </section>
-        </div>
-      </div>
-    </section>
-  
+        <span class="typed-cursor"></span>
+      </section>
+    </div>
+  </div>
+  </section>
 
-  
-  
-    <section>
-      <div class="produto_section flex flex-nowrap">
-          <div class="wrapper flex min-h-[100vh]  w-full">
-              <div class="painel flex justify-center text-center font-bold text-4xl flex-col min-w-[100vw]  bg-neutral-950">
-                <canvas></canvas>
 
-              </div>
-              <div class="painel flex justify-center text-center font-satoshi font-black text-white  f-text-32-64 flex-col min-w-[100vw] bg-neutral-950">
-                  <h3>AI Consulting</h3>
-              </div>
-              <div class="painel flex justify-center text-center font-satoshi font-black text-white  f-text-32-64 flex-col min-w-[100vw] bg-neutral-950">
-                  <h4>Goodgrow</h4>
-              </div>
-              <div class="painel flex justify-center text-center font-satoshi font-black text-white  f-text-32-64 flex-col min-w-[100vw] bg-neutral-950">
-                  <h5>Log</h5>
-              </div>
-          </div>
-      </div>
-     </section>
-   
- 
+
+
+  <section class="mx-auto flex flex-col">
+    <canvas></canvas>
+  </section>
+
+
   </div>
 
 
@@ -105,6 +98,8 @@
 
   <script type="module" src="./js/terminal.js"></script>
   <script type="module" src="./js/text.js"></script>
+  <script type="module" src="./js/unicode.js"></script>
+
 
   <script type="module" src="./js/hoscroll.js"></script>
 

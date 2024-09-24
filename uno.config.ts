@@ -44,6 +44,15 @@ export default defineConfig({
           },
 
         ],
+        feds: [
+          {
+            name: 'Federant',
+            weights: ['400', '700'],
+            italic: true,
+            provider: 'google',
+          },
+
+        ],
         tabular: [
           {
             name: 'Tabular',
