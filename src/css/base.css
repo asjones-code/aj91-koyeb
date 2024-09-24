@@ -369,7 +369,7 @@
 .justify-center{justify-content:center;}
 .justify-between{justify-content:space-between;}
 .gap-16{gap:4rem;}
-.bg-neutral-950{--un-bg-opacity:1;background-color:rgb(10 10 10 / var(--un-bg-opacity)) /* #0a0a0a */;}
+.bg-black{--un-bg-opacity:1;background-color:rgb(0 0 0 / var(--un-bg-opacity)) /* #000 */;}
 .p-2{padding:0.5rem;}
 .px-8{padding-left:2rem;padding-right:2rem;}
 .text-center{text-align:center;}
