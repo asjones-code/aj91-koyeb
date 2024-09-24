@@ -34,6 +34,17 @@ footer {
   position: relative;
 }
 
+#cursor {
+  position: absolute;
+  left: 50%;
+  height: 50%;  
+  width: 80px;
+  height: 80px;  
+  background: white;
+  border-radius: 50%;
+  mix-blend-mode: difference;
+}
+
 
 
 #container {
@@ -43,6 +54,7 @@ footer {
 
 canvas {
   display: block;
+ 
 }
 
 @media screen and (max-width: 300px) {
