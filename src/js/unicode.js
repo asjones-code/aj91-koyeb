@@ -1,5 +1,7 @@
 const el = document.getElementById('char');
 const cursor = document.getElementById('cursor');
+const cursorWidth = cursor.offsetWidth;
+const cursorHeight = cursor.offsetHeight;
 
 const speed = 0.30;
 
@@ -22,8 +24,9 @@ function loop() {
   
   x = mix(x, tx, speed);
   y = mix(y, ty, speed);
-  cursor.style.left = `${x * window.innerWidth - 40}px`;
-  cursor.style.top = `${y * window.innerHeight - 40}px`;  
+  cursor.style.left = `${x * window.innerWidth - cursorWidth / 2}px`;
+  //cursor.style.top = `${y * window.innerHeight - cursorHeight / 2}px`; 
+  cursor.style.top = `${y * window.innerHeight - 40 + window.scrollY}px`;  
   
   if (skip++ % 5 != 0) {
     return;

@@ -386,10 +386,6 @@
   font-size: clamp(1.25rem, 1.0739rem + .7512vw, 1.75rem);
 }
 
-.f-text-48-64 {
-  font-size: clamp(3rem, 2.6479rem + 1.5023vw, 4rem);
-}
-
 .f-text-64-128 {
   font-size: clamp(4rem, 2.5915rem + 6.0094vw, 8rem);
 }
@@ -408,18 +404,6 @@
 
 .f-m-20-40 {
   margin: clamp(1.25rem, .8099rem + 1.8779vw, 2.5rem);
-}
-
-.absolute {
-  position: absolute;
-}
-
-.left-\[50\%\] {
-  left: 50%;
-}
-
-.top-\[20\%\] {
-  top: 20%;
 }
 
 .m-4 {
@@ -510,10 +494,6 @@
 
 .font-medium {
   font-weight: 500;
-}
-
-.font-feds {
-  font-family: Federant;
 }
 
 .font-kihim {
