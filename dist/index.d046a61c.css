@@ -455,9 +455,9 @@
   gap: 4rem;
 }
 
-.bg-neutral-950 {
+.bg-black {
   --un-bg-opacity: 1;
-  background-color: rgb(10 10 10 / var(--un-bg-opacity));
+  background-color: rgb(0 0 0 / var(--un-bg-opacity));
 }
 
 .p-2 {
