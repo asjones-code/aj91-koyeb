@@ -447,10 +447,6 @@
   justify-content: center;
 }
 
-.justify-between {
-  justify-content: space-between;
-}
-
 .gap-16 {
   gap: 4rem;
 }
@@ -464,18 +460,18 @@
   padding: .5rem;
 }
 
-.px-8 {
-  padding-left: 2rem;
-  padding-right: 2rem;
-}
-
 .text-center {
   text-align: center;
 }
 
-.text-green-500 {
+.text-blue-500 {
   --un-text-opacity: 1;
-  color: rgb(34 197 94 / var(--un-text-opacity));
+  color: rgb(59 130 246 / var(--un-text-opacity));
+}
+
+.text-orange-500 {
+  --un-text-opacity: 1;
+  color: rgb(249 115 22 / var(--un-text-opacity));
 }
 
 .text-white {
@@ -486,6 +482,11 @@
 .hover\:text-blue-800:hover {
   --un-text-opacity: 1;
   color: rgb(30 64 175 / var(--un-text-opacity));
+}
+
+.hover\:text-orange-800:hover {
+  --un-text-opacity: 1;
+  color: rgb(154 52 18 / var(--un-text-opacity));
 }
 
 .font-light {
