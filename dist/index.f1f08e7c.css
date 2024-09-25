@@ -9,6 +9,36 @@ body {
   overflow-x: hidden;
 }
 
+nav {
+  box-sizing: border-box;
+  width: 90%;
+  height: 6rem;
+  padding: 0 2rem;
+  display: flex;
+  top: 0;
+}
+
+.menu {
+  z-index: 5;
+  font-size: var(--h);
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+}
+
+.backdrop {
+  z-index: 1;
+  opacity: 1;
+  -webkit-backdrop-filter: blur(30px);
+  top: 0;
+  background: #e1e1e10d;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: -1rem 0;
+  mask-image: linear-gradient(#000 50%, #000c 70%, #0000 100%);
+}
+
 canvas {
   height: 100%;
   position: relative;
