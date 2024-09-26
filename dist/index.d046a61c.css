@@ -386,20 +386,20 @@
   font-size: clamp(1.25rem, 1.0739rem + .7512vw, 1.75rem);
 }
 
-.f-text-64-128 {
-  font-size: clamp(4rem, 2.5915rem + 6.0094vw, 8rem);
+.f-text-64-120 {
+  font-size: clamp(4rem, 2.7676rem + 5.2582vw, 7.5rem);
 }
 
-.f-w-250-600 {
-  width: clamp(15.625rem, 7.9225rem + 32.8638vw, 37.5rem);
+.f-w-293-600 {
+  width: clamp(18.3125rem, 11.5563rem + 28.8263vw, 37.5rem);
 }
 
 .f-w-300-500 {
   width: clamp(18.75rem, 14.3486rem + 18.7793vw, 31.25rem);
 }
 
-.f-h-400-300 {
-  height: clamp(18.75rem, 27.2007rem - 9.3897vw, 25rem);
+.f-h-200-300 {
+  height: clamp(12.5rem, 10.2993rem + 9.3897vw, 18.75rem);
 }
 
 .f-m-20-40 {
