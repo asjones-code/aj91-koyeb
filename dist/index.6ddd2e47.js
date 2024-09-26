@@ -590,18 +590,15 @@ let interval = null;
 const originalText = document.querySelector("h4").innerText;
 document.querySelector("h4").onmouseover = (event)=>{
     let iteration = 0;
-    // Change the innerText directly to the new hover text
-    const hoverText = "Web Developer"; // <-- Change this to the new text you want on hover
+    // Change data-value to the new text when hovering
+    event.target.setAttribute("data-value", "MOUSEOVER"); // New hover text
     clearInterval(interval);
     interval = setInterval(()=>{
         event.target.innerText = event.target.innerText.split("").map((letter, index)=>{
-            if (index < iteration) return hoverText[index] || ""; // Change the inner text to the new hover text
+            if (index < iteration) return event.target.dataset.value[index];
             return letters[Math.floor(Math.random() * 26)];
         }).join("");
-        if (iteration >= hoverText.length) {
-            clearInterval(interval);
-            event.target.innerText = hoverText; // Ensure the full hover text is displayed after animation
-        }
+        if (iteration >= event.target.dataset.value.length) clearInterval(interval);
         iteration += 1 / 3;
     }, 30);
 };
@@ -610,13 +607,10 @@ document.querySelector("h4").onmouseleave = (event)=>{
     clearInterval(interval);
     interval = setInterval(()=>{
         event.target.innerText = event.target.innerText.split("").map((letter, index)=>{
-            if (index < iteration) return originalText[index] || ""; // Return to original text on mouse leave
+            if (index < iteration) return originalText[index]; // Return to original text on mouse leave
             return letters[Math.floor(Math.random() * 26)];
         }).join("");
-        if (iteration >= originalText.length) {
-            clearInterval(interval);
-            event.target.innerText = "poop"; // Ensure the full original text is displayed after animation
-        }
+        if (iteration >= originalText.length) clearInterval(interval);
         iteration += 1 / 3;
     }, 30);
 };
