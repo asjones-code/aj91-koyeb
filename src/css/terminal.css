@@ -54,6 +54,7 @@ nav {
 canvas {
 	position: relative;
 	inset: 0;
+  background-color: transparent;
 	height: 100%;
 }
 

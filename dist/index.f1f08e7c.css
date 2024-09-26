@@ -40,6 +40,7 @@ nav {
 }
 
 canvas {
+  background-color: #0000;
   height: 100%;
   position: relative;
   inset: 0;
