@@ -16,6 +16,8 @@ body {
 
 
 
+
+
 nav {
   top: 0;
   width: 90%;
@@ -287,8 +289,6 @@ footer {
 
 .card {
   position: relative;
-  width: 500px;
-  height: 200px;
   background-color: #fff;
   overflow: hidden;
   margin-bottom: 4px;
