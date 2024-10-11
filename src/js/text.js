@@ -7,8 +7,8 @@ gl.viewport(0, 0, canvas.width, canvas.height);
 
 // Configurable parameters
 const config = {
-	particleCount: 5000,
-	textArray: ["Projects"],
+	particleCount: 4000,
+	textArray: ["About Me"],
 	mouseRadius: 0.1,
 	particleSize: 2,
 	forceMultiplier: 0.001,
