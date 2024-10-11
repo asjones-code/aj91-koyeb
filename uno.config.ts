@@ -87,6 +87,15 @@ export default defineConfig({
           },
 
         ],
+        sora: [
+          {
+            name: 'Sora',
+            weights: ['100', '300', '400', '700', '900'],
+            italic: false,
+            provider: 'fontshare',
+          },
+
+        ],
         kihim: [
           {
             name: 'Kihim',
