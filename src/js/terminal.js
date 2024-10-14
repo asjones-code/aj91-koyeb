@@ -3,9 +3,6 @@ var $ = require("jquery");
 const ws = new WebSocket("wss://asjones-cod-aj91-deno-69.deno.dev/");
 
 
-
-
-
 // Cache DOM elements
 const $prompt = $('.prompt');
 const prephrase = '<span class="text-green-500">aj91.online</span> <span class="yellow"> (home)</span> <span class="red">#</span> ';

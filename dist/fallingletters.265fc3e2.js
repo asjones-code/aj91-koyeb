@@ -117,62 +117,118 @@ parcelRequire = (function (modules, cache, entry, globalName) {
   }
 
   return newRequire;
-})({"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
-var bundleURL = null;
-function getBundleURLCached() {
-  if (!bundleURL) {
-    bundleURL = getBundleURL();
-  }
-  return bundleURL;
+})({"js/fallingletters.js":[function(require,module,exports) {
+var mouseDot;
+// var linkDot;
+var xoff, yoff;
+function setup() {
+  var cnv = createCanvas(window.innerWidth, window.innerHeight);
+  cnv.parent('artboard');
+  mouseDot = new MouseDot(createVector(0, 0));
+  xoff = random(1000);
+  yoff = random(1000);
+  linkDot = document.getElementById("link");
 }
-function getBundleURL() {
-  // Attempt to find the URL of the current script and use that as the base URL
-  try {
-    throw new Error();
-  } catch (err) {
-    var matches = ('' + err.stack).match(/(https?|file|ftp|chrome-extension|moz-extension):\/\/[^)\n]+/g);
-    if (matches) {
-      return getBaseURL(matches[0]);
-    }
-  }
-  return '/';
+function draw() {
+  background("#fafafa");
+  mouseDot.update();
+  mouseDot.display();
+  linkDot.update();
+  linkDot.display();
+  var nScale = 60;
+  // var linkWaggle=createVector(noise(xoff)*nScale,noise(yoff)*nScale);
+  // linkDot.style.transform = "translate("+linkWaggle.x+"px,"+linkWaggle.y+"px)";
+
+  xoff += .005;
+  yoff += .005;
 }
-function getBaseURL(url) {
-  return ('' + url).replace(/^((?:https?|file|ftp|chrome-extension|moz-extension):\/\/.+)?\/[^/]+(?:\?.*)?$/, '$1') + '/';
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
 }
-exports.getBundleURL = getBundleURLCached;
-exports.getBaseURL = getBaseURL;
-},{}],"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/css-loader.js":[function(require,module,exports) {
-var bundle = require('./bundle-url');
-function updateLink(link) {
-  var newLink = link.cloneNode();
-  newLink.onload = function () {
-    link.remove();
+var MouseDot = function MouseDot(pos) {
+  this.pos = pos;
+  this.velocity = createVector(0, 0);
+  // this.acc = createVector(0,0);
+
+  this.update = function () {
+    var target = createVector(mouseX, mouseY);
+    this.velocity = p5.Vector.sub(target, this.pos);
+    // this.velocity.add(this.acc);
+    this.velocity.mult(.1);
+    this.velocity.limit(20);
+    this.pos.add(this.velocity);
   };
-  newLink.href = link.href.split('?')[0] + '?' + Date.now();
-  link.parentNode.insertBefore(newLink, link.nextSibling);
-}
-var cssTimeout = null;
-function reloadCSS() {
-  if (cssTimeout) {
-    return;
+  this.check = function () {};
+  this.display = function () {
+    push();
+    fill("#e5e5e5");
+    noStroke();
+    circle(this.pos.x, this.pos.y, 30);
+    pop();
+  };
+};
+window.addEventListener('load', load);
+window.addEventListener('wheel', throttle(scroll, 2000));
+var index = 0; //new project count
+var pIndex; //previous project count
+
+function load() {
+  var tag = document.getElementsByClassName("tag-text");
+  var title = document.getElementsByClassName("title-text");
+  var des = document.getElementsByClassName("des-text");
+  pIndex = tag.length - 1;
+  for (var i = 0; i < tag.length; i++) {
+    tag[i].innerHTML = addSpan(tag[i].innerHTML);
+    title[i].innerHTML = addSpan(title[i].innerHTML);
+    des[i].innerHTML = addSpan(des[i].innerHTML);
   }
-  cssTimeout = setTimeout(function () {
-    var links = document.querySelectorAll('link[rel="stylesheet"]');
-    for (var i = 0; i < links.length; i++) {
-      if (bundle.getBaseURL(links[i].href) === bundle.getBundleURL()) {
-        updateLink(links[i]);
-      }
-    }
-    cssTimeout = null;
-  }, 50);
 }
-module.exports = reloadCSS;
-},{"./bundle-url":"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/bundle-url.js"}],"css/base.css":[function(require,module,exports) {
-var reloadCSS = require('_css_loader');
-module.hot.dispose(reloadCSS);
-module.hot.accept(reloadCSS);
-},{"_css_loader":"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/css-loader.js"}],"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+function addSpan(str) {
+  var strArray = str.split(" ");
+  var newStr = '';
+  for (var i = 0; i < strArray.length; i++) {
+    var newStr = newStr + "<span>" + strArray[i] + "</span> ";
+  }
+  return newStr;
+}
+var projects = document.getElementsByClassName("project");
+function updateProject() {
+  projects[index].classList.add("active");
+  projects[pIndex].classList.remove("active");
+  projects[pIndex].classList.add("disappear");
+  setTimeout(function () {
+    projects[pIndex].classList.remove("disappear");
+  }, 1500);
+}
+function throttle(fn, wait) {
+  var time = Date.now();
+  return function () {
+    if (time + wait - Date.now() < 0) {
+      fn();
+      time = Date.now();
+    }
+  };
+}
+function scroll() {
+  pIndex = index;
+  if (index < projects.length - 1) index++;else index = 0;
+  updateProject();
+}
+
+// var projects=[{ 
+//     tag:"0-New York, USA",
+//     title:"Top of the Rock Observation Deck",
+//     des:"The deck, as it's known, includes three floors, located on the 67th, 69th, and 70th floors. Indoor and outdoor viewing spaces offer spectacular views by day or night."
+//   },{
+//     tag:"1-London, UK",
+//     title:"Buckingham Palace",
+//     des:"Visit the official London residence of the Queen during the Buckingham Palace summer opening. Explore the extravagant State Rooms and don't miss this year's special exhibition, celebrating the 200th anniversary of the birth of Queen Victoria."
+//   },{
+//     tag:"2-Shanghai, China",
+//     title:"Shanghai's Promenade: The Bund",
+//     des:"Best known by its Anglo-Indian name of Bund (Wàitan), the Zhongshan Lu is a lovely broad promenade running along the west bank of the Huangpujiang River."
+//   }];
+},{}],"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -197,7 +253,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "56448" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "55237" + '/');
   ws.onmessage = function (event) {
     checkedAssets = {};
     assetsToAccept = [];
@@ -341,5 +397,5 @@ function hmrAcceptRun(bundle, id) {
     return true;
   }
 }
-},{}]},{},["../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js"], null)
-//# sourceMappingURL=/base.98fd6c19.js.map
+},{}]},{},["../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js","js/fallingletters.js"], null)
+//# sourceMappingURL=/fallingletters.265fc3e2.js.map

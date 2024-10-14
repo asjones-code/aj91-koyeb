@@ -498,7 +498,7 @@ process.chdir = function (dir) {
 process.umask = function () {
   return 0;
 };
-},{}],"../../node_modules/jquery/dist/jquery.js":[function(require,module,exports) {
+},{}],"../node_modules/jquery/dist/jquery.js":[function(require,module,exports) {
 var global = arguments[3];
 var process = require("process");
 var define;
@@ -11445,7 +11445,7 @@ $prompt.on('click', function () {
 // Initialize the welcome message and input area
 initializeWelcomeMessage();
 appendInputField(); // Show the input field once the welcome message is completed
-},{"typed.js":"../node_modules/typed.js/dist/typed.module.js","jquery":"../../node_modules/jquery/dist/jquery.js"}],"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"typed.js":"../node_modules/typed.js/dist/typed.module.js","jquery":"../node_modules/jquery/dist/jquery.js"}],"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -11470,7 +11470,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "57740" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "56448" + '/');
   ws.onmessage = function (event) {
     checkedAssets = {};
     assetsToAccept = [];

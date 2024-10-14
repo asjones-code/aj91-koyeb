@@ -7,90 +7,98 @@ body {
   height: 190vh;
   margin: 0;
   font-size: calc(0.3 * var(--m));
-  
+
 }
 
-.accordion-item{
-  background-color: #000000;
-  border-radius: .4rem;
-}
-
-.accordion-item hr{
-  border: 1px solid rgba(255, 255, 255, 0.5);
-}
-
-.accordion-link{
-  font-size: 1.6rem;
-  color: rgba(255,255,255,.8);
-  text-decoration: none;
-  background-color: #000000;
+.accordion__wrapper {
+  background-color: var(--color-white);
+  box-shadow: var(--shadow);
+  border-radius: 2.5rem;
   width: 100%;
+  max-width: 60rem;
+  padding: 5rem;
+}
+
+.accordion__title {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-bold);
+  color: var(--color-title);
+  text-align: center;
+  margin-bottom: 4rem;
+}
+
+.accordion {
+  border-bottom: 0.1rem solid var(--color-border);
+  padding-bottom: 2rem;
+  margin-bottom: 3rem;
+}
+
+.accordion__header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 1rem 0;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
 }
 
-.accordion-link h3{
-  font-weight:500;
-  font-size: 20px;
-}
-
-.accordion-link i{
-  color: #e7d5ff;
-  padding: .5rem;
-  
-}
-
-.accordion-link ul{
-  display:flex;
-  align-items: flex-end;
-  list-style-type: none;
-  margin-left: 25px;
-}
-
-.accordion-link li{
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.4);
-  padding: 0 0 1px 5px;
-}
-
-.accordion-link div{
+.accordion__icon {
+  background-color: var(--color-primary);
+  width: 2.2rem;
+  height: 2.2rem;
   display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 50%;
+  color: var(--color-white);
+  flex-shrink: 0;
 }
 
-.accordion-link .ion-md-arrow-down{
-  display: none;
+.accordion__question {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+  color: var(--color-title);
 }
 
-.answer{
-  max-height: 0;
+.accordion__answer {
+  padding: 2rem 0;
+}
+
+.accordion__content {
   overflow: hidden;
-  position: relative;
-  background-color: #000;
-  transition: max-height 650ms;
+  height: 0;
+  transition: var(--transition);
+}
+
+@media screen and (min-width: 580px) {
+  .accordion__wrapper {
+    padding: 5rem 8rem;
+  }
+}
+
+:root {
+  --color-primary: #FF4B4B;
+  --color-text: #545d7a;
+  --color-white: #fff;
+  --color-title: #242e4c;
+  --color-background: #f7f8fb;
+  --color-border: #dae1f5;
+
+  /* Fonts */
+  --font-family: "Satoshi", sans-serif;
+  --fs-sm: 1.4rem;
+  --fs-md: 1.6rem;
+  --fs-lg: 2.2rem;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-bold: 700;
+
+  /* Transition & Box Shadow */
+  --transition: 0.4s ease-in-out;
+  --shadow: 0px 60px 56px -12px rgba(9, 40, 163, 0.05);
+
 }
 
 
-
-.answer p{
-  color: #fff;
-  font-size: 15px;
-  padding: 2rem;
-  
-}
-
-.accordion-item:target .answer{
-  max-height: 20rem;
-}
-
-.accordion-item:target .accordion-link .ion-md-arrow-forward{
-  display: none
-}
-
-.accordion-item:target .accordion-link .ion-md-arrow-down{
-  display: block;
-}
 
 
 
@@ -110,7 +118,7 @@ nav {
 }
 
 .menu {
-  
+
   justify-content: space-between;
   align-items: center;
   gap: 2rem;
@@ -125,8 +133,8 @@ nav {
   z-index: 1;
   top: 0;
   opacity: 1;
-  
-/*  where the real magic happens  */
+
+  /*  where the real magic happens  */
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
   mask-image: linear-gradient(rgb(0, 0, 0) 50%, rgba(0, 0, 0, 0.8) 70%, rgba(0, 0, 0, 0) 100%);
@@ -137,10 +145,10 @@ nav {
 
 
 canvas {
-	position: relative;
-	inset: 0;
-  
-	height: 100%;
+  position: relative;
+  inset: 0;
+
+  height: 100%;
 }
 
 
@@ -156,9 +164,9 @@ canvas {
   z-index: 1;
 
   left: 50%;
-  height: 50%;  
+  height: 50%;
   width: 80px;
-  height: 80px;  
+  height: 80px;
   background: white;
   border-radius: 50%;
   mix-blend-mode: difference;
@@ -173,7 +181,7 @@ canvas {
 
 canvas {
   display: block;
- 
+
 }
 
 @media screen and (max-width: 300px) {
@@ -187,10 +195,12 @@ canvas {
     flex-direction: column;
     padding: 5rem 20vw;
   }
+
   .col {
     width: 100%;
   }
 }
+
 .backdrop {
   z-index: -5;
   position: absolute;
@@ -199,22 +209,19 @@ canvas {
   backdrop-filter: blur(40px);
   -webkit-backdrop-filter: blur(40px);
 
-  mask-image: linear-gradient(
-    rgba(0, 0, 0, 0),
-    rgba(0, 0, 0, 0.5) 10%,
-    rgba(0, 0, 0, 0.8) 20%,
-    rgba(0, 0, 0, 1) 30%,
-    rgb(0, 0, 0)
-  );
+  mask-image: linear-gradient(rgba(0, 0, 0, 0),
+      rgba(0, 0, 0, 0.5) 10%,
+      rgba(0, 0, 0, 0.8) 20%,
+      rgba(0, 0, 0, 1) 30%,
+      rgb(0, 0, 0));
 
-  -webkit-mask-image: linear-gradient(
-    rgba(0, 0, 0, 0),
-    rgba(0, 0, 0, 0.5) 10%,
-    rgba(0, 0, 0, 0.8) 20%,
-    rgba(0, 0, 0, 1) 30%,
-    rgb(0, 0, 0)
-  );
+  -webkit-mask-image: linear-gradient(rgba(0, 0, 0, 0),
+      rgba(0, 0, 0, 0.5) 10%,
+      rgba(0, 0, 0, 0.8) 20%,
+      rgba(0, 0, 0, 1) 30%,
+      rgb(0, 0, 0));
 }
+
 h2 {
   font-weight: 500;
   text-align: center;
