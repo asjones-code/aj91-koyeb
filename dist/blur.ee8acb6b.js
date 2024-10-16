@@ -2912,11 +2912,153 @@ var Native = exports.Native = /*#__PURE__*/function () {
   return Native;
 }();
 var _default2 = exports.default = Smooth;
+},{}],"../node_modules/lunarphase-js/dist/index.es.js":[function(require,module,exports) {
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Unit = exports.SouthernHemisphereLunarEmoji = exports.NorthernHemisphereLunarEmoji = exports.Moon = exports.LunarPhase = exports.LunarMonth = exports.Julian = exports.Hemisphere = void 0;
+var T = exports.Hemisphere = /* @__PURE__ */(t => (t.NORTHERN = "Northern", t.SOUTHERN = "Southern", t))(T || {}),
+  G = exports.NorthernHemisphereLunarEmoji = /* @__PURE__ */(t => (t.NEW = "🌑", t.WAXING_CRESCENT = "🌒", t.FIRST_QUARTER = "🌓", t.WAXING_GIBBOUS = "🌔", t.FULL = "🌕", t.WANING_GIBBOUS = "🌖", t.LAST_QUARTER = "🌗", t.WANING_CRESCENT = "🌘", t))(G || {}),
+  W = exports.SouthernHemisphereLunarEmoji = /* @__PURE__ */(t => (t.NEW = "🌑", t.WAXING_CRESCENT = "🌘", t.FIRST_QUARTER = "🌗", t.WAXING_GIBBOUS = "🌖", t.FULL = "🌕", t.WANING_GIBBOUS = "🌔", t.LAST_QUARTER = "🌓", t.WANING_CRESCENT = "🌒", t))(W || {}),
+  _ = exports.LunarMonth = /* @__PURE__ */(t => (t.ANOMALISTIC = "Anomalistic", t.DRACONIC = "Draconic", t.SIDEREAL = "Sidereal", t.SYNODIC = "Synodic", t.TROPICAL = "Tropical", t))(_ || {}),
+  A = exports.LunarPhase = /* @__PURE__ */(t => (t.NEW = "New", t.WAXING_CRESCENT = "Waxing Crescent", t.FIRST_QUARTER = "First Quarter", t.WAXING_GIBBOUS = "Waxing Gibbous", t.FULL = "Full", t.WANING_GIBBOUS = "Waning Gibbous", t.LAST_QUARTER = "Last Quarter", t.WANING_CRESCENT = "Waning Crescent", t))(A || {});
+const E = 24405875e-1,
+  C = 2.4234366115277777e6,
+  U = 27.55454988,
+  I = 29.53058770576;
+class n {
+  /**
+   * Julian day from Gregorian date.
+   */
+  static fromDate(e = /* @__PURE__ */new Date()) {
+    return e.getTime() / 864e5 - e.getTimezoneOffset() / 1440 + E;
+  }
+  /**
+   * Gregorian date from Julian day
+   */
+  static toDate(e) {
+    const N = /* @__PURE__ */new Date();
+    return N.setTime((e - E + N.getTimezoneOffset() / 1440) * 864e5), N;
+  }
+}
+exports.Julian = n;
+const R = {
+    hemisphere: T.NORTHERN
+  },
+  S = t => (t -= Math.floor(t), t < 0 && (t += 1), t);
+class c {
+  /**
+   * Moon's age, or Earth days since the last new moon,
+   * normalized within a 29.53059 Earth days calendar.
+   */
+  static lunarAge(e = /* @__PURE__ */new Date()) {
+    return c.lunarAgePercent(e) * I;
+  }
+  /**
+   * Percentage through the lunar synodic month.
+   */
+  static lunarAgePercent(e = /* @__PURE__ */new Date()) {
+    return S((n.fromDate(e) - 24515501e-1) / I);
+  }
+  /**
+   * Brown Lunation Number (BLN), per Ernest William Brown's lunar theory,
+   * defining Lunation 1 as the first new moon of 1923 at
+   * approximately 02:41 UTC, January 17, 1923.
+   */
+  static lunationNumber(e = /* @__PURE__ */new Date()) {
+    return Math.round((n.fromDate(e) - C) / I) + 1;
+  }
+  /**
+   * Distance to the moon measured in units of Earth radii, with
+   * perigee at 56 and apogee at 63.8.
+   */
+  static lunarDistance(e = /* @__PURE__ */new Date()) {
+    const N = n.fromDate(e),
+      r = c.lunarAgePercent(e) * 2 * Math.PI,
+      s = 2 * Math.PI * S((N - 24515622e-1) / U);
+    return 60.4 - 3.3 * Math.cos(s) - 0.6 * Math.cos(2 * r - s) - 0.5 * Math.cos(2 * r);
+  }
+  /**
+   * Name of the lunar phase per date submitted.
+   */
+  static lunarPhase(e = /* @__PURE__ */new Date(), N) {
+    N = {
+      ...R,
+      ...N
+    };
+    const a = c.lunarAge(e);
+    return a < 1.84566173161 ? A.NEW : a < 5.53698519483 ? A.WAXING_CRESCENT : a < 9.22830865805 ? A.FIRST_QUARTER : a < 12.91963212127 ? A.WAXING_GIBBOUS : a < 16.61095558449 ? A.FULL : a < 20.30227904771 ? A.WANING_GIBBOUS : a < 23.99360251093 ? A.LAST_QUARTER : a < 27.68492597415 ? A.WANING_CRESCENT : A.NEW;
+  }
+  /**
+   * Emoji of the lunar phase per date submitted.
+   */
+  static lunarPhaseEmoji(e = /* @__PURE__ */new Date(), N) {
+    N = {
+      ...R,
+      ...N
+    };
+    const a = c.lunarPhase(e);
+    return c.emojiForLunarPhase(a, N);
+  }
+  /**
+   * Emoji for specified lunar phase.
+   */
+  static emojiForLunarPhase(e, N) {
+    const {
+      hemisphere: a
+    } = {
+      ...R,
+      ...N
+    };
+    let r;
+    switch (a === T.SOUTHERN ? r = W : r = G, e) {
+      case A.WANING_CRESCENT:
+        return r.WANING_CRESCENT;
+      case A.LAST_QUARTER:
+        return r.LAST_QUARTER;
+      case A.WANING_GIBBOUS:
+        return r.WANING_GIBBOUS;
+      case A.FULL:
+        return r.FULL;
+      case A.WAXING_GIBBOUS:
+        return r.WAXING_GIBBOUS;
+      case A.FIRST_QUARTER:
+        return r.FIRST_QUARTER;
+      case A.WAXING_CRESCENT:
+        return r.WAXING_CRESCENT;
+      default:
+      case A.NEW:
+        return r.NEW;
+    }
+  }
+  /**
+   * Whether the moon is currently waxing (growing).
+   */
+  static isWaxing(e = /* @__PURE__ */new Date()) {
+    return c.lunarAge(e) <= 14.765;
+  }
+  /**
+   * Whether the moon is currently waning (shrinking).
+   */
+  static isWaning(e = /* @__PURE__ */new Date()) {
+    return c.lunarAge(e) > 14.765;
+  }
+}
+exports.Moon = c;
+var l = exports.Unit = /* @__PURE__ */(t => (t.EARTH_RADII = "Earth Radii", t.KILOMETERS = "km", t.MILES = "m", t))(l || {});
 },{}],"js/blur.js":[function(require,module,exports) {
 "use strict";
 
 var _locomotiveScroll = _interopRequireDefault(require("locomotive-scroll"));
+var _lunarphaseJs = require("lunarphase-js");
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
+var date = new Date();
+var julian = _lunarphaseJs.Julian.fromDate(date);
+console.log(julian);
+var verticalTextElement = document.querySelector('.vertical-text');
+verticalTextElement.textContent = "-------- ".concat(julian, " ---------");
 function ToggleMenu() {
   var menuToggle = document.querySelector('.menuToggle');
   var navigation = document.querySelector('.my-header-class nav'); // Updated selector
@@ -3005,7 +3147,7 @@ var noise = function noise() {
   }
 };
 noise();
-},{"locomotive-scroll":"../node_modules/locomotive-scroll/dist/locomotive-scroll.esm.js"}],"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+},{"locomotive-scroll":"../node_modules/locomotive-scroll/dist/locomotive-scroll.esm.js","lunarphase-js":"../node_modules/lunarphase-js/dist/index.es.js"}],"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -3030,7 +3172,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "51265" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "55830" + '/');
   ws.onmessage = function (event) {
     checkedAssets = {};
     assetsToAccept = [];

@@ -1,4 +1,4 @@
-const canvas = document.querySelector("canvas");
+const canvas = document.querySelector("#canvas2");
 const gl = canvas.getContext("webgl");
 
 canvas.width = window.innerWidth;
