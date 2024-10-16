@@ -3053,10 +3053,27 @@ var l = exports.Unit = /* @__PURE__ */(t => (t.EARTH_RADII = "Earth Radii", t.KI
 
 var _locomotiveScroll = _interopRequireDefault(require("locomotive-scroll"));
 var _lunarphaseJs = require("lunarphase-js");
+var _this = void 0;
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 var date = new Date();
 var julian = _lunarphaseJs.Julian.fromDate(date);
 console.log(julian);
+(function (d) {
+  var word = d.querySelector(".word");
+  var shadow = function shadow(e) {
+    var x = e.x,
+      y = e.y;
+    var gBCR = word.getBoundingClientRect();
+    var w = _this;
+    var xM = (x - gBCR.left - gBCR.width / 2) / gBCR.width * .2;
+    var yM = (y - gBCR.top - gBCR.height / 2) / gBCR.height * .2;
+    transform(xM, yM);
+  };
+  var transform = function transform(x, y) {
+    word.style.textShadow = "".concat(x, "px ").concat(-y, "px 0px rgb(102, 249, 255, 0.7),\n                             ").concat(-x, "px ").concat(y, "px 0px rgb(255, 35, 251, 0.7),\n                             ").concat(y, "px ").concat(-x, "px 0px rgb(255, 255, 73, 0.7),\n                             ").concat(-y, "px ").concat(x, "px 0px rgb(102, 249, 255, 0.7)");
+  };
+  window.addEventListener("mousemove", shadow);
+})(document);
 var verticalTextElement = document.querySelector('.vertical-text');
 verticalTextElement.textContent = "-------- ".concat(julian, " ---------");
 function ToggleMenu() {
@@ -3172,7 +3189,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "55830" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "56662" + '/');
   ws.onmessage = function (event) {
     checkedAssets = {};
     assetsToAccept = [];
