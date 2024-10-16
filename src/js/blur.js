@@ -1,5 +1,15 @@
 import LocomotiveScroll from 'locomotive-scroll';
 
+import { Julian } from "lunarphase-js";
+
+const date = new Date();
+const julian = Julian.fromDate(date);
+console.log(julian)
+
+const verticalTextElement = document.querySelector('.vertical-text');
+verticalTextElement.textContent = `-------- ${julian} ---------`;
+
+
 function ToggleMenu() {
     const menuToggle = document.querySelector('.menuToggle');
     const navigation = document.querySelector('.my-header-class nav'); // Updated selector

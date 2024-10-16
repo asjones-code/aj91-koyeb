@@ -118,7 +118,7 @@ parcelRequire = (function (modules, cache, entry, globalName) {
 
   return newRequire;
 })({"js/text.js":[function(require,module,exports) {
-var canvas = document.querySelector("canvas");
+var canvas = document.querySelector("#canvas2");
 var gl = canvas.getContext("webgl");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -329,7 +329,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "51265" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "55830" + '/');
   ws.onmessage = function (event) {
     checkedAssets = {};
     assetsToAccept = [];
