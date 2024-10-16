@@ -388,32 +388,40 @@
 .container{max-width:1536px;}
 }
 /* layer: default */
+.f-text-12-16{font-size:clamp(0.75rem, 0.6620rem + 0.3756vw, 1rem);}
 .f-text-16-32{font-size:clamp(1rem, 0.6479rem + 1.5023vw, 2rem);}
 .f-text-32-64{font-size:clamp(2rem, 1.2958rem + 3.0047vw, 4rem);}
-.f-w-250-600{width:clamp(15.625rem, 7.9225rem + 32.8638vw, 37.5rem);}
 .f-w-300-500{width:clamp(18.75rem, 14.3486rem + 18.7793vw, 31.25rem);}
-.f-w-400-1000{width:clamp(25rem, 11.7958rem + 56.3380vw, 62.5rem);}
+.f-w-5-15{width:clamp(0.3125rem, 0.0924rem + 0.9390vw, 0.9375rem);}
+.f-w-500-650{width:clamp(31.25rem, 27.9489rem + 14.0845vw, 40.625rem);}
 .f-h-200-250{height:clamp(12.5rem, 11.3996rem + 4.6948vw, 15.625rem);}
+.f-h-5-15{height:clamp(0.3125rem, 0.0924rem + 0.9390vw, 0.9375rem);}
 .absolute{position:absolute;}
 .relative{position:relative;}
 .top-70{top:17.5rem;}
 .z-30{z-index:30;}
 .z-40{z-index:40;}
+.z-50{z-index:50;}
 .mx-auto{margin-left:auto;margin-right:auto;}
-.my{margin-top:1rem;margin-bottom:1rem;}
 .mb-12{margin-bottom:3rem;}
 .me{margin-inline-end:1rem;}
 .mr-6{margin-right:1.5rem;}
 .flex{display:flex;}
+.inline-flex{display:inline-flex;}
 .flex-row{flex-direction:row;}
 .flex-col{flex-direction:column;}
+@keyframes ping{0%{transform:scale(1);opacity:1}75%,100%{transform:scale(2);opacity:0}}
+.animate-ping{animation:ping 1s cubic-bezier(0,0,.2,1) infinite;}
 .list-none{list-style-type:none;}
 .content-end{align-content:flex-end;}
 .items-center{align-items:center;}
 .justify-center{justify-content:center;}
 .justify-around{justify-content:space-around;}
 .gap-12{gap:3rem;}
+.rounded-full{border-radius:9999px;}
 .bg-black{--un-bg-opacity:1;background-color:rgb(0 0 0 / var(--un-bg-opacity)) /* #000 */;}
+.bg-green-400{--un-bg-opacity:1;background-color:rgb(74 222 128 / var(--un-bg-opacity)) /* #4ade80 */;}
+.pt-8{padding-top:2rem;}
 .text-blue-500{--un-text-opacity:1;color:rgb(59 130 246 / var(--un-text-opacity)) /* #3b82f6 */;}
 .text-orange-500{--un-text-opacity:1;color:rgb(249 115 22 / var(--un-text-opacity)) /* #f97316 */;}
 .text-white{--un-text-opacity:1;color:rgb(255 255 255 / var(--un-text-opacity)) /* #fff */;}
@@ -423,6 +431,7 @@
 .font-light{font-weight:300;}
 .font-kihim{font-family:"Kihim";}
 .font-tabular{font-family:"Tabular";}
+.opacity-75{opacity:0.75;}
 @media (min-width: 768px){
 .md\:flex-row{flex-direction:row;}
 }
