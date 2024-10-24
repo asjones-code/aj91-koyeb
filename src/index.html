@@ -2,213 +2,235 @@
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8">
-  <link href="css/base.css" rel="stylesheet">
-  <link href="css/test.css" rel="stylesheet">
-  <link href="css/terminal.css" rel="stylesheet">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>aj91</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="css/stickynav.css" rel="stylesheet">
+    <link href="css/textReveal.css" rel="stylesheet">
+    <link href="css/blob.css" rel="stylesheet">
+    <link href="css/terminal_beta.css" rel="stylesheet">
+    <link href="css/footer.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.3/css/all.css"
+        integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/" crossorigin="anonymous">
+
+
+    <link href="css/base_beta.css" rel="stylesheet">
 </head>
 
-<body id="body" class="bg-black ">
-  <section>
-    <header class="my-header-class">
+<body class="flex flex-col ">
+    <section>
+        <header class="w-screen z-50">
+            <h1 class="logo word font-kihim f-text-16-32">
+                aj91
+            </h1>
+            <nav class="navigation">
+                <ul>
+                    <li><a class ="font-excon" href="https://www.linkedin.com/in/asjones91/">Linkedin</a></li>
+                    <li><a class ="font-excon" href="https://aj91.substack.com/">Substack</a></li>
+                </ul>
+            </nav>
 
-      <nav class='menu mx-auto f-w-500-650'>
-        <h1 class="word font-kihim f-text-16-32">
-          aj91
-        </h1>
-        <ul class="font-tabular list-none flex flex-row ">
-
-          <li class="menu-item mr-6">
-            <a class="text-orange-500 f-text-12-16 hover:text-orange-800" href="https://aj91.substack.com/">&lt;substack&gt;</a>
-          </li>
-          <li class="menu-item mr-6">
-            <a class="text-blue-500 f-text-12-16 hover:text-blue-800"
-              href="https://www.linkedin.com/in/asjones91/">&lt;linkedin&gt;</a>
-          </li>
-        </ul>
-        <div class="backdrop"></div>
-      </nav>
-    </header>
-  </section>
-  <aside>
-    <div class="text-white font-tabular vertical-text">-------- 16h20 ---------
-    </div>
-  </aside>
- 
-    <canvas id="canvas" class="noise z-30 ">
-
-
-    </canvas>
-
- 
-
-  <div class="z-40 absolute top-70 ">
-    <h3 class="f-text-32-64 text-white font-tabular font-bold ">
-      Web Developer
-    </h3>
-    <h3 class="f-text-32-64 text-white font-tabular font-bold ">
-      Project Manager
-    </h3>
-    <p class="f-text-16-32 text-white font-tabular font-light ">
-      </h3>
-      From NYC with love 🗽
-      </h3>
-    <div class="">
-      <span class="z-50 animate-ping absolute inline-flex f-w-5-15 f-h-5-15 rounded-full bg-green-400 opacity-75"></span>
-      
-      <div class="email" onclick="this.classList.add('expand')">
-        
-        <div class="from">
-          <div class="from-contents">
-            <div class="avatar me"></div>
-            <div class="name">Find me @</div>
-          </div>
-        </div>
-        <div class="to">
-          <div class="to-contents">
-            <div class="top">
-              <div class="avatar-large me"></div>
-              <div class="name-large">Adam Jones</div>
-              <div class="x-touch"
-                onclick="document.querySelector('.email').classList.remove('expand');event.stopPropagation();">
-                <div class="x">
-                  <div class="line1"></div>
-                  <div class="line2"></div>
+            <div class="menuToggle">
+                <div class="hamburger">
+                    <span></span>
+                    <span></span>
+                    <span></span>
                 </div>
-              </div>
+                <div class="cross">
+                    <span></span>
+                    <span></span>
+                </div>
+
             </div>
-            <div class="bottom">
-              <div class="row">
-                <svg class="twitter" viewBox="0 0 300 244.18703">
-                  <g transform="translate(-539.17946,-568.85777)" id="layer1">
-                    <path id="path3611" style="fill:#1da1f2;fill-opacity:1;fill-rule:nonzero;stroke:none"
-                      d="m 633.89823,812.04479 c 112.46038,0 173.95627,-93.16765 173.95627,-173.95625 0,-2.64628 -0.0539,-5.28062 -0.1726,-7.90305 11.93799,-8.63016 22.31446,-19.39999 30.49762,-31.65984 -10.95459,4.86937 -22.74358,8.14741 -35.11071,9.62551 12.62341,-7.56929 22.31446,-19.54304 26.88583,-33.81739 -11.81284,7.00307 -24.89517,12.09297 -38.82383,14.84055 -11.15723,-11.88436 -27.04079,-19.31655 -44.62892,-19.31655 -33.76374,0 -61.14426,27.38052 -61.14426,61.13233 0,4.79784 0.5364,9.46458 1.58538,13.94057 -50.81546,-2.55686 -95.87353,-26.88582 -126.02546,-63.87991 -5.25082,9.03545 -8.27852,19.53111 -8.27852,30.73006 0,21.21186 10.79366,39.93837 27.20766,50.89296 -10.03077,-0.30992 -19.45363,-3.06348 -27.69044,-7.64676 -0.009,0.25652 -0.009,0.50661 -0.009,0.78077 0,29.60957 21.07478,54.3319 49.0513,59.93435 -5.13757,1.40062 -10.54335,2.15158 -16.12196,2.15158 -3.93364,0 -7.76596,-0.38716 -11.49099,-1.1026 7.78383,24.2932 30.35457,41.97073 57.11525,42.46543 -20.92578,16.40207 -47.28712,26.17062 -75.93712,26.17062 -4.92898,0 -9.79834,-0.28036 -14.58427,-0.84634 27.05868,17.34379 59.18936,27.46396 93.72193,27.46396" />
-                  </g>
-                </svg>
-                <div class="link"><a href="https://twitter.com/mikaelainalem">@mikaelainalem</a></div>
-              </div>
-              <div class="row">
-                <svg class="medium" viewBox="0 0 24 24">
-                  <style type="text/css" id="style2">
-                    .st0 {
-                      fill: #3DD87F;
-                    }
-
-                    .st1 {
-                      fill: #FFFFFF;
-                    }
-                  </style>
-                  <g id="Page-1" transform="translate(0,1)">
-                    <g id="Monogram">
-                      <rect id="Rectangle-path" x="0" y="-1" class="st0" width="24" height="24"
-                        style="fill:#000000;fill-opacity:1;stroke-width:1.090909" />
-                      <path id="Shape" class="st1"
-                        d="m 6.3,7.6 c 0,-0.2 -0.1,-0.4 -0.2,-0.5 l -1.3,-1.7 v -0.2 h 4.3 l 3.3,7.3 2.9,-7.3 h 4.1 v 0.2 l -1.2,1.1 c -0.1,0.1 -0.2,0.2 -0.1,0.3 v 8.3 c 0,0.1 0,0.3 0.1,0.3 l 1.2,1.1 v 0.2 h -5.8 v -0.2 l 1.2,-1.2 c 0.1,-0.1 0.1,-0.2 0.1,-0.3 v -6.6 l -3.3,8.4 h -0.4 l -4,-8.4 v 5.6 c 0,0.2 0,0.5 0.2,0.6 l 1.6,1.9 v 0.2 h -4.4 v -0.2 l 1.5,-1.8 c 0.2,-0.2 0.2,-0.4 0.2,-0.6 z"
-                        inkscape:connector-curvature="0" style="fill:#ffffff" />
-                    </g>
-                  </g>
-                </svg>
-                <div class="link"><a href="https://medium.com/@mikael_ainalem">@mikael_ainalem</a></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-  </div>
-
-
-
-  <section class="f-h-200-250 mx-auto pt-8">
-    <div id="mouse-scroll">
-      <div class="mouse">
-          <div class="mouse-in"></div>
-      </div>
-  </div>
-
-    
-  
-
-    <div data-scroll-section class="flex flex-col items-center wrap md:flex-row">
-      <div data-scroll data-scroll-speed=".5" class="f-w-300-500 terminal-window">
-        <header>
-          <div class="button green"></div>
-          <div class="button yellow"></div>
-          <div class="button red"></div>
         </header>
-        <section class="terminal">
-          <div class="history"></div>
-          $&nbsp;<span class="prompt"></span>
 
-          <div id="content">
-          </div>
-          <!--span class="typed-cursor"></span-->
-        </section>
-      </div>
-    </div>
-  </section>
-  <section class="flex flex-col justify-around gap-12   lg:flex-col mb-12">
-    <canvas id="canvas" class="relative"></canvas-->
-  </section>
+    </section>
 
-  <section id="js-scroll" class="flex flex-col justify-center">
-  </section>
+    </header>
+    <section class='bg-slate-950'>
+        <div class="banner f-m-90-95 mt-[360px] z-10">
+            <div class="flex flex-row justify-between ">
+                <div class="z-50 w-[290px]">
+                    <div id="upperWrap">
+                        <h2 id="upper" class="font-tabular">Web Developer</h2>
+                    </div>
+                    <div id="line"></div>
+                    <div id="lowerWrap">
+                        <h2 id="lower" class="font-tabular">Project Manager</h2>
+                    </div>
+                </div>
+                <div id="blob" class="absolute -top-50 right-5 z-10">
+                    <canvas></canvas>
+                </div>
+            </div>
+            <div class="blicky f-w-200-550">
+                <div id="reveal" class="">
+                    <div class="text ">
+                        <p class="f-text-32-128 font-satoshi">
+                            <span style="opacity: 0.1">Hey,</span>
+                            <span style="opacity: 0.1">It's</span>
+                            <span style="opacity: 0.1">Adam.</span>
+                            <br />
 
-
-
-
-  <section>
-    <footer class="flex flex-col justify-center content-end">
-      <div class="mx-auto us-canvas" data-us-project="CdHCsuh8OTuaVKAlPPKc?update=1.5"></div>
-    </footer>
-  </section>
-
-
-
-
-
-  <!--body {
-    width: 100vw;
-    height: 100vh;
-    display: flex;
-    justify-content: center;
-    background-color: #f1f5fb;
-    font-family: -apple-system, sans-serif;
-}
-    footer {
-  background-size: cover;         /* Ensures the background fills the container */
-  z-index: 0;
-  width: 100%;
-  height: 50vh;
-
-  display: flex;
-  flex-direction: row;
-  padding: 5rem 2vw;
-  position: relative;
-}
-  -->
+                            <span style="opacity: 0.1">I</span>
+                            <span style="opacity: 0.1">like</span>
+                            <span style="opacity: 0.1">to</span>
+                            <span style="opacity: 0.1">build</span>
+                            <span style="opacity: 0.1">and</span>
+                            <span style="opacity: 0.1">grow</span>
+                            <span style="opacity: 0.1">things.</span>
+                            <br />
+                            <br />
 
 
-  <script src="https://cdn.unicorn.studio/v1.3.0/unicornStudio.umd.js"></script>
-  <script type="module" src="./js/canvas.js"></script>
-  <script type="module" src="./js/blur.js"></script>
-  <script type="module" src="./js/accordian.js"></script>
-  <script type="module" src="./js/terminal.js"></script>
-  <script type="module" src="./js/text.js"></script>
+                            <span style="opacity: 0.1">I</span>
+                            <span style="opacity: 0.1">have</span>
+                            <span style="opacity: 0.1">experience</span>
+                            <span style="opacity: 0.1">designing</span>
+                            <span style="opacity: 0.1">digital</span>
+                            <span style="opacity: 0.1">solutions</span>
+                            <span style="opacity: 0.1">and</span>
+                            <span style="opacity: 0.1">strategies</span>
+                            <span style="opacity: 0.1">for</span>
+                            <span style="opacity: 0.1">successful</span>
+                            <span style="opacity: 0.1">startups</span>
+                            <span style="opacity: 0.1">as</span>
+                            <span style="opacity: 0.1">well</span>
+                            <span style="opacity: 0.1">as</span>
+                            <span style="opacity: 0.1">large</span>
+                            <span style="opacity: 0.1">tech</span>
+                            <span style="opacity: 0.1">firms.</span>
+
+                            <br />
+                            <br />
 
 
+                            <span style="opacity: 0.1">Currently</span>
+
+                            <span style="opacity: 0.1">spending</span>
+
+                            <span style="opacity: 0.1">my</span>
+
+                            <span style="opacity: 0.1">time</span>
+
+                            <span style="opacity: 0.1">on</span>
+
+                            <span style="opacity: 0.1">creative</span>
+
+                            <span style="opacity: 0.1">front-end</span>
+
+                            <span style="opacity: 0.1">projects</span>
+
+                            <span style="opacity: 0.1">and</span>
+
+                            <span style="opacity: 0.1">AI-powered</span>
+
+                            <span style="opacity: 0.1">utilities.</span>
+
+                            <br />
+
+                            <span class="small" style="opacity: 0.1">Available for consulting
+                                and full-time opportunities.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <section class='bg-slate-950'>
+        <footer class="footer bg-stone-100">
+            <section class="btn-section footer-container mt-32">
+                <div class="flex flex-col space-y-10">
+
+                    <div>
+
+                        <div id="term" class="term term-ready f-w-350-450">
+
+                            <!--input class="term-input-hide" -->
+
+                            <div class="term-bar">
+
+                                <div class="term-winctrl">
+
+                                    <span class="term-btn close"></span>
+
+                                    <span class="term-btn minimise"></span>
+
+                                    <span class="term-btn maximise"></span>
+
+                                </div>
+
+                                <span class="term-title">Terminal</span>
+
+                                <a href="https://github.com/onfe" target="_blank" class="term-bar-gh"><svg
+                                        xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+
+                                        <path fill-rule="evenodd"
+                                            d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z" />
+
+                                    </svg></a>
+
+                            </div>
+
+                            <div class="term-cont terminal">
+
+                                <span class="print"></span>
+
+                                <div id="cli">
+
+                                    <span class="label"></span>
+                                    <span class="term-caret">&#x2588;</span>
+
+                                    <span class="prompt"></span>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="pt-2 mx-auto">
+
+                        <button class="btn-cp"><i class="fab fa-lg first-logo fa-codepen"></i><i
+                                class="fab fa-lg second-logo fa-codepen"></i></button>
+
+                        <button class="btn-tw"><i class="fab fa-lg first-logo fa-twitter"></i><i
+                                class="fab fa-lg second-logo fa-twitter"></i></button>
+
+                        <button class="btn-fb"><i class="fab fa-lg first-logo fa-facebook-f"></i><i
+                                class="fab fa-lg second-logo fa-facebook-f"></i></button>
+
+                        <button class="btn-ig"><i class="fab fa-lg first-logo fa-instagram"></i><i
+                                class="fab fa-lg second-logo fa-instagram"></i></button>
+
+                    </div>
+                    <div class="mx-auto">
+                        <div class="">
+                            <div class="col-lg-6 ">
+                                <a class ="font-outfit" href ="mailto:asjones91@gmail.com">asjones91@gmail.com</small-2></a>
+                                <small class="font-outfit"> © AJ91 2024</small>
+        
+                            </div>
+
+                        </div>
+                        
+                    </div>
+
+                </div>
+               
+
+            </section>
+
+        </footer>
+    </section>
 
 
-
-
-
-
-
-
-
+    <script type="module" src="./js/stickynav.js"></script>
+    <script type="module" src="./js/scrollmagic.js"></script>
+    <script type="module" src="./js/letters.js"></script>
+    <script type="module" src="./js/hoscroll.js"></script>
+    <script type="module" src="./js/blob.js"></script>
+    <script type="module" src="./js/tinycli.js"></script>
 
 
 
