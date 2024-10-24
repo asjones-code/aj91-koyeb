@@ -16,6 +16,7 @@ window.addEventListener('load', function () {
       preloader.remove(); // Call remove() on the selected element
       //document.querySelector('.blicky').style.visibility = 'visible';
       document.querySelector('.blicky').classList.add("loaded");
+      document.querySelector('header').classList.add("loaded");
       const canvas = document.querySelector('#blob canvas');
 
       if (canvas) {

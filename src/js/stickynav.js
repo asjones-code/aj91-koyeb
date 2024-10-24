@@ -1,11 +1,11 @@
-document.querySelector(".menuToggle").addEventListener("click", ToggleMenu);
+//document.querySelector(".menuToggle").addEventListener("click", ToggleMenu);
 
 
 function ToggleMenu(){
-    const menuToggle = document.querySelector('.menuToggle');
-    const navigation = document.querySelector('.navigation');
-    menuToggle.classList.toggle('active');
-    navigation.classList.toggle('active');
+    //const menuToggle = document.querySelector('.menuToggle');
+    //const navigation = document.querySelector('.navigation');
+    //menuToggle.classList.toggle('active');
+    //navigation.classList.toggle('active');
 }
 window.addEventListener("scroll",function(){
     var header = document.querySelector("header");

@@ -18,6 +18,7 @@ body {
 
 header {
 	position: fixed;
+	opacity:0;
 	top: 0;
 	left: 0;
 	display: flex;
@@ -27,9 +28,14 @@ header {
 	padding: 40px 100px;
 	background: #000;
 	z-index: 10;
+	backdrop-filter: blur(10px); /* Apply blur when loaded */
 
 }
+header.loaded{
+	opacity: 1;
+	
 
+}
 .banner {
 	position: relative;
 	height: 120vh;
