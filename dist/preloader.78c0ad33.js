@@ -134,6 +134,7 @@ window.addEventListener('load', function () {
       preloader.remove(); // Call remove() on the selected element
       //document.querySelector('.blicky').style.visibility = 'visible';
       document.querySelector('.blicky').classList.add("loaded");
+      document.querySelector('header').classList.add("loaded");
       var canvas = document.querySelector('#blob canvas');
       if (canvas) {
         canvas.style.opacity = '1'; // Change opacity to 1 with smooth transition
@@ -168,7 +169,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "63002" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "49384" + '/');
   ws.onmessage = function (event) {
     checkedAssets = {};
     assetsToAccept = [];
