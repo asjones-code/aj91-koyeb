@@ -117,62 +117,47 @@ parcelRequire = (function (modules, cache, entry, globalName) {
   }
 
   return newRequire;
-})({"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
-var bundleURL = null;
-function getBundleURLCached() {
-  if (!bundleURL) {
-    bundleURL = getBundleURL();
-  }
-  return bundleURL;
-}
-function getBundleURL() {
-  // Attempt to find the URL of the current script and use that as the base URL
-  try {
-    throw new Error();
-  } catch (err) {
-    var matches = ('' + err.stack).match(/(https?|file|ftp|chrome-extension|moz-extension):\/\/[^)\n]+/g);
-    if (matches) {
-      return getBaseURL(matches[0]);
-    }
-  }
-  return '/';
-}
-function getBaseURL(url) {
-  return ('' + url).replace(/^((?:https?|file|ftp|chrome-extension|moz-extension):\/\/.+)?\/[^/]+(?:\?.*)?$/, '$1') + '/';
-}
-exports.getBundleURL = getBundleURLCached;
-exports.getBaseURL = getBaseURL;
-},{}],"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/css-loader.js":[function(require,module,exports) {
-var bundle = require('./bundle-url');
-function updateLink(link) {
-  var newLink = link.cloneNode();
-  newLink.onload = function () {
-    link.remove();
-  };
-  newLink.href = link.href.split('?')[0] + '?' + Date.now();
-  link.parentNode.insertBefore(newLink, link.nextSibling);
-}
-var cssTimeout = null;
-function reloadCSS() {
-  if (cssTimeout) {
-    return;
-  }
-  cssTimeout = setTimeout(function () {
-    var links = document.querySelectorAll('link[rel="stylesheet"]');
-    for (var i = 0; i < links.length; i++) {
-      if (bundle.getBaseURL(links[i].href) === bundle.getBundleURL()) {
-        updateLink(links[i]);
-      }
-    }
-    cssTimeout = null;
-  }, 50);
-}
-module.exports = reloadCSS;
-},{"./bundle-url":"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/bundle-url.js"}],"css/base_beta.css":[function(require,module,exports) {
-var reloadCSS = require('_css_loader');
-module.hot.dispose(reloadCSS);
-module.hot.accept(reloadCSS);
-},{"_css_loader":"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/css-loader.js"}],"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+})({"js/cta.js":[function(require,module,exports) {
+var createSVG = function createSVG(width, height, radius) {
+  var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  var rectangle = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+  svg.setAttributeNS("http://www.w3.org/2000/svg", "viewBox", "0 0 ".concat(width, " ").concat(height));
+  rectangle.setAttribute("x", "0");
+  rectangle.setAttribute("y", "0");
+  rectangle.setAttribute("width", "100%");
+  rectangle.setAttribute("height", "100%");
+  rectangle.setAttribute("rx", "".concat(radius));
+  rectangle.setAttribute("ry", "".concat(radius));
+  rectangle.setAttribute("pathLength", "10");
+  svg.appendChild(rectangle);
+  return svg;
+};
+document.querySelectorAll(".sketch-button").forEach(function (button) {
+  var style = getComputedStyle(button);
+  var lines = document.createElement("div");
+  lines.classList.add("lines");
+  var groupTop = document.createElement("div");
+  var groupBottom = document.createElement("div");
+  var svg = createSVG(button.offsetWidth, button.offsetHeight, parseInt(style.borderRadius, 10));
+  groupTop.appendChild(svg);
+  groupTop.appendChild(svg.cloneNode(true));
+  groupTop.appendChild(svg.cloneNode(true));
+  groupTop.appendChild(svg.cloneNode(true));
+  groupBottom.appendChild(svg.cloneNode(true));
+  groupBottom.appendChild(svg.cloneNode(true));
+  groupBottom.appendChild(svg.cloneNode(true));
+  groupBottom.appendChild(svg.cloneNode(true));
+  lines.appendChild(groupTop);
+  lines.appendChild(groupBottom);
+  button.appendChild(lines);
+  button.addEventListener("pointerenter", function () {
+    button.classList.add("start");
+  });
+  svg.addEventListener("animationend", function () {
+    button.classList.remove("start");
+  });
+});
+},{}],"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -341,5 +326,5 @@ function hmrAcceptRun(bundle, id) {
     return true;
   }
 }
-},{}]},{},["../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js"], null)
-//# sourceMappingURL=/base_beta.a8cea8b9.js.map
+},{}]},{},["../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js","js/cta.js"], null)
+//# sourceMappingURL=/cta.cd11b49a.js.map
