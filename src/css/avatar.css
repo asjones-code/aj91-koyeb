@@ -1,0 +1,20 @@
+.round-button {
+    height: 7.8rem;
+    width: 7.8rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--grey-900);
+    transition: color 0.2s ease-in-out;
+    overflow: hidden; /* This will crop the content */
+}
+
+/* If you want to ensure any child images are also displayed correctly */
+.round-button img {
+ max-width: 100%; /* Ensure it scales within the button */
+    max-height: 100%; /* Ensure it scales within the button */
+    width: auto; /* Maintain aspect ratio */
+    height: auto; /* Maintain aspect ratio */
+    display: block; /* Remove any space below the image */
+}

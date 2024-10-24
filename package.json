@@ -24,6 +24,9 @@
     "lenis": "^1.1.13",
     "locomotive-scroll": "^4.1.4",
     "lunarphase-js": "^2.0.3",
+    "scrollmagic": "^2.0.8",
+    "simplex-noise": "^4.0.3",
+    "splitting": "^1.1.0",
     "three": "^0.168.0",
     "typed.js": "^2.1.0",
     "ws": "^8.18.0"

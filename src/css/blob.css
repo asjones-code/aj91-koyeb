@@ -1,0 +1,5 @@
+#blob canvas {
+    width: 800px;
+    height: 600px;
+    display: block; /* This prevents the canvas from having extra space */
+}

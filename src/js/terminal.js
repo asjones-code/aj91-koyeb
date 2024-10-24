@@ -1,6 +1,7 @@
 import Typed from 'typed.js';
 var $ = require("jquery");
-const ws = new WebSocket("wss://asjones-cod-aj91-deno-69.deno.dev/");
+//const ws = new WebSocket("wss://asjones-cod-aj91-deno-69.deno.dev/");
+
 
 
 // Cache DOM elements

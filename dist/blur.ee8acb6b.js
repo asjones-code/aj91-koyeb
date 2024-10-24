@@ -3074,23 +3074,16 @@ console.log(julian);
   };
   window.addEventListener("mousemove", shadow);
 })(document);
-var verticalTextElement = document.querySelector('.vertical-text');
-verticalTextElement.textContent = "-------- ".concat(julian, " ---------");
-function ToggleMenu() {
-  var menuToggle = document.querySelector('.menuToggle');
-  var navigation = document.querySelector('.my-header-class nav'); // Updated selector
-  menuToggle.classList.toggle('active');
-  navigation.classList.toggle('active');
-}
-window.addEventListener("scroll", function () {
-  var header = document.querySelector('.my-header-class'); // Updated selector
-  header.classList.toggle('sticky', window.scrollY > 0);
-});
-var scroll = new _locomotiveScroll.default({
-  el: document.querySelector("#js-scroll"),
-  smooth: true,
-  class: "is-inview"
-});
+
+//const verticalTextElement = document.querySelector('.vertical-text');
+// verticalTextElement.textContent = `-------- ${julian} ---------`;
+
+/* const scroll = new LocomotiveScroll({
+    el: document.querySelector("#js-scroll"),
+    smooth: true,
+    class: "is-inview"
+  }); */
+
 var noise = function noise() {
   var viewWidth,
     viewHeight,
@@ -3189,7 +3182,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "58111" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "54301" + '/');
   ws.onmessage = function (event) {
     checkedAssets = {};
     assetsToAccept = [];

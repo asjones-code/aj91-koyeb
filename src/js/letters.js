@@ -1,28 +1,7 @@
-const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+import { gsap } from "gsap";
 
-let interval = null;
-
-document.querySelector("h4").onmouseover = event => {  
-  let iteration = 0;
-  
-  clearInterval(interval);
-  
-  interval = setInterval(() => {
-    event.target.innerText = event.target.innerText
-      .split("")
-      .map((letter, index) => {
-        if(index < iteration) {
-          return event.target.dataset.value[index];
-        }
-      
-        return letters[Math.floor(Math.random() * 26)]
-      })
-      .join("");
-    
-    if(iteration >= event.target.dataset.value.length){ 
-      clearInterval(interval);
-    }
-    
-    iteration += 1 / 3;
-  }, 30);
-}
+var tl = gsap.timeline({ repeat: 0 });
+tl.from("#line", { scaleX: 0, transformOrigin: "right center" });
+tl.from("#upper", { duration: 0.75, y: 30 }, "text");
+tl.from("#lower", { duration: 0.75, y: -30 }, "text");
+tl.to("#line, #upper, #lower", { duration: 1, opacity: 1, ease:"none" }, "+=2");
