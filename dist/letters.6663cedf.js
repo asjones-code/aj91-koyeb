@@ -5497,7 +5497,8 @@ var gsapWithCSS = exports.default = exports.gsap = _gsapCore.gsap.registerPlugin
 
 var _gsap = require("gsap");
 var tl = _gsap.gsap.timeline({
-  repeat: 0
+  repeat: 0,
+  delay: 0.5
 });
 tl.from("#line", {
   scaleX: 0,
@@ -5541,7 +5542,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "61493" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "63002" + '/');
   ws.onmessage = function (event) {
     checkedAssets = {};
     assetsToAccept = [];

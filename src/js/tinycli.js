@@ -6,7 +6,7 @@ import Typed from 'typed.js';
 
 
 var options = {
-    strings: ['Loading...', 'Welcome to aj.CLI. I am an AI-powered command line interface designed to help you learn more about Adam and use some of the scripts he is building!'],
+    strings: ['Loading...', 'Thanks for visiting the site. I will be adding more features and stuff very soon, so stay tuned! - AJ'],
     typeSpeed: 20
 };
 

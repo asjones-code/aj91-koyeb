@@ -10,24 +10,28 @@
     <link href="css/terminal_beta.css" rel="stylesheet">
     <link href="css/footer.css" rel="stylesheet">
     <link href="css/cta.css" rel="stylesheet">
+    <link href="css/preloader.css" rel="stylesheet">
 
-    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.3/css/all.css"
-        integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/" crossorigin="anonymous">
 
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css" integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     <link href="css/base_beta.css" rel="stylesheet">
 </head>
 
-<body class="flex flex-col ">
+<body class="">
+    <div class="visible relative top-50 loader color mx-auto"></div>
+    
+ 
     <section>
+       
         <header class="w-screen z-50">
             <h1 class="logo word font-kihim f-text-16-32">
                 aj91
             </h1>
             <nav class="navigation">
                 <ul>
-                    <li><a class ="font-excon" href="https://www.linkedin.com/in/asjones91/">Linkedin</a></li>
-                    <li><a class ="font-excon" href="https://aj91.substack.com/">Substack</a></li>
+                    <li><a class="font-mono" href="https://www.linkedin.com/in/asjones91/">Linkedin</a></li>
+                    <li><a class="font-mono" href="https://aj91.substack.com/">Substack</a></li>
                 </ul>
             </nav>
 
@@ -44,12 +48,14 @@
 
             </div>
         </header>
+        
 
     </section>
 
     </header>
-    <section class='bg-slate-950'>
+    <section class='bg-black'>
         <div class="banner f-m-90-95 mt-[360px] z-10">
+           
             <div class="flex flex-row justify-between ">
                 <div class="z-50 w-[290px]">
                     <div id="upperWrap">
@@ -64,7 +70,7 @@
                     <canvas></canvas>
                 </div>
             </div>
-            <div class="blicky f-w-200-550">
+            <div class="blicky f-w-200-550 z-20">
                 <div id="reveal" class="">
                     <div class="text ">
                         <p class="f-text-32-128 font-satoshi">
@@ -136,8 +142,8 @@
                     <div>
                         <a href="static/ajcv_pm.pdf" download>
                             <button class="mt-8 sketch-button font-satoshi font-bold">Download Resume</button>
-                          </a>
-                          
+                        </a>
+
 
                     </div>
                 </div>
@@ -202,32 +208,29 @@
 
                         <a href="https://x.com/aj91_online" target="_blank">
 
-                        <button class="btn-tw"><i class="fab fa-lg first-logo fa-twitter"></i><i
-                                class="fab fa-lg second-logo fa-twitter"></i></button>
+                            <button class="btn-tw"><i class="fab fa-lg first-logo fa-twitter"></i><i
+                                    class="fab fa-lg second-logo fa-x-twitter"></i></button>
+                        </a>
 
 
-                                <a href="https://www.instagram.com/goodgrow.io/" target="_blank">
-                                    <button class="btn-ig">
-                                      <i class="fab fa-lg first-logo fa-instagram"></i>
-                                      <i class="fab fa-lg second-logo fa-instagram"></i>
-                                    </button>
-                                  </a>
+                    
 
                     </div>
                     <div class="mx-auto">
                         <div class="">
                             <div class="col-lg-6 ">
-                                <a class ="font-outfit" href ="mailto:asjones91@gmail.com">asjones91@gmail.com</small-2></a>
-                                <small class="font-outfit"> © AJ91 2024</small>
-        
+                                <a class="font-outfit"
+                                    href="mailto:asjones91@gmail.com">asjones91@gmail.com</small-2></a>
+                                <small class="font-outfit text-black"> © AJ91 2024</small>
+
                             </div>
 
                         </div>
-                        
+
                     </div>
 
                 </div>
-               
+
 
             </section>
 
@@ -239,8 +242,10 @@
     <script type="module" src="./js/scrollmagic.js"></script>
     <script type="module" src="./js/letters.js"></script>
     <script type="module" src="./js/hoscroll.js"></script>
-    <script type="module" src="./js/blob.js"></script>   
-     <script type="module" src="./js/cta.js"></script>
+    <script type="module" src="./js/blob.js"></script>
+    <script type="module" src="./js/cta.js"></script>
+    <script type="module" src="./js/preloader.js"></script>
+
 
     <script type="module" src="./js/tinycli.js"></script>
 

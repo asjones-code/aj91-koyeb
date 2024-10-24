@@ -53,12 +53,20 @@
 
 .blicky {
     height: 70%;
-    padding-top: 200px;
-    display: flex;
+    padding-top: 100px;
+    visibility: hidden;
     align-items: center;
     position: sticky;
     left: 0;
+    opacity:0;
     top: 0;
+}
+
+.blicky.loaded {
+    opacity:1;
+
+    visibility: visible;
+    transition: opacity .5s ease-in .5s;  
 }
 
 /*# sourceMappingURL=/textReveal.ef1715ff.css.map */

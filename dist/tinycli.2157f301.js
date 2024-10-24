@@ -11226,7 +11226,7 @@ var _jquery = _interopRequireDefault(require("jquery"));
 var _typed = _interopRequireDefault(require("typed.js"));
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 var options = {
-  strings: ['Loading...', 'Welcome to aj.CLI. I am an AI-powered command line interface designed to help you learn more about Adam and use some of the scripts he is building!'],
+  strings: ['Loading...', 'Thanks for visiting the site. I will be adding more features and stuff very soon, so stay tuned! - AJ'],
   typeSpeed: 20
 };
 (function app() {
@@ -11609,7 +11609,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "61493" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "63002" + '/');
   ws.onmessage = function (event) {
     checkedAssets = {};
     assetsToAccept = [];
