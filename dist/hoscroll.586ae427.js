@@ -122,7 +122,7 @@ var availableToReveal = false;
 console.log('here in hoes');
 // container
 var container = document.getElementById("reveal");
-var startOffset = 250; // pixels
+var startOffset = 860; // pixels
 
 var containerHeight = container.clientHeight;
 var containerStart = container.getBoundingClientRect().top + window.pageYOffset - startOffset;
@@ -224,7 +224,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "61493" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "63002" + '/');
   ws.onmessage = function (event) {
     checkedAssets = {};
     assetsToAccept = [];

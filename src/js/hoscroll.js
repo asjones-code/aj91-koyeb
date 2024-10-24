@@ -3,7 +3,7 @@ console.log('here in hoes')
 // container
 const container = document.getElementById("reveal");
 
-const startOffset = 250; // pixels
+const startOffset = 860; // pixels
 
 const containerHeight = container.clientHeight;
 const containerStart = container.getBoundingClientRect().top + window.pageYOffset - startOffset;
@@ -99,3 +99,4 @@ window.addEventListener("resize", () => {
     fitText();
     console.log("Window resized, text refitted");
 });
+
