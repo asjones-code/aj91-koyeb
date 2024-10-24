@@ -1,0 +1,62 @@
+#upperWrap,
+#lowerWrap {
+    overflow: hidden;
+    height: 30px;
+    line-height: 30px;
+    
+    font-weight: 700;
+    color: aliceblue;
+
+}
+
+#upper {
+    font-size: 24px;
+    color: aliceblue;
+    text-transform: uppercase
+}
+
+#line {
+    width: 250px;
+    height: 1px;
+    background: white;
+}
+
+
+
+.text {
+    height: 70vh;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+
+    p {
+        margin: 0;
+        font-size: 52px;
+        font-weight: 600;
+        line-height: 130%;
+    }
+
+    span {
+        color: #ffffff;
+        transition: opacity 0.25s linear;
+
+        &:last-child {
+            border-bottom: 2px solid #fff;
+        }
+
+        &.small {
+            font-size: 20px;
+            line-height: 100%;
+        }
+    }
+}
+
+.blicky {
+    height: 70%;
+    padding-top: 200px;
+    display: flex;
+    align-items: center;
+    position: sticky;
+    left: 0;
+    top: 0;
+}

@@ -30,27 +30,16 @@ console.log(julian);
 })(document);
 
 
-const verticalTextElement = document.querySelector('.vertical-text');
-verticalTextElement.textContent = `-------- ${julian} ---------`;
+//const verticalTextElement = document.querySelector('.vertical-text');
+// verticalTextElement.textContent = `-------- ${julian} ---------`;
 
 
-function ToggleMenu() {
-    const menuToggle = document.querySelector('.menuToggle');
-    const navigation = document.querySelector('.my-header-class nav'); // Updated selector
-    menuToggle.classList.toggle('active');
-    navigation.classList.toggle('active');
-}
-
-window.addEventListener("scroll", function() {
-    var header = document.querySelector('.my-header-class'); // Updated selector
-    header.classList.toggle('sticky', window.scrollY > 0);
-});
-
-const scroll = new LocomotiveScroll({
+ 
+/* const scroll = new LocomotiveScroll({
     el: document.querySelector("#js-scroll"),
     smooth: true,
     class: "is-inview"
-  });
+  }); */
 
 const noise = () => {
     let viewWidth,

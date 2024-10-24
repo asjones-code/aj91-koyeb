@@ -1,0 +1,1 @@
+{"version":3,"sources":["css/blob.css"],"names":[],"mappings":"AAAA;AACA;AACA;AACA;AACA","file":"blob.5e763752.css","sourceRoot":"../src","sourcesContent":["#blob canvas {\n    width: 800px;\n    height: 600px;\n    display: block; /* This prevents the canvas from having extra space */\n}"]}
