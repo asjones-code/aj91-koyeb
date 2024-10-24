@@ -399,7 +399,7 @@
 .f-w-500-650{width:clamp(31.25rem, 27.9489rem + 14.0845vw, 40.625rem);}
 .f-h-200-250{height:clamp(12.5rem, 11.3996rem + 4.6948vw, 15.625rem);}
 .f-h-5-15{height:clamp(0.3125rem, 0.0924rem + 0.9390vw, 0.9375rem);}
-.f-m-90-95{margin:clamp(5.625rem, 5.5150rem + 0.4695vw, 5.9375rem);}
+.f-m-60-65{margin:clamp(3.75rem, 3.6400rem + 0.4695vw, 4.0625rem);}
 .visible{visibility:visible;}
 .absolute{position:absolute;}
 .relative{position:relative;}
