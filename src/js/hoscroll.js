@@ -3,7 +3,7 @@ console.log('here in hoes')
 // container
 const container = document.getElementById("reveal");
 
-const startOffset = 860; // pixels
+const startOffset = 797; // pixels
 
 const containerHeight = container.clientHeight;
 const containerStart = container.getBoundingClientRect().top + window.pageYOffset - startOffset;

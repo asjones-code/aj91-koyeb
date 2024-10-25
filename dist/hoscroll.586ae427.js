@@ -122,7 +122,7 @@ var availableToReveal = false;
 console.log('here in hoes');
 // container
 var container = document.getElementById("reveal");
-var startOffset = 860; // pixels
+var startOffset = 797; // pixels
 
 var containerHeight = container.clientHeight;
 var containerStart = container.getBoundingClientRect().top + window.pageYOffset - startOffset;
