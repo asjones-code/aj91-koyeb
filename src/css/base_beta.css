@@ -392,9 +392,8 @@
 .f-text-16-32{font-size:clamp(1rem, 0.6479rem + 1.5023vw, 2rem);}
 .f-text-32-128{font-size:clamp(2rem, -0.1127rem + 9.0141vw, 8rem);}
 .f-text-32-64{font-size:clamp(2rem, 1.2958rem + 3.0047vw, 4rem);}
-.f-w-200-550{width:clamp(12.5rem, 4.7975rem + 32.8638vw, 34.375rem);}
+.f-w-250-550{width:clamp(15.625rem, 9.0229rem + 28.1690vw, 34.375rem);}
 .f-w-300-500{width:clamp(18.75rem, 14.3486rem + 18.7793vw, 31.25rem);}
-.f-w-350-450{width:clamp(21.875rem, 19.6743rem + 9.3897vw, 28.125rem);}
 .f-w-5-15{width:clamp(0.3125rem, 0.0924rem + 0.9390vw, 0.9375rem);}
 .f-w-500-650{width:clamp(31.25rem, 27.9489rem + 14.0845vw, 40.625rem);}
 .f-h-200-250{height:clamp(12.5rem, 11.3996rem + 4.6948vw, 15.625rem);}

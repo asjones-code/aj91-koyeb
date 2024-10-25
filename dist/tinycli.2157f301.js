@@ -11225,14 +11225,14 @@ var s = {
 var _jquery = _interopRequireDefault(require("jquery"));
 var _typed = _interopRequireDefault(require("typed.js"));
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-var options = {
-  strings: ['Loading...', 'Thanks for visiting the site. I will be adding more features and stuff very soon, so stay tuned! - AJ'],
-  typeSpeed: 20
-};
+var typed = new _typed.default('.typed', {
+  strings: ["Loading...", "Thanks for stopping by. More updates coming soon - AJ"],
+  showCursor: false,
+  typeSpeed: 30
+});
 (function app() {
   var event = {
     init: function init() {
-      var typed = new _typed.default('.print', options);
       view.$document.ready(this.onDomReady);
       view.$body.on('keyup', this.onKeyUp).on('keydown', this.onKeyDown).on('keypress', this.onKeyPress);
       this.initPrompt();
@@ -11337,23 +11337,7 @@ var options = {
       this.scrollSpeed = 1000;
     },
     clearTerminal: function clearTerminal() {
-      console.log('did this work?');
-
-      // Make sure you're targeting the correct terminal container
-      this.$terminal = (0, _jquery.default)('.term-cont.terminal');
-
-      // Log the terminal element to check if it's properly selected
-      console.log(this.$terminal); // Should log the .term-cont.terminal element
-
-      if (this.$terminal.length === 0) {
-        console.error("Terminal not found!");
-        return;
-      }
-
-      // Clear the terminal content and reset the CLI structure
-      this.$terminal.html('<div class="print"><b>TinyCLI</b> - simple web based command line interface.<br>Type \'help\' for more information.</div><div id="cli"><span class="label"></span><span class="prompt"></span></div>');
-
-      // Initialize terminal and prompt
+      this.$terminal.html("<div class=\"print\"></div><div id=\"cli\"><span class=\"label\"></span><span class=\"prompt\"></span></div>");
       this.initTerminal();
       event.initPrompt();
     },
@@ -11527,7 +11511,6 @@ var options = {
           this.getFeedYQL(cmd.arguments[0]);
           break;
         default:
-          console.log('I got here');
           out = "'".concat(cmd.command, "' command not found");
           break;
       }
@@ -11609,7 +11592,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "49384" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "51823" + '/');
   ws.onmessage = function (event) {
     checkedAssets = {};
     assetsToAccept = [];
