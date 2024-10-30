@@ -1,7 +1,7 @@
 .quotes {
     position: relative;
     bottom: 20px;
-    width: 100%;
+    /*width: 100%;*/
     left: 0;
     top: 20px;
 }
@@ -16,7 +16,7 @@
     font-size: 14px;
     padding: 80px 40px;
     margin: 0 auto;
-    width: 600px;
+    /*width: 600px;*/
     color: #333;
 }
 
