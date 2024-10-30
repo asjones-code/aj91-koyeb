@@ -11014,560 +11014,176 @@ if ( typeof noGlobal === "undefined" ) {
 return jQuery;
 } );
 
-},{"process":"../../../../../usr/local/lib/node_modules/parcel-bundler/node_modules/process/browser.js"}],"../node_modules/typed.js/dist/typed.module.js":[function(require,module,exports) {
-"use strict";
-
-Object.defineProperty(exports, "__esModule", {
-  value: true
-});
-exports.default = void 0;
-function t() {
-  return t = Object.assign ? Object.assign.bind() : function (t) {
-    for (var s = 1; s < arguments.length; s++) {
-      var e = arguments[s];
-      for (var n in e) Object.prototype.hasOwnProperty.call(e, n) && (t[n] = e[n]);
-    }
-    return t;
-  }, t.apply(this, arguments);
-}
-var s = {
-    strings: ["These are the default values...", "You know what you should do?", "Use your own!", "Have a great day!"],
-    stringsElement: null,
-    typeSpeed: 0,
-    startDelay: 0,
-    backSpeed: 0,
-    smartBackspace: !0,
-    shuffle: !1,
-    backDelay: 700,
-    fadeOut: !1,
-    fadeOutClass: "typed-fade-out",
-    fadeOutDelay: 500,
-    loop: !1,
-    loopCount: Infinity,
-    showCursor: !0,
-    cursorChar: "|",
-    autoInsertCss: !0,
-    attr: null,
-    bindInputFocusEvents: !1,
-    contentType: "html",
-    onBegin: function (t) {},
-    onComplete: function (t) {},
-    preStringTyped: function (t, s) {},
-    onStringTyped: function (t, s) {},
-    onLastStringBackspaced: function (t) {},
-    onTypingPaused: function (t, s) {},
-    onTypingResumed: function (t, s) {},
-    onReset: function (t) {},
-    onStop: function (t, s) {},
-    onStart: function (t, s) {},
-    onDestroy: function (t) {}
-  },
-  e = new ( /*#__PURE__*/function () {
-    function e() {}
-    var n = e.prototype;
-    return n.load = function (e, n, i) {
-      if (e.el = "string" == typeof i ? document.querySelector(i) : i, e.options = t({}, s, n), e.isInput = "input" === e.el.tagName.toLowerCase(), e.attr = e.options.attr, e.bindInputFocusEvents = e.options.bindInputFocusEvents, e.showCursor = !e.isInput && e.options.showCursor, e.cursorChar = e.options.cursorChar, e.cursorBlinking = !0, e.elContent = e.attr ? e.el.getAttribute(e.attr) : e.el.textContent, e.contentType = e.options.contentType, e.typeSpeed = e.options.typeSpeed, e.startDelay = e.options.startDelay, e.backSpeed = e.options.backSpeed, e.smartBackspace = e.options.smartBackspace, e.backDelay = e.options.backDelay, e.fadeOut = e.options.fadeOut, e.fadeOutClass = e.options.fadeOutClass, e.fadeOutDelay = e.options.fadeOutDelay, e.isPaused = !1, e.strings = e.options.strings.map(function (t) {
-        return t.trim();
-      }), e.stringsElement = "string" == typeof e.options.stringsElement ? document.querySelector(e.options.stringsElement) : e.options.stringsElement, e.stringsElement) {
-        e.strings = [], e.stringsElement.style.cssText = "clip: rect(0 0 0 0);clip-path:inset(50%);height:1px;overflow:hidden;position:absolute;white-space:nowrap;width:1px;";
-        var r = Array.prototype.slice.apply(e.stringsElement.children),
-          o = r.length;
-        if (o) for (var a = 0; a < o; a += 1) e.strings.push(r[a].innerHTML.trim());
-      }
-      for (var u in e.strPos = 0, e.currentElContent = this.getCurrentElContent(e), e.currentElContent && e.currentElContent.length > 0 && (e.strPos = e.currentElContent.length - 1, e.strings.unshift(e.currentElContent)), e.sequence = [], e.strings) e.sequence[u] = u;
-      e.arrayPos = 0, e.stopNum = 0, e.loop = e.options.loop, e.loopCount = e.options.loopCount, e.curLoop = 0, e.shuffle = e.options.shuffle, e.pause = {
-        status: !1,
-        typewrite: !0,
-        curString: "",
-        curStrPos: 0
-      }, e.typingComplete = !1, e.autoInsertCss = e.options.autoInsertCss, e.autoInsertCss && (this.appendCursorAnimationCss(e), this.appendFadeOutAnimationCss(e));
-    }, n.getCurrentElContent = function (t) {
-      return t.attr ? t.el.getAttribute(t.attr) : t.isInput ? t.el.value : "html" === t.contentType ? t.el.innerHTML : t.el.textContent;
-    }, n.appendCursorAnimationCss = function (t) {
-      var s = "data-typed-js-cursor-css";
-      if (t.showCursor && !document.querySelector("[" + s + "]")) {
-        var e = document.createElement("style");
-        e.setAttribute(s, "true"), e.innerHTML = "\n        .typed-cursor{\n          opacity: 1;\n        }\n        .typed-cursor.typed-cursor--blink{\n          animation: typedjsBlink 0.7s infinite;\n          -webkit-animation: typedjsBlink 0.7s infinite;\n                  animation: typedjsBlink 0.7s infinite;\n        }\n        @keyframes typedjsBlink{\n          50% { opacity: 0.0; }\n        }\n        @-webkit-keyframes typedjsBlink{\n          0% { opacity: 1; }\n          50% { opacity: 0.0; }\n          100% { opacity: 1; }\n        }\n      ", document.body.appendChild(e);
-      }
-    }, n.appendFadeOutAnimationCss = function (t) {
-      var s = "data-typed-fadeout-js-css";
-      if (t.fadeOut && !document.querySelector("[" + s + "]")) {
-        var e = document.createElement("style");
-        e.setAttribute(s, "true"), e.innerHTML = "\n        .typed-fade-out{\n          opacity: 0;\n          transition: opacity .25s;\n        }\n        .typed-cursor.typed-cursor--blink.typed-fade-out{\n          -webkit-animation: 0;\n          animation: 0;\n        }\n      ", document.body.appendChild(e);
-      }
-    }, e;
-  }())(),
-  n = new ( /*#__PURE__*/function () {
-    function t() {}
-    var s = t.prototype;
-    return s.typeHtmlChars = function (t, s, e) {
-      if ("html" !== e.contentType) return s;
-      var n = t.substring(s).charAt(0);
-      if ("<" === n || "&" === n) {
-        var i;
-        for (i = "<" === n ? ">" : ";"; t.substring(s + 1).charAt(0) !== i && !(1 + ++s > t.length););
-        s++;
-      }
-      return s;
-    }, s.backSpaceHtmlChars = function (t, s, e) {
-      if ("html" !== e.contentType) return s;
-      var n = t.substring(s).charAt(0);
-      if (">" === n || ";" === n) {
-        var i;
-        for (i = ">" === n ? "<" : "&"; t.substring(s - 1).charAt(0) !== i && !(--s < 0););
-        s--;
-      }
-      return s;
-    }, t;
-  }())(),
-  i = exports.default = /*#__PURE__*/function () {
-    function t(t, s) {
-      e.load(this, s, t), this.begin();
-    }
-    var s = t.prototype;
-    return s.toggle = function () {
-      this.pause.status ? this.start() : this.stop();
-    }, s.stop = function () {
-      this.typingComplete || this.pause.status || (this.toggleBlinking(!0), this.pause.status = !0, this.options.onStop(this.arrayPos, this));
-    }, s.start = function () {
-      this.typingComplete || this.pause.status && (this.pause.status = !1, this.pause.typewrite ? this.typewrite(this.pause.curString, this.pause.curStrPos) : this.backspace(this.pause.curString, this.pause.curStrPos), this.options.onStart(this.arrayPos, this));
-    }, s.destroy = function () {
-      this.reset(!1), this.options.onDestroy(this);
-    }, s.reset = function (t) {
-      void 0 === t && (t = !0), clearInterval(this.timeout), this.replaceText(""), this.cursor && this.cursor.parentNode && (this.cursor.parentNode.removeChild(this.cursor), this.cursor = null), this.strPos = 0, this.arrayPos = 0, this.curLoop = 0, t && (this.insertCursor(), this.options.onReset(this), this.begin());
-    }, s.begin = function () {
-      var t = this;
-      this.options.onBegin(this), this.typingComplete = !1, this.shuffleStringsIfNeeded(this), this.insertCursor(), this.bindInputFocusEvents && this.bindFocusEvents(), this.timeout = setTimeout(function () {
-        0 === t.strPos ? t.typewrite(t.strings[t.sequence[t.arrayPos]], t.strPos) : t.backspace(t.strings[t.sequence[t.arrayPos]], t.strPos);
-      }, this.startDelay);
-    }, s.typewrite = function (t, s) {
-      var e = this;
-      this.fadeOut && this.el.classList.contains(this.fadeOutClass) && (this.el.classList.remove(this.fadeOutClass), this.cursor && this.cursor.classList.remove(this.fadeOutClass));
-      var i = this.humanizer(this.typeSpeed),
-        r = 1;
-      !0 !== this.pause.status ? this.timeout = setTimeout(function () {
-        s = n.typeHtmlChars(t, s, e);
-        var i = 0,
-          o = t.substring(s);
-        if ("^" === o.charAt(0) && /^\^\d+/.test(o)) {
-          var a = 1;
-          a += (o = /\d+/.exec(o)[0]).length, i = parseInt(o), e.temporaryPause = !0, e.options.onTypingPaused(e.arrayPos, e), t = t.substring(0, s) + t.substring(s + a), e.toggleBlinking(!0);
-        }
-        if ("`" === o.charAt(0)) {
-          for (; "`" !== t.substring(s + r).charAt(0) && (r++, !(s + r > t.length)););
-          var u = t.substring(0, s),
-            p = t.substring(u.length + 1, s + r),
-            c = t.substring(s + r + 1);
-          t = u + p + c, r--;
-        }
-        e.timeout = setTimeout(function () {
-          e.toggleBlinking(!1), s >= t.length ? e.doneTyping(t, s) : e.keepTyping(t, s, r), e.temporaryPause && (e.temporaryPause = !1, e.options.onTypingResumed(e.arrayPos, e));
-        }, i);
-      }, i) : this.setPauseStatus(t, s, !0);
-    }, s.keepTyping = function (t, s, e) {
-      0 === s && (this.toggleBlinking(!1), this.options.preStringTyped(this.arrayPos, this));
-      var n = t.substring(0, s += e);
-      this.replaceText(n), this.typewrite(t, s);
-    }, s.doneTyping = function (t, s) {
-      var e = this;
-      this.options.onStringTyped(this.arrayPos, this), this.toggleBlinking(!0), this.arrayPos === this.strings.length - 1 && (this.complete(), !1 === this.loop || this.curLoop === this.loopCount) || (this.timeout = setTimeout(function () {
-        e.backspace(t, s);
-      }, this.backDelay));
-    }, s.backspace = function (t, s) {
-      var e = this;
-      if (!0 !== this.pause.status) {
-        if (this.fadeOut) return this.initFadeOut();
-        this.toggleBlinking(!1);
-        var i = this.humanizer(this.backSpeed);
-        this.timeout = setTimeout(function () {
-          s = n.backSpaceHtmlChars(t, s, e);
-          var i = t.substring(0, s);
-          if (e.replaceText(i), e.smartBackspace) {
-            var r = e.strings[e.arrayPos + 1];
-            e.stopNum = r && i === r.substring(0, s) ? s : 0;
-          }
-          s > e.stopNum ? (s--, e.backspace(t, s)) : s <= e.stopNum && (e.arrayPos++, e.arrayPos === e.strings.length ? (e.arrayPos = 0, e.options.onLastStringBackspaced(), e.shuffleStringsIfNeeded(), e.begin()) : e.typewrite(e.strings[e.sequence[e.arrayPos]], s));
-        }, i);
-      } else this.setPauseStatus(t, s, !1);
-    }, s.complete = function () {
-      this.options.onComplete(this), this.loop ? this.curLoop++ : this.typingComplete = !0;
-    }, s.setPauseStatus = function (t, s, e) {
-      this.pause.typewrite = e, this.pause.curString = t, this.pause.curStrPos = s;
-    }, s.toggleBlinking = function (t) {
-      this.cursor && (this.pause.status || this.cursorBlinking !== t && (this.cursorBlinking = t, t ? this.cursor.classList.add("typed-cursor--blink") : this.cursor.classList.remove("typed-cursor--blink")));
-    }, s.humanizer = function (t) {
-      return Math.round(Math.random() * t / 2) + t;
-    }, s.shuffleStringsIfNeeded = function () {
-      this.shuffle && (this.sequence = this.sequence.sort(function () {
-        return Math.random() - .5;
-      }));
-    }, s.initFadeOut = function () {
-      var t = this;
-      return this.el.className += " " + this.fadeOutClass, this.cursor && (this.cursor.className += " " + this.fadeOutClass), setTimeout(function () {
-        t.arrayPos++, t.replaceText(""), t.strings.length > t.arrayPos ? t.typewrite(t.strings[t.sequence[t.arrayPos]], 0) : (t.typewrite(t.strings[0], 0), t.arrayPos = 0);
-      }, this.fadeOutDelay);
-    }, s.replaceText = function (t) {
-      this.attr ? this.el.setAttribute(this.attr, t) : this.isInput ? this.el.value = t : "html" === this.contentType ? this.el.innerHTML = t : this.el.textContent = t;
-    }, s.bindFocusEvents = function () {
-      var t = this;
-      this.isInput && (this.el.addEventListener("focus", function (s) {
-        t.stop();
-      }), this.el.addEventListener("blur", function (s) {
-        t.el.value && 0 !== t.el.value.length || t.start();
-      }));
-    }, s.insertCursor = function () {
-      this.showCursor && (this.cursor || (this.cursor = document.createElement("span"), this.cursor.className = "typed-cursor", this.cursor.setAttribute("aria-hidden", !0), this.cursor.innerHTML = this.cursorChar, this.el.parentNode && this.el.parentNode.insertBefore(this.cursor, this.el.nextSibling)));
-    }, t;
-  }();
-},{}],"js/tinycli.js":[function(require,module,exports) {
+},{"process":"../../../../../usr/local/lib/node_modules/parcel-bundler/node_modules/process/browser.js"}],"js/card.js":[function(require,module,exports) {
 "use strict";
 
 var _jquery = _interopRequireDefault(require("jquery"));
-var _typed = _interopRequireDefault(require("typed.js"));
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
-var typed = new _typed.default('.typed', {
-  strings: ["Loading...", "Thanks for stopping by. More updates coming soon - AJ"],
-  showCursor: false,
-  typeSpeed: 30
-});
-(function app() {
-  var event = {
-    init: function init() {
-      view.$document.ready(this.onDomReady);
-      view.$body.on('keyup', this.onKeyUp).on('keydown', this.onKeyDown).on('keypress', this.onKeyPress);
-      this.initPrompt();
-      view.$window.on('scroll touchmove mousewheel', this.onScroll);
-    },
-    onDomReady: function onDomReady() {
-      view.initCursor();
-    },
-    initPrompt: function initPrompt() {
-      view.$prompt.on('ctrlChar', this.onCtrlChar).on('command', this.onCommand).on('async', this.onAsync);
-    },
-    onCommand: function onCommand(e, c) {
-      e.preventDefault();
-      view.outputCommandResult(controller.executeCommand(c));
-    },
-    onAsync: function onAsync(e, d) {
-      e.preventDefault();
-      view.outputCommandResult(controller.getFeedArticles(d));
-    },
-    onCtrlChar: function onCtrlChar(e, t) {
-      e.preventDefault();
-      //console.log(`codename: ${t}`);
-      switch (t.toLowerCase()) {
-        case 'backspace':
-          view.deleteChar();
-          break;
-        case 'delete':
-          view.moveCursorForward();
-          view.deleteChar();
-          break;
-        case 'arrowleft':
-          view.moveCursorBack();
-          break;
-        case 'arrowright':
-          view.moveCursorForward();
-          break;
-        case 'arrowup':
-          view.promptHistory(true);
-          break;
-        case 'arrowdown':
-          view.promptHistory(false);
-          break;
-        case 'end':
-          view.removeCursor();
-          view.moveCursor(view.$prompt.text().length);
-          break;
-        case 'home':
-          view.moveCursor(0);
-          break;
-        case 'pagedown':
-          view.scrollPage(1);
-          break;
-        case 'pageup':
-          view.scrollPage(-1);
-          break;
-        case 'enter':
-          view.enterCommandLine();
-          break;
-      }
-    },
-    onKeyUp: function onKeyUp(e) {
-      e.preventDefault();
-    },
-    onKeyDown: function onKeyDown(e) {
-      e.preventDefault();
-      view.typeChar(e.key);
-    },
-    onKeyPress: function onKeyPress(e) {
-      e.preventDefault();
-    },
-    onScroll: function onScroll(e) {
-      if (view.isScrolling === true) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    }
-  };
-  var view = {
-    init: function init() {
-      this.$document = (0, _jquery.default)(document);
-      this.$window = (0, _jquery.default)(window);
-      this.$scroll = (0, _jquery.default)('html, body');
-      this.$body = (0, _jquery.default)('body');
-      this.$terminal = (0, _jquery.default)('#terminal');
-      if (this.$terminal.length === 0) {
-        this.$body.append('<div id="terminal"></div>');
-        this.$terminal = (0, _jquery.default)('#terminal');
-      }
-      ;
-      this.initTerminal();
-    },
-    initTerminal: function initTerminal() {
-      this.$cli = (0, _jquery.default)('#cli');
-      if (this.$cli.length === 0) {
-        this.clearTerminal();
-      }
-      ;
-      this.$prompt = (0, _jquery.default)('#cli .prompt');
-      this.$history = false;
-      this.curPos = 0;
-      this.isScrolling = false;
-      this.scrollSpeed = 1000;
-    },
-    clearTerminal: function clearTerminal() {
-      this.$terminal.html("<div class=\"print\"></div><div id=\"cli\"><span class=\"label\"></span><span class=\"prompt\"></span></div>");
-      this.initTerminal();
-      event.initPrompt();
-    },
-    typeChar: function typeChar(c) {
-      var realChr = controller.triggerCtrlCodes(c);
-      if (realChr != '') {
-        this.removeCursor();
-        var _p = this.$prompt.html();
-        var pright = this.curPos == _p.length ? this.getCursor() : this.getCursor(_p.substring(this.curPos, this.curPos + 1)) + _p.substring(this.curPos + 1);
-        this.$prompt.html(_p.substring(0, this.curPos) + realChr + pright);
-        this.curPos = this.curPos + 1;
-      }
-    },
-    deleteChar: function deleteChar() {
-      if (this.curPos > 0) {
-        this.removeCursor();
-        var _p2 = this.$prompt.html();
-        this.$prompt.html(_p2.substring(0, this.curPos - 1) + _p2.substring(this.curPos));
-        this.curPos = this.curPos - 1;
-        this.setCursor();
-      }
-    },
-    moveCursorBack: function moveCursorBack() {
-      if (this.curPos > 0) {
-        this.removeCursor();
-        this.curPos = this.curPos - 1;
-        this.setCursor();
-      }
-    },
-    moveCursorForward: function moveCursorForward() {
-      this.removeCursor();
-      if (this.curPos < this.$prompt.text().length) {
-        this.curPos = this.curPos + 1;
-      }
-      this.setCursor();
-    },
-    moveCursor: function moveCursor() {
-      var pos = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0;
-      this.curPos = pos;
-      this.setCursor();
-    },
-    initCursor: function initCursor() {
-      var char = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : "&nbsp;";
-      this.removeCursor();
-      this.curPos = 0;
-      this.$history = false;
-      this.$prompt.html(this.getCursor(char));
-    },
-    setCursor: function setCursor() {
-      if (this.curPos >= 0) {
-        this.removeCursor();
-        var _p3 = this.$prompt.html();
-        this.$prompt.html(_p3.substring(0, this.curPos) + (this.curPos == _p3.length ? this.getCursor() : this.getCursor(_p3.substring(this.curPos, this.curPos + 1))) + _p3.substring(this.curPos + 1));
-      } else {
-        if (p.length === 0) {
-          this.initCursor();
-        }
-      }
-    },
-    getCursor: function getCursor() {
-      var char = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : "&nbsp;";
-      return "<span class=\"cursor\">".concat(char, "</span>");
-    },
-    removeCursor: function removeCursor() {
-      var $cur = this.$prompt.children('.cursor');
-      var chr = $cur.html();
-      if (chr == "&nbsp;") {
-        $cur.remove();
-      } else {
-        this.$prompt.html(this.$prompt.text());
-      }
-    },
-    printTerminal: function printTerminal(txt) {
-      var cssClasses = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : "command";
-      this.$cli.prev().append("<div class=\"".concat(cssClasses, "\">").concat(txt, "</div>"));
-      this.$terminal.scrollTop(this.$terminal[0].scrollHeight);
-    },
-    enterCommandLine: function enterCommandLine() {
-      var p = _jquery.default.trim(this.$prompt.text());
-      this.printTerminal(p, "command label");
-      controller.triggerCommand(p);
-      this.initCursor();
-    },
-    outputCommandResult: function outputCommandResult(out) {
-      this.printTerminal(out, "command output");
-    },
-    promptHistory: function promptHistory() {
-      var prev = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : true;
-      if (this.$history === false) {
-        this.$history = prev ? (0, _jquery.default)("#terminal .print .command.label").last() : (0, _jquery.default)("#terminal .print .command.label").first();
-      } else {
-        this.$history = prev ? this.$history.prevAll(".command.label").first() : this.$history.nextAll(".command.label").first();
-      }
-      if (this.$history.length) {
-        var h = this.$history.text();
-        this.$prompt.html(h);
-        this.moveCursor(h.length);
-      } else {
-        this.initCursor();
-      }
-    },
-    scrollPage: function scrollPage(direction) {
-      var _this = this;
-      if (this.isScrolling === false) {
-        this.isScrolling = true;
-        direction = _jquery.default.isNumeric(direction) && Math.abs(direction) === 1 ? direction : 1;
-        var dh = this.$document.height(),
-          wh = this.$window.height(),
-          offset = this.$window.scrollTop() + wh * direction,
-          adjusted = offset < 0 ? 0 : offset + wh > dh ? dh - wh : offset;
-        view.$scroll.animate({
-          scrollTop: adjusted
-        }, offset !== adjusted ? Math.floor(this.scrollSpeed / 6.6666) : this.scrollSpeed, function () {
-          _this.isScrolling = false;
+(function ($) {
+  $.fn.foldscroll = function (options) {
+    // Constants
+    var PI = Math.PI;
+    var HALF_PI = PI / 2;
+
+    // Merge options & defaults
+    var opts = $.extend({}, $.fn.foldscroll.defaults, options);
+
+    // Transformation template
+    var rot = 'perspective(' + opts.perspective + 'px) rotateX(θrad)';
+
+    // Main plugin loop
+    return this.each(function () {
+      var $this = $(this);
+      var $kids = $this.children();
+      var $item;
+      var $shading;
+      if (opts.shading) {
+        // Create an overlay for shading
+        $shading = $('<span class="shading"/>').css({
+          background: opts.shading,
+          position: 'absolute',
+          opacity: 0.0,
+          height: '100%',
+          width: '100%',
+          left: 0,
+          top: 0
         });
-        console.log("'scrolling' (".concat(this.isScrolling, ") speed: ").concat(this.scrollSpeed, "; ").concat(offset));
+
+        // Add shading to each child
+        $kids.each(function () {
+          $item = $(this);
+          $item.css(prefix({
+            'backface-visibility': 'hidden',
+            'transform-style': 'preserve-3d' // Fixes perspective in FF 10+
+          }));
+
+          // Make sure shading isn't already applied
+          if (!$item.data('_shading')) {
+            $shading = $shading.clone();
+
+            // Prepare element
+            $item.css('position', 'relative');
+            $item.data('_shading', $shading);
+            $item.append($shading);
+          }
+        });
       }
-    }
-  };
-  var controller = {
-    triggerCtrlCodes: function triggerCtrlCodes(codename) {
-      var r = '';
-      if (codename.length > 1) {
-        view.$prompt.trigger('ctrlChar', [codename]);
-      } else {
-        r = codename;
-      }
-      ;
-      return r;
-    },
-    triggerCommand: function triggerCommand() {
-      var prompt = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
-      view.$prompt.trigger('command', this.getCommand(prompt));
-    },
-    executeCommand: function executeCommand() {
-      var cmd = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
-      var out = '';
-      switch (cmd.command) {
-        case '':
-          break;
-        case 'cls':
-          view.clearTerminal();
-          break;
-        case 'exit':
-          view.$terminal.remove();
-          break;
-        case 'about':
-          out = "Made by Tamio Patrick Honma (<a href=\"https://about.me/honma\">about.me</a>)<br>MIT License (MIT) Copyright (c) 2016 Tamio Honma";
-          break;
-        case '?':
-        case 'h':
-        case 'help':
-          out = "Some commands:<br>".concat(this.encodeHtmlEntity('cls, about, help, calc <simple math>, search <phrase>, loadwb, web <url>, rss <url>, exit'));
-          break;
-        case 'eval':
-        case 'calc':
-          out = "".concat(eval(cmd.arguments.join(' ')));
-          break;
-        case 'search':
-        case 'google':
-          window.location.href = encodeURI("https://www.google.com/search?q=".concat(cmd.arguments.join(' ')));
-          break;
-        case 'goto':
-        case 'web':
-          window.location.href = encodeURI("".concat(cmd.arguments[0]));
-          break;
-        case 'loadwb':
-          window.location.href = "https://pnacl-amiga-emulator.appspot.com/";
-          break;
-        case 'rss':
-          this.getFeedYQL(cmd.arguments[0]);
-          break;
-        default:
-          out = "'".concat(cmd.command, "' command not found");
-          break;
-      }
-      ;
-      return out;
-    },
-    getCommand: function getCommand() {
-      var prompt = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : '';
-      var arrPrompt = prompt.split(' ');
-      return {
-        'command': arrPrompt.shift().toLowerCase(),
-        'arguments': arrPrompt.filter(function (arg) {
-          return arg.length > 0;
-        })
-      };
-    },
-    getFeedArticles: function getFeedArticles(json) {
-      var _this2 = this;
-      var out = '';
-      try {
-        if (_jquery.default.isArray(json.query.results.item)) {
-          _jquery.default.each(json.query.results.item, function (i, item) {
-            out = "".concat(out, "<a href=\"").concat(item.link, "\" title=\"").concat(_this2.encodeHtmlEntity(item.description), "\">").concat(item.title, "</a><br>");
-          });
-        } else {
-          out = 'Error: No feed articles found.';
-        }
-      } catch (e) {
-        out = "Error: Invalid feed. Please use a valid url.<br><i>(".concat(e, ")</i>");
-      }
-      return out;
-    },
-    getFeedYQL: function getFeedYQL(url) {
-      var yql = "https://query.yahooapis.com/v1/public/yql?q=select%20title%2Clink%2Cdescription%20from%20rss%20where%20url%3D%22".concat(encodeURI(url), "%3Fformat%3Dxml%22&format=json&diagnostics=true&callback=");
-      _jquery.default.getJSON(yql, function (data) {
-        view.$prompt.trigger('async', data);
-      }, "jsonp");
-    },
-    decodeHtmlEntity: function decodeHtmlEntity(str) {
-      return str.replace(/&#(\d+);/g, function (match, dec) {
-        return String.fromCharCode(dec);
+
+      // Prepare container
+      $this.css(prefix({
+        'backface-visibility': 'hidden'
+      }));
+      $this.css({
+        overflow: 'scroll'
       });
-    },
-    encodeHtmlEntity: function encodeHtmlEntity(str) {
-      var buf = [];
-      for (var i = str.length - 1; i >= 0; i--) {
-        buf.unshift(['&#', str[i].charCodeAt(), ';'].join(''));
-      }
-      return buf.join('');
-    }
+      $this.on('scroll', function () {
+        // Store scroll amount
+        var st = $this.scrollTop();
+
+        // Store viewport properties
+        var vt = $this.offset().top - st;
+        var vh = $this.outerHeight();
+        var vb = vt + vh;
+
+        // Compute margin
+        var m = parseFloat(opts.margin);
+        m = m <= 1.0 ? Math.min(m, 0.5) : m / vh;
+
+        // Update children
+        $kids.each(function (index, el) {
+          $item = $(this);
+
+          // Remove current transform
+          $item.css(prefix({
+            transform: 'none'
+          }));
+
+          // Cache shading element if it exists
+          $shading = $item.find('.shading').hide();
+
+          // Store element properties
+          var et = $item.offset().top - st;
+          var eh = Math.max(m * vh, $item.outerHeight());
+          var eb = et + eh;
+
+          // Highest start value
+          var a = Math.max(vt, et);
+
+          // Lowest end value
+          var b = Math.min(vb, eb);
+
+          // Do line segments overlap?
+          var show = a < b;
+
+          // If there's overlap
+          if (show) {
+            // compute overlap
+            var o = b - a;
+            var p = o / vh;
+            if (p < m) {
+              // normalise
+              p = p / m;
+
+              // direction
+              var d = et < vt ? 1 : -1;
+
+              // rotation
+              var t = (1 - p) * HALF_PI * d;
+
+              // Contrain rotation
+              if (Math.abs(t) <= HALF_PI) {
+                // Apply rotation
+                $item.css(prefix({
+                  'transform-origin': '50%' + (et < vt ? '100%' : '0%'),
+                  'transform': rot.replace('θ', t)
+                }));
+
+                // Update shading overlay
+                if (opts.shading) $shading.css('opacity', 1.0 - p).show();
+              } else {
+                show = false;
+              }
+            }
+          }
+
+          // Hide items outside of the viewport
+          $item.css('visibility', show ? 'visible' : 'hidden');
+        });
+      });
+
+      // Set initial state
+      $this.trigger('scroll');
+    });
   };
-  (function init() {
-    view.init();
-    event.init();
-  })();
-})();
-},{"jquery":"../node_modules/jquery/dist/jquery.js","typed.js":"../node_modules/typed.js/dist/typed.module.js"}],"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+
+  // CSS3 vendor prefix helper
+  function prefix(obj) {
+    var key, val;
+    for (key in obj) {
+      val = obj[key];
+      obj['-webkit-' + key] = val;
+      obj['-moz-' + key] = val;
+      obj['-ms-' + key] = val;
+      obj['-o-' + key] = val;
+    }
+    return obj;
+  }
+
+  // Default options
+  $.fn.foldscroll.defaults = {
+    // Perspective to apply to rotating elements
+    perspective: 600,
+    // Default shading to apply (null => no shading)
+    shading: 'rgba(0,0,0,0.2)',
+    // Area of rotation (fraction or pixel value)
+    margin: 0.2
+  };
+})(_jquery.default);
+(0, _jquery.default)('.quotes').foldscroll({
+  perspective: 900,
+  margin: '220px'
+});
+},{"jquery":"../node_modules/jquery/dist/jquery.js"}],"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -11736,5 +11352,5 @@ function hmrAcceptRun(bundle, id) {
     return true;
   }
 }
-},{}]},{},["../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js","js/tinycli.js"], null)
-//# sourceMappingURL=/tinycli.2157f301.js.map
+},{}]},{},["../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js","js/card.js"], null)
+//# sourceMappingURL=/card.36cca880.js.map
