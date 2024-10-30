@@ -17,6 +17,7 @@ window.addEventListener('load', function () {
       //document.querySelector('.blicky').style.visibility = 'visible';
       document.querySelector('.blicky').classList.add("loaded");
       document.querySelector('header').classList.add("loaded");
+
       const canvas = document.querySelector('#blob canvas');
 
       if (canvas) {

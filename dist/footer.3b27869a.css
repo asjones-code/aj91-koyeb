@@ -1,7 +1,7 @@
 
 
 footer {
-  height: 95vh;
+  height: screen;
   width: 100vw;
   overflow: hidden;
 }
