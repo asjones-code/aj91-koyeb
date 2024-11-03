@@ -1,0 +1,25 @@
+/* panel styles */
+
+body {
+    background-color: #000; /* Default color */
+    transition: background-color 5s ease; /* Transition for exiting */
+}
+
+.panel {
+    /* min height incase content is higher than window height */
+
+    /* outline: 10px solid hotpink; */
+    /* turn above on to see the edge of panels */
+    transition: background-color 5s ease;
+
+  }
+
+
+  .color-violet {
+    background-color: #fff;
+    transition: background-color 5s ease;
+
+  }
+
+
+/*# sourceMappingURL=/scroll.fab01858.css.map */
