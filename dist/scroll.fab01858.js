@@ -117,89 +117,62 @@ parcelRequire = (function (modules, cache, entry, globalName) {
   }
 
   return newRequire;
-})({"js/hoscroll.js":[function(require,module,exports) {
-var availableToReveal = false;
-console.log('here in hoes');
-// container
-var container = document.getElementById("reveal");
-var startOffset = 797; // pixels
-
-var containerHeight = container.clientHeight;
-var containerStart = container.getBoundingClientRect().top + window.pageYOffset - startOffset;
-var containerEnd = containerStart + containerHeight;
-
-// gets all words
-var words = container.getElementsByTagName("span");
-var textContainer = container.getElementsByClassName("text")[0];
-var textContainerContent = textContainer.getElementsByTagName("p")[0];
-
-// gets the amount of pixels per each word (halved to make it twice as fast)
-var pixelsPerWord = Math.round(containerHeight / words.length / 2);
-console.log("Container height: ".concat(containerHeight, "px"));
-console.log("Container start: ".concat(containerStart, "px"));
-console.log("Container end: ".concat(containerEnd, "px"));
-console.log("Words count: ".concat(words.length));
-console.log("Pixels per word: ".concat(pixelsPerWord, "px"));
-
-// returns the current scroll position of the page
-var getCurrentScroll = function getCurrentScroll() {
-  return document.documentElement.scrollTop || document.body.scrollTop;
-};
-
-// reveals the active words
-var fitText = function fitText() {
-  var fontSize = 52;
-  while (textContainerContent.offsetWidth > textContainer.offsetWidth || textContainerContent.offsetHeight > textContainer.offsetHeight) {
-    fontSize--;
-    if (fontSize <= 10) {
-      break;
+})({"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/bundle-url.js":[function(require,module,exports) {
+var bundleURL = null;
+function getBundleURLCached() {
+  if (!bundleURL) {
+    bundleURL = getBundleURL();
+  }
+  return bundleURL;
+}
+function getBundleURL() {
+  // Attempt to find the URL of the current script and use that as the base URL
+  try {
+    throw new Error();
+  } catch (err) {
+    var matches = ('' + err.stack).match(/(https?|file|ftp|chrome-extension|moz-extension):\/\/[^)\n]+/g);
+    if (matches) {
+      return getBaseURL(matches[0]);
     }
-    textContainerContent.style.fontSize = fontSize + "px";
   }
-  console.log("Fitted font size: ".concat(fontSize, "px"));
-};
-var revealActiveWords = function revealActiveWords() {
-  var currentScrollPosition = getCurrentScroll();
-  var activeWords;
-  var containerCurrentScroll = currentScrollPosition - containerStart;
-
-  // gets the number of active words
-  if (currentScrollPosition > containerEnd) {
-    activeWords = words.length;
-  } else if (currentScrollPosition < containerStart) {
-    activeWords = 0;
-  } else {
-    availableToReveal = true;
-    activeWords = Math.round(containerCurrentScroll / pixelsPerWord);
+  return '/';
+}
+function getBaseURL(url) {
+  return ('' + url).replace(/^((?:https?|file|ftp|chrome-extension|moz-extension):\/\/.+)?\/[^/]+(?:\?.*)?$/, '$1') + '/';
+}
+exports.getBundleURL = getBundleURLCached;
+exports.getBaseURL = getBaseURL;
+},{}],"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/css-loader.js":[function(require,module,exports) {
+var bundle = require('./bundle-url');
+function updateLink(link) {
+  var newLink = link.cloneNode();
+  newLink.onload = function () {
+    link.remove();
+  };
+  newLink.href = link.href.split('?')[0] + '?' + Date.now();
+  link.parentNode.insertBefore(newLink, link.nextSibling);
+}
+var cssTimeout = null;
+function reloadCSS() {
+  if (cssTimeout) {
+    return;
   }
-  console.log("Current scroll position: ".concat(currentScrollPosition, "px"));
-  console.log("Active words: ".concat(activeWords));
-  if (availableToReveal) {
-    for (var i = 0; i < words.length; i++) {
-      if (activeWords > i) {
-        words[i].style.opacity = 1;
-      } else {
-        words[i].style.opacity = 0.1;
+  cssTimeout = setTimeout(function () {
+    var links = document.querySelectorAll('link[rel="stylesheet"]');
+    for (var i = 0; i < links.length; i++) {
+      if (bundle.getBaseURL(links[i].href) === bundle.getBundleURL()) {
+        updateLink(links[i]);
       }
     }
-  }
-  if (currentScrollPosition > containerEnd || currentScrollPosition < containerStart) {
-    availableToReveal = false;
-  }
-  console.log("Available to reveal: ".concat(availableToReveal));
-};
-
-// init
-fitText();
-revealActiveWords();
-document.addEventListener("scroll", function () {
-  revealActiveWords();
-});
-window.addEventListener("resize", function () {
-  fitText();
-  console.log("Window resized, text refitted");
-});
-},{}],"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
+    cssTimeout = null;
+  }, 50);
+}
+module.exports = reloadCSS;
+},{"./bundle-url":"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/bundle-url.js"}],"css/scroll.css":[function(require,module,exports) {
+var reloadCSS = require('_css_loader');
+module.hot.dispose(reloadCSS);
+module.hot.accept(reloadCSS);
+},{"_css_loader":"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/css-loader.js"}],"../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
 var OVERLAY_ID = '__parcel__error__overlay__';
 var OldModule = module.bundle.Module;
@@ -368,5 +341,5 @@ function hmrAcceptRun(bundle, id) {
     return true;
   }
 }
-},{}]},{},["../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js","js/hoscroll.js"], null)
-//# sourceMappingURL=/hoscroll.586ae427.js.map
+},{}]},{},["../../../../../usr/local/lib/node_modules/parcel-bundler/src/builtins/hmr-runtime.js"], null)
+//# sourceMappingURL=/scroll.fab01858.js.map

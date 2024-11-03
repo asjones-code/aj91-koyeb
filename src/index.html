@@ -38,9 +38,10 @@
     <link href="css/footer.css" rel="stylesheet">
     <link href="css/preloader.css" rel="stylesheet">
     <link href="css/stickynav.css" rel="stylesheet">
+    <link href="css/scroll.css" rel="stylesheet">
     <link href="css/terminal_beta.css" rel="stylesheet">
     <link href="css/textReveal.css" rel="stylesheet">
-    
+
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
         integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg=="
@@ -48,7 +49,7 @@
 
 </head>
 
-<body class="">
+<body class="" data-color="white">
     <div class="visible relative top-50 loader color mx-auto"></div>
 
 
@@ -77,12 +78,12 @@
                 </ul>
             </nav>
 
-            
+
         </header>
     </section>
 
     </header>
-    <section class='bg-black'>
+    <section class='bg-black panel'>
         <div class="banner f-m-42-47 mt-[360px] z-10">
 
             <div class="flex flex-row justify-between ">
@@ -180,12 +181,12 @@
         </div>
     </section>
     <div id="content"></div>
-    
-<div class ='mx-auto '>
-    
-    <h2 class="f-text-32-64 font-satoshi">Notes</h2>
-</div>
-    <section class=" quotes max-h-screen mx-auto font-tabular w-screen ">
+
+    <div class=' mx-auto'>
+
+        <h2 class="f-text-32-64 font-satoshi">Notes</h2>
+    </div>
+    <section class="panel quotes max-h-screen mx-auto font-tabular w-screen " data-color="violet">
         <article>
             <p>Technique is just a means of arriving at a statement</p>
             <em>Jackson Pollock</em>
@@ -199,15 +200,16 @@
             <em>Chris Guillebeau, <i>The $100 Startup</i></em>
         </article>
         <article>
-            <p>I maintain that chaos is the future and beyond it lies freedom! Confusion is next, and next after that is the truth!</p>
+            <p>I maintain that chaos is the future and beyond it lies freedom! Confusion is next, and next after that is
+                the truth!</p>
             <em>Thurston Moore</em>
         </article>
-        
-   
-     
-    
-   </section>
- 
+
+
+
+
+    </section>
+
     <section class='bg-slate-950'>
         <footer class="footer bg-stone-100  pt-8 mt-8">
             <section class="btn-section footer-container mt-32">
@@ -263,6 +265,7 @@
     <script type="module" src="./js/preloader.js"></script>
     <script type="module" src="./js/scrollmagic.js"></script>
     <script type="module" src="./js/stickynav.js"></script>
+    <script type="module" src="./js/scrollcolor.js"></script>
     <script type="module" src="./js/router.js"></script>
     <script type="module" src="./js/tinycli.js"></script>
 
