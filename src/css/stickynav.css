@@ -120,10 +120,7 @@ header.sticky .menuToggle {
 		color: #000;
 	}
 
-	.menuToggle {
-		display: block;
-		filter: invert(1);
-	}
+	
 
 	.menuToggle {
 		flex: 0 0 auto;

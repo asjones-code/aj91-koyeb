@@ -119,13 +119,14 @@ parcelRequire = (function (modules, cache, entry, globalName) {
   return newRequire;
 })({"js/stickynav.js":[function(require,module,exports) {
 var _this = this;
-//document.querySelector(".menuToggle").addEventListener("click", ToggleMenu);
-
+document.querySelector(".menuToggle").addEventListener("click", ToggleMenu);
 function ToggleMenu() {
-  //const menuToggle = document.querySelector('.menuToggle');
-  //const navigation = document.querySelector('.navigation');
-  //menuToggle.classList.toggle('active');
-  //navigation.classList.toggle('active');
+  var menuToggle = document.querySelector('.menuToggle');
+  var navigation = document.querySelector('.navigation');
+  var hamburger = document.querySelector('.hamburger');
+  var cross = document.querySelector('.cross');
+  menuToggle.classList.toggle('active');
+  navigation.classList.toggle('active');
 }
 window.addEventListener("scroll", function () {
   var header = document.querySelector("header");
@@ -173,7 +174,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "54282" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "51387" + '/');
   ws.onmessage = function (event) {
     checkedAssets = {};
     assetsToAccept = [];

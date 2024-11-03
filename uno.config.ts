@@ -53,6 +53,15 @@ export default defineConfig({
           },
 
         ],
+        kalam: [
+          {
+            name: 'Kalam',
+            weights: ['200','400', '700'],
+            italic: false,
+            provider: 'fontshare',
+          },
+
+        ],
         tabular: [
           {
             name: 'Tabular',
