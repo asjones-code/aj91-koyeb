@@ -58,7 +58,7 @@ export default defineConfig({
             name: 'Kalam',
             weights: ['200','400', '700'],
             italic: false,
-            provider: 'fontshare',
+            provider: 'google',
           },
 
         ],
