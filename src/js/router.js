@@ -94,7 +94,7 @@ gql(GET_USER_ARTICLES, { page: 0 })
         // Clear the em element and append the new link
         emElement.innerHTML = '';
         emElement.appendChild(linkElement);
-        linkElement.addEventListener("click", (event) => route(event, url, title, slug, md));
+        //linkElement.addEventListener("click", (event) => route(event, url, title, slug, md));
 
     });
 
