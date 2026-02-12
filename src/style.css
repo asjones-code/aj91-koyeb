@@ -777,12 +777,13 @@ table-of-contents .back-to-top {
   pointer-events: none;
 }
 
-table-of-contents:has(:not([href="#pre"]):target-current) .back-to-top {
+/* :target-current not supported by Parcel CSS; use :target fallback */
+table-of-contents:has(:not([href="#pre"]):target) .back-to-top {
   opacity: 1;
   pointer-events: all;
 }
 
-table-of-contents:has(:not([href="#pre"]):target-current) hr {
+table-of-contents:has(:not([href="#pre"]):target) hr {
   opacity: 0.5;
 }
 
@@ -831,12 +832,12 @@ table-of-contents nav > ol > li:first-of-type {
   anchor-name: --toc-active;
 }
 
-table-of-contents :not([href="#pre"]):target-current {
+table-of-contents :not([href="#pre"]):target {
   anchor-name: --toc-active;
   color: rgba(255, 255, 255, 0.95);
 }
 
-table-of-contents:has(:not([href="#pre"]):target-current)::after {
+table-of-contents:has(:not([href="#pre"]):target)::after {
   opacity: 1;
 }
 
