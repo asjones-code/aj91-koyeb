@@ -3,7 +3,18 @@
   "version": "0.0.1",
   "description": "An attempt at a minimal, elegant, and high-converting landing page",
   "default": "dist/index.html",
+  "source": [
+    "src/index.html",
+    "src/about.html",
+    "src/work.html"
+  ],
   "scripts": {
+    "build:globe": "node scripts/build-hero-globe.js",
+    "prestart": "npm run build:globe",
+    "prebuild": "npm run build:globe",
+    "dev": "parcel",
+    "start": "parcel",
+    "build": "parcel build",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -13,12 +24,15 @@
   "license": "ISC",
   "devDependencies": {
     "@unocss/cli": "^0.62.3",
+    "esbuild": "^0.24.0",
     "jquery": "^3.7.1",
-    "parcel": "^2.12.0",
+    "parcel": "2.14.0",
     "unocss": "^0.62.4",
     "unocss-preset-fluid": "^1.0.2"
   },
   "dependencies": {
+    "@barba/core": "^2.9.7",
+    "barba": "^1.0.0",
     "dat.gui": "^0.7.9",
     "gsap": "^3.12.5",
     "lenis": "^1.1.13",

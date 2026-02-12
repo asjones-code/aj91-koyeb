@@ -1,0 +1,30 @@
+.quotes {
+  position: relative;
+  top: 20px;
+  bottom: 20px;
+  left: 0;
+}
+
+.quotes article {
+  text-align: justify;
+  color: #333;
+  background: #fff;
+  border-bottom: 1px dashed #ddd;
+  max-width: 620px;
+  margin: 0 auto;
+  padding: 80px 40px;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.quotes article em {
+  color: #666;
+  font-size: 12px;
+  font-style: normal;
+}
+
+.quotes article em:before {
+  content: "~";
+  margin: 0 10px;
+}
+/*# sourceMappingURL=index.0f9f9f78.css.map */

@@ -1,0 +1,8 @@
+#blob canvas {
+  opacity: 0;
+  width: 800px;
+  height: 600px;
+  transition: opacity .5s;
+  display: block;
+}
+/*# sourceMappingURL=index.c10fccd8.css.map */
