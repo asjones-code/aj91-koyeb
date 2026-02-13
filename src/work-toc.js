@@ -1,10 +1,28 @@
 /**
  * Generates the table of contents for the Work page from article headings.
- * Uses <table-of-contents> and scroll-target-group / :target-current for the indicator effect.
+ * Sticky sidebar on desktop; on mobile, hide/show via toggle. Anchor links scroll to sections.
  */
-function generateTableOfContents() {
+let tocToggleListenerAdded = false;
+
+function initTOCToggleOnce() {
+  if (tocToggleListenerAdded) return;
+  tocToggleListenerAdded = true;
+  document.body.addEventListener("click", (e) => {
+    const toggle = e.target.closest("#work-toc-toggle");
+    if (!toggle) return;
+    e.preventDefault();
+    document.body.classList.toggle("sidebar-visible");
+    toggle.setAttribute("aria-expanded", String(document.body.classList.contains("sidebar-visible")));
+  });
+}
+
+export function generateTableOfContents() {
+  initTOCToggleOnce();
+
   const tocElement = document.querySelector("table-of-contents");
   if (!tocElement) return;
+
+  tocElement.replaceChildren(); /* avoid duplicate nav when run twice (e.g. Barba + module init) */
 
   const article = document.querySelector(".page-work-article") || document.querySelector("article");
   if (!article) return;
@@ -35,6 +53,7 @@ function generateTableOfContents() {
         if (!item.id) item.id = id;
 
         link.href = `#${id}`;
+        link.className = "sidebar-link";
         link.textContent = item.textContent.trim();
 
         listItem.appendChild(link);
@@ -84,7 +103,61 @@ function generateTableOfContents() {
   `;
 
   nav.appendChild(backToTop);
+
+  const backToHome = document.createElement("div");
+  backToHome.classList.add("back-to-home");
+  backToHome.innerHTML = `<a href="/" class="font-mono" aria-label="Back to home">← Back to home</a>`;
+  nav.appendChild(backToHome);
+
   tocElement.appendChild(nav);
+
+  // Smooth scroll to section on TOC link click (works with hash and SPA)
+  tocElement.querySelectorAll("nav a[href^='#']").forEach((a) => {
+    a.addEventListener("click", (e) => {
+      const id = a.getAttribute("href").slice(1);
+      if (!id) return;
+      const target = document.getElementById(id);
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        history.replaceState(null, "", `#${id}`);
+        document.body.classList.remove("sidebar-visible");
+      }
+    });
+  });
+
+  tocElement.querySelectorAll("nav .back-to-home a").forEach((a) => {
+    a.addEventListener("click", () => document.body.classList.remove("sidebar-visible"));
+  });
+
+  // Toggle listener is attached once via initTOCToggleOnce() (delegation on body).
+
+  // Scroll spy: set .active on the link for the section in view
+  const tocLinks = tocElement.querySelectorAll("nav .sidebar-link");
+  const sections = Array.from(tocLinks).map((a) => {
+    const id = a.getAttribute("href")?.slice(1);
+    return id ? document.getElementById(id) : null;
+  }).filter(Boolean);
+
+  if (sections.length > 0) {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const intersecting = entries.filter((e) => e.isIntersecting);
+        if (intersecting.length === 0) return;
+        const topmost = intersecting.reduce((a, b) =>
+          a.target.getBoundingClientRect().top < b.target.getBoundingClientRect().top ? a : b
+        );
+        const id = topmost.target.id;
+        tocLinks.forEach((link) => {
+          link.classList.toggle("active", link.getAttribute("href") === `#${id}`);
+        });
+      },
+      { rootMargin: "-15% 0px -70% 0px", threshold: 0 }
+    );
+    sections.forEach((el) => observer.observe(el));
+  }
 }
 
-generateTableOfContents();
+if (document.querySelector("table-of-contents")) {
+  generateTableOfContents();
+}
