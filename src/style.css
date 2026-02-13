@@ -1392,7 +1392,7 @@ html {
     top: auto;
     left: 0;
     right: auto;
-    bottom: calc(38vh + max(1rem, env(safe-area-inset-bottom)));
+    bottom: calc(19vh + max(1rem, env(safe-area-inset-bottom)));
     width: 140px;
     padding: 2rem 1rem;
     align-items: flex-end;
