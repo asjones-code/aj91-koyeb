@@ -1070,6 +1070,7 @@ html {
   min-height: 100vh;
   min-height: 100dvh;
   min-height: var(--vh, 100vh);
+  background-color: #151513;
 }
 
 .hero-section {
@@ -1338,8 +1339,23 @@ html {
 }
 
 /* Mobile: center terminal like a card with equal side margins, fluid width */
+/* Also: use var(--vh) so iOS Safari fills when toolbar hides (no grey gap) */
 @media (max-width: 768px) {
+  html,
+  body,
+  .container {
+    height: auto;
+    min-height: var(--vh, 100vh);
+  }
+
+  .layout-morph,
+  .hero-zone {
+    min-height: var(--vh, 100svh);
+  }
+
   .hero-section {
+    min-height: var(--vh, 100svh);
+    height: auto;
     padding-top: calc(72px + 2.0rem);
     justify-content: flex-start;
   }
