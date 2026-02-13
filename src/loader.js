@@ -232,7 +232,8 @@ function initWorkHeaderPinch() {
 	const raw = Math.max(0, Math.min(1, lenis.scroll / WORK_HEADER_SCROLL_END_PX));
 	workHeaderSmoothedP = raw;
 	header.style.setProperty("--work-header-pinch", String(smoothstep(raw)));
-	// Clear navTick-driven inline styles so work page CSS (pinch/::before) controls the header
+	// Clear nav pill var and any inline styles so work page CSS (pinch/::before) controls the header
+	header.style.removeProperty("--nav-pill-p");
 	header.style.removeProperty("opacity");
 	header.style.removeProperty("margin-top");
 	header.style.removeProperty("background");
@@ -260,11 +261,13 @@ function initMenuToggle() {
 	const terminalWrap = document.querySelector(".content-cta.term");
 	if (!toggle || !layout || !heroSection) return;
 
-	const isMobile = () => window.matchMedia("(max-width: 768px)").matches;
+	const menuBreakpoint = window.matchMedia("(max-width: 768px)");
+	const isMobile = () => menuBreakpoint.matches;
 	const menuEase = "power2.inOut";
-	const menuDuration = { open: 0.65, close: 0.5 };
+	const menuDuration = { open: 0.5, close: 0.5 };
 
 	let isOpen = false;
+	let lastMobile = isMobile();
 	/** @type {{ top: number; left: number; width: number; height: number } | null} */
 	let savedTerminalRect = null;
 
@@ -288,25 +291,34 @@ function initMenuToggle() {
 
 		if (isMobile() && contentMain && terminalWrap) {
 			const terminalEl = terminalWrap.querySelector("#terminal");
-			const d = menuDuration.open;
+			const dc = menuDuration.close;
 			// Freeze hero-content height so when terminal goes fixed, text doesn't drop
 			if (heroContent) {
 				heroContent.style.minHeight = `${heroContent.offsetHeight}px`;
 			}
-			// Capture terminal position/size before we change anything (for smooth open + reverse on close)
+			// Capture terminal position/size (same slide+resize on open and close)
 			const rect = terminalWrap.getBoundingClientRect();
 			savedTerminalRect = { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
-			// Globe: scale down 20%
-			if (heroImg) tl.to(heroImg, { scale: 0.8, duration: d, ease: menuEase }, 0);
-			// Text: swipe out upwards from current position (no reflow = no teleport)
+			// Menu-open target in pixels so open = slide+resize like close (no %/vh scale feel)
+			const openTop = window.innerHeight * 0.1;
+			const openHeight = Math.min(window.innerHeight * 0.32, 320);
+			const openWidth = Math.min(320, window.innerWidth * 0.9);
+			const openLeft = (window.innerWidth - openWidth) / 2;
+
+			// Open = exact reverse of close: (1) text swipes out first, (2) then terminal + cards + nav + globe animate together
+			// 1) Text: swipe out (reverse of close’s “swipe back in”) — same duration/ease as close’s text
 			tl.to(contentMain, {
 				y: -140,
 				opacity: 0,
 				pointerEvents: "none",
-				duration: d * 0.7,
+				duration: dc * 0.75,
 				ease: "power2.in"
 			}, 0);
-			// Terminal: smooth animation from current position/size to top-third card (position + size)
+			// 2) At same delay as close’s text (dc*0.2): terminal repositions, cards/nav slide in, globe scales — mirror of close
+			const repositionStart = dc * 0.2;
+			const terminalDur = dc * 0.85;
+			const cardsNavDur = dc * 0.8;
+			if (heroImg) tl.to(heroImg, { scale: 0.8, duration: dc, ease: menuEase }, repositionStart);
 			tl.fromTo(terminalWrap, {
 				position: "fixed",
 				top: rect.top,
@@ -321,21 +333,20 @@ function initMenuToggle() {
 				maxWidth: "none",
 				maxHeight: "none"
 			}, {
-				top: "10%",
-				left: "50%",
-				xPercent: -50,
-				width: "90%",
-				maxWidth: 320,
-				height: "32vh",
-				maxHeight: "32vh",
+				top: openTop,
+				left: openLeft,
+				width: openWidth,
+				height: openHeight,
+				maxWidth: "none",
+				maxHeight: "none",
 				borderRadius: 16,
 				boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-				duration: d,
+				duration: terminalDur,
 				ease: menuEase
-			}, 0)
-				.to(terminalEl, { height: "100%", duration: d * 0.65, ease: menuEase }, 0.05)
-				.fromTo(navRail, { x: "-100%", opacity: 0 }, { x: 0, opacity: 1, duration: d * 0.85, ease: menuEase }, 0.1)
-				.fromTo(menuCardsWrap, { x: "100%", opacity: 0 }, { x: 0, opacity: 1, duration: d * 0.85, ease: menuEase }, 0.16);
+			}, repositionStart)
+				.to(terminalEl, { height: openHeight, duration: terminalDur, ease: menuEase }, repositionStart)
+				.fromTo(menuCardsWrap, { x: "100%", opacity: 0 }, { x: 0, opacity: 1, duration: cardsNavDur, ease: menuEase }, repositionStart)
+				.fromTo(navRail, { x: "-100%", opacity: 0 }, { x: 0, opacity: 1, duration: cardsNavDur, ease: menuEase }, repositionStart + 0.05);
 		} else {
 			tl.to(heroSection, { scale: 0.3, duration: 0.6 }, 0)
 				.fromTo(navRail, { x: "-100%", opacity: 0 }, { x: 0, opacity: 1, duration: 0.5 }, 0.1)
@@ -417,6 +428,26 @@ function initMenuToggle() {
 			if (isOpen) closeMenu();
 		});
 	}
+
+	// When viewport crosses the mobile/desktop breakpoint (e.g. device emulation, resize),
+	// close the menu so we never end up with desktop open state + mobile CSS or vice versa
+	function onBreakpointChange() {
+		const nowMobile = isMobile();
+		if (nowMobile !== lastMobile && isOpen) {
+			closeMenu();
+		}
+		lastMobile = nowMobile;
+	}
+	menuBreakpoint.addEventListener("change", onBreakpointChange);
+	let resizeTicking = false;
+	window.addEventListener("resize", () => {
+		if (resizeTicking) return;
+		resizeTicking = true;
+		requestAnimationFrame(() => {
+			onBreakpointChange();
+			resizeTicking = false;
+		});
+	});
 }
 
 // ——— Nav: Lenis RAF only (no scroll listeners). Position = baseline, velocity = transient. ———
@@ -566,20 +597,7 @@ function navTick() {
 	const headerScrollP = smoothstep(effectiveP);
 	const header = inner.closest(".header");
 	if (header) {
-		if (header !== navLastHeaderEl) {
-			navLastHeaderEl = header;
-			navSetHeaderOpacity = gsap.quickSetter(header, "opacity");
-			navSetHeaderMargin = gsap.quickSetter(header, "marginTop");
-		}
-		if (navSetHeaderOpacity && navSetHeaderMargin) {
-			navSetHeaderOpacity(0.95 + 0.05 * headerScrollP);
-			navSetHeaderMargin(`${12 * headerScrollP}px`);
-			header.style.background = `rgba(37, 32, 28, ${0.75 * headerScrollP})`;
-			header.style.backdropFilter = `blur(${12 * headerScrollP}px)`;
-			header.style.webkitBackdropFilter = `blur(${12 * headerScrollP}px)`;
-			header.style.boxShadow = `0 4px 24px rgba(0, 0, 0, ${0.2 * headerScrollP})`;
-			header.style.borderRadius = `${9999 * headerScrollP}px`;
-		}
+		header.style.setProperty("--nav-pill-p", String(headerScrollP));
 		if (effectiveP > 0.02) header.classList.add("is-scrolled");
 		else header.classList.remove("is-scrolled");
 	}
@@ -609,13 +627,7 @@ function initNavIndicator() {
 	});
 	const header = inner.closest(".header");
 	if (header) {
-		header.style.opacity = String(0.95 + 0.05 * p);
-		header.style.marginTop = `${12 * p}px`;
-		header.style.background = `rgba(37, 32, 28, ${0.75 * p})`;
-		header.style.backdropFilter = `blur(${12 * p}px)`;
-		header.style.webkitBackdropFilter = `blur(${12 * p}px)`;
-		header.style.boxShadow = `0 4px 24px rgba(0, 0, 0, ${0.2 * p})`;
-		header.style.borderRadius = `${9999 * p}px`;
+		header.style.setProperty("--nav-pill-p", String(p));
 		if (p > 0.02) header.classList.add("is-scrolled");
 		else header.classList.remove("is-scrolled");
 	}
@@ -664,7 +676,9 @@ barba.hooks.after((data) => {
 	if (data.next.namespace === "work") {
 		document.body.classList.add("page-is-work");
 		// TOC is only in work.html; when we arrive via Barba the script didn’t run, so generate it
-		import("./work-toc.js");
+		requestAnimationFrame(() => {
+			import("./work-toc.js").then((m) => m.generateTableOfContents?.());
+		});
 		// Ensure the work container is visible (transition can leave it hidden)
 		data.next.container.style.opacity = "1";
 		// Smooth scroll-linked header pinch (100% → 50% by scroll %)

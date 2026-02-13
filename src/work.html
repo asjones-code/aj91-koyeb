@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Work — AJ91</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
 </head>
 <body data-barba="wrapper">
   <div class="container">
@@ -13,8 +14,8 @@
         <a href="/" class="header-logo logo word font-kihim">aj91</a>
         <nav class="header-nav navigation" aria-label="Main">
           <ul>
-            <li><a class="font-mono" href="https://www.linkedin.com/in/asjones91/">Linkedin</a></li>
-            <li><a class="font-mono" href="https://aj91.substack.com/">Substack</a></li>
+            <li><a class="font-mono" href="https://www.linkedin.com/in/asjones91/" aria-label="LinkedIn"><i class="fa-brands fa-linkedin" aria-hidden="true"></i><span class="nav-text">Linkedin</span></a></li>
+            <li><a class="font-mono" href="https://aj91.substack.com/" aria-label="Substack"><i class="fa-solid fa-newspaper" aria-hidden="true"></i><span class="nav-text">Substack</span></a></li>
           </ul>
         </nav>
         <button class="menuToggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="menu-panel" aria-label="Toggle menu">
@@ -32,19 +33,12 @@
     </header>
 
     <main data-barba="container" data-barba-namespace="work">
-      <div class="page-work layout-morph menu-open">
-        <div class="hero-zone page-work-hero">
-          <table-of-contents></table-of-contents>
-          <div class="page-about-hero-placeholder">
-            <span class="page-about-hero-label">Home</span>
-            <a href="/" class="page-about-back font-mono">← Back</a>
-          </div>
-        </div>
+      <div class="page-work layout-morph">
         <div class="page-work-content">
           <header id="pre" class="page-work-header">
             <h1 class="page-work-title fluid">Adam Jones</h1>
             <div class="page-work-author">
-              <span class="font-mono">asjones91@gmail.com · +1 (212) 729-7117</span>
+              <span class="font-mono">asjones91@gmail.com · +1 (646) 504-4570</span>
             </div>
           </header>
           <article class="page-work-article">
@@ -70,6 +64,13 @@
               <p class="page-work-meta">Atlanta, GA · Dec 2018 – Feb 2020</p>
               <p class="page-about-body">Sendwave lets people send money to family abroad simply and cheaply. I ran growth: onboarding new users, tuning the funnel, and making sure we showed up where our customers were. We grew users and revenue sharply—Sendwave later joined WorldRemit (Zepz) in a large acquisition, and that growth was part of the story. I also brought in influencer partnerships and other channels to bring cost per acquisition down and keep growth efficient.</p>
             </section>
+            <section id="ventures">
+              <h2>Ventures</h2>
+              <h3 id="goodgrow">Goodgrow — Founder & CEO</h3>
+              <p class="page-work-meta">[Location] · [Dates]</p>
+              <p class="page-about-body">I founded Goodgrow to build modern supply chains rooted in regeneration — connecting artisan producers to markets in ways that restore ecosystems and strengthen local economies.</p>
+              <p class="page-about-body">As CEO, I focus on sourcing differentiated raw materials, structuring partnerships with producers, and raising the capital required to scale responsibly. The goal is to build a commercially durable platform where high-quality, values-aligned products can compete on both margins and mission.</p>
+            </section>
             <section id="projects">
               <h2>Projects</h2>
               <h3 id="rootwise">Rootwise, Research Analyst</h3>
@@ -81,6 +82,20 @@
               <a href="/AJ_CV_Q42025-1.pdf" class="link" download>Download PDF</a>
             </p>
           </article>
+        </div>
+        <div class="page-work-sidebar-wrapper">
+          <button type="button" class="sidebar-toggle" id="work-toc-toggle" aria-label="Toggle table of contents" aria-expanded="false">
+            <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+          </button>
+          <div class="page-work-sidebar-container">
+            <div class="page-work-sidebar">
+              <table-of-contents></table-of-contents>
+            </div>
+            <div class="page-about-hero-placeholder">
+              <span class="page-about-hero-label">Home</span>
+              <a href="/" class="page-about-back font-mono">← Back</a>
+            </div>
+          </div>
         </div>
       </div>
     </main>
