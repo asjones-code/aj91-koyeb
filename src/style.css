@@ -458,6 +458,12 @@ body.menu-open {
   border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
+@media (max-width: 768px) {
+  .nav-badge {
+    border-radius: 8px;
+  }
+}
+
 .nav-badge:hover {
   background: rgba(255, 255, 255, 0.12);
 }
@@ -520,13 +526,13 @@ body.menu-open {
   line-height: 1.35;
 }
 
-/* Mobile: menu cards as a horizontal slider below terminal, aligned left to terminal */
+/* Mobile: menu cards as a horizontal slider at bottom of viewport */
 @media (max-width: 768px) {
   .layout-morph.menu-open .menu-cards {
-    top: calc(100svh - 20rem - 1rem);
+    top: auto;
     right: auto;
     left: 4%;
-    bottom: auto;
+    bottom: 0;
     width: 92%;
     max-width: 480px;
     height: auto;
@@ -1325,10 +1331,17 @@ html {
 
 /* Mobile: center terminal like a card with equal side margins, fluid width */
 @media (max-width: 768px) {
+  .hero-section {
+    padding-top: calc(72px + 2.0rem);
+    justify-content: flex-start;
+  }
+
   .hero-content {
     flex-direction: column;
     align-items: flex-start;
     gap: 1.5rem;
+    padding-top: 0;
+    margin-top: 0.5rem;
   }
 
   .content-cta.term {
@@ -1344,14 +1357,17 @@ html {
     width: 100%;
     min-width: 0; /* allow shrinking so 92% works */
     max-width: none;
+    max-height: 18rem;
   }
 
-  /* Add padding to nav-rail on mobile */
+  /* Add padding to nav-rail on mobile - position above menu cards at bottom */
   .nav-rail {
+    top: auto;
+    bottom: calc(18vh + max(1rem, env(safe-area-inset-bottom)));
+    width: 140px;
     padding: 2rem 1rem;
     align-items: flex-end;
-    justify-content: flex-start;
-    padding-top: calc(10vh + 2rem);
+    justify-content: flex-end;
     padding-left: 1.5rem;
   }
 
