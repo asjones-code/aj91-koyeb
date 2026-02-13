@@ -120,6 +120,12 @@ body {
   }
 }
 
+@media (max-width: 768px) {
+  .preloader-logo p {
+    font-size: 2.55rem;
+  }
+}
+
 
 
 button {
@@ -514,15 +520,15 @@ body.menu-open {
   line-height: 1.35;
 }
 
-/* Mobile: menu cards as a horizontal slider at the bottom (like reference) */
+/* Mobile: menu cards as a horizontal slider below terminal, aligned left to terminal */
 @media (max-width: 768px) {
   .layout-morph.menu-open .menu-cards {
-    top: auto;
+    top: calc(100svh - 20rem - 1rem);
     right: auto;
-    left: 0;
-    bottom: 0;
-    width: 100%;
-    max-width: none;
+    left: 4%;
+    bottom: auto;
+    width: 92%;
+    max-width: 480px;
     height: auto;
     max-height: 38vh;
     flex-direction: row;
@@ -530,7 +536,8 @@ body.menu-open {
     align-items: stretch;
     justify-content: flex-start;
     gap: 1rem;
-    padding: 1rem 1rem max(1rem, env(safe-area-inset-bottom));
+    padding: 1rem 1rem 1rem 1.5rem;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
     overflow-x: auto;
     overflow-y: hidden;
     scroll-snap-type: x mandatory;
@@ -1057,7 +1064,7 @@ html {
   justify-content: flex-end;
   position: relative;
   height: 100svh;
-  border-radius: 3rem;
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -1132,14 +1139,14 @@ html {
 
 .content-cta {
   position: relative;
-  max-width: 400px;
+  max-width: 480px;
 }
 
 .content-cta.term #terminal,
 .content-cta.term .term {
   height: 20rem;
   min-width: 300px;
-  max-width: 400px;
+  max-width: 480px;
   background: #111;
   border: 1px solid #252525;
   border-radius: 0.5rem;
@@ -1320,14 +1327,16 @@ html {
 @media (max-width: 768px) {
   .hero-content {
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     gap: 1.5rem;
   }
 
   .content-cta.term {
     width: 92%;
-    max-width: 400px;
+    max-width: 480px;
     margin-inline: auto;
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
   }
 
   .content-cta.term #terminal,
@@ -1335,5 +1344,18 @@ html {
     width: 100%;
     min-width: 0; /* allow shrinking so 92% works */
     max-width: none;
+  }
+
+  /* Add padding to nav-rail on mobile */
+  .nav-rail {
+    padding: 2rem 1rem;
+    align-items: flex-end;
+    justify-content: flex-start;
+    padding-top: calc(10vh + 2rem);
+    padding-left: 1.5rem;
+  }
+
+  .nav-rail-inner {
+    align-items: flex-start;
   }
 }
