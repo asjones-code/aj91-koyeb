@@ -7,6 +7,18 @@ import Splitting from "splitting";
 
 gsap.registerPlugin(CustomEase, ScrollTrigger);
 
+// iOS Safari: set --vh from visual viewport so full-height fills when toolbar hides/shows
+function setViewportHeightVar() {
+	const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+	document.documentElement.style.setProperty("--vh", `${vh}px`);
+}
+setViewportHeightVar();
+if (typeof window.visualViewport !== "undefined") {
+	window.visualViewport.addEventListener("resize", setViewportHeightVar);
+	window.visualViewport.addEventListener("scroll", setViewportHeightVar);
+}
+window.addEventListener("resize", setViewportHeightVar);
+
 // Lenis smooth scroll – keeps scroll-linked effects (e.g. work header pinch) from jittering
 const lenis = new Lenis({
 	lerp: 0.08,
