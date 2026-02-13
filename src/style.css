@@ -534,6 +534,7 @@ body.menu-open {
 /* Mobile: menu cards as a horizontal slider at bottom of viewport */
 @media (max-width: 768px) {
   .layout-morph.menu-open .menu-cards {
+    position: fixed;
     top: auto;
     right: auto;
     left: 4%;
@@ -553,6 +554,7 @@ body.menu-open {
     overflow-y: hidden;
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
+    z-index: 25;
   }
 
   .layout-morph.menu-open .menu-card {
@@ -1384,15 +1386,19 @@ html {
     max-height: 18rem;
   }
 
-  /* Add padding to nav-rail on mobile - position above menu cards at bottom */
+  /* Add padding to nav-rail on mobile - position above menu cards at bottom (fixed so not cut off when page scrolls) */
   .nav-rail {
+    position: fixed;
     top: auto;
-    bottom: calc(18vh + max(1rem, env(safe-area-inset-bottom)));
+    left: 0;
+    right: auto;
+    bottom: calc(38vh + max(1rem, env(safe-area-inset-bottom)));
     width: 140px;
     padding: 2rem 1rem;
     align-items: flex-end;
     justify-content: flex-end;
     padding-left: 1.5rem;
+    z-index: 24;
   }
 
   .nav-rail-inner {
