@@ -34,6 +34,7 @@ body {
   overflow-x: hidden;
   min-height: 100vh;
   min-height: 100dvh;
+  min-height: var(--vh, 100vh);
 }
 .logo-text,
 .font-kihim {
@@ -48,6 +49,7 @@ body {
   width: 100%;
   min-height: 100vh;
   min-height: 100dvh;
+  min-height: var(--vh, 100vh);
 }
 
 .wrapper {
@@ -1067,6 +1069,7 @@ html {
   scroll-padding-top: 2rem;
   min-height: 100vh;
   min-height: 100dvh;
+  min-height: var(--vh, 100vh);
 }
 
 .hero-section {
