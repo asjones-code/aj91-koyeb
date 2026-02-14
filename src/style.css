@@ -126,8 +126,12 @@ body {
 }
 
 @media (max-width: 768px) {
+  .preloader-logo {
+    padding: 0 2.5rem;
+  }
   .preloader-logo p {
-    font-size: 2.55rem;
+    font-size: 2.4rem;
+    padding: 0.15em 0;
   }
 }
 
@@ -247,6 +251,9 @@ body.page-is-work .header .cross span {
   font-size: clamp(1rem, 2vw, 2em);
   letter-spacing: 2px;
   transition: color 0.25s ease;
+  overflow: visible;
+  line-height: 1.2;
+  padding: 0.1em 0;
 }
 
 .header.is-scrolled .header-logo.logo {
@@ -283,6 +290,13 @@ body.page-is-work .header .cross span {
 }
 
 @media (max-width: 750px) {
+  .header,
+  .header-inner {
+    overflow: visible;
+  }
+  .header-logo.logo {
+    padding: 0.15em 0;
+  }
   .header-nav .nav-text {
     display: none;
   }
