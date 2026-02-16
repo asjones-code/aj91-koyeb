@@ -94,31 +94,8 @@ function parseYouTubeItemFromXml(itemEl) {
   };
 }
 
-async function fetchYouTubeViaProxy(rssUrl) {
-  const proxies = [
-    () => "https://corsproxy.io/?" + encodeURIComponent(rssUrl),
-    () => "https://api.allorigins.win/raw?url=" + encodeURIComponent(rssUrl),
-  ];
-  for (const toUrl of proxies) {
-    try {
-      const res = await fetch(toUrl(), { signal: AbortSignal.timeout(5000) });
-      if (!res.ok) continue;
-      const xml = await res.text();
-      if (!xml || xml.length < 200) continue;
-      const doc = new DOMParser().parseFromString(xml, "text/xml");
-      const parseError = doc.querySelector("parsererror");
-      if (parseError) continue;
-      const atom = "http://www.w3.org/2005/Atom";
-      const entries = doc.getElementsByTagNameNS?.(atom, "entry") || doc.querySelectorAll("entry");
-      if (!entries.length) continue;
-      const item = parseYouTubeItemFromXml(entries[0]);
-      if (item && item.url) return [item];
-    } catch {
-      /* try next proxy */
-    }
-  }
-  return [];
-}
+// Removed corsproxy.io fallback - it returns 403 in production
+// Now relies on serverless function or rss2json only
 
 async function fetchYouTube() {
   if (!YOUTUBE_CHANNEL_ID) return [];
@@ -134,7 +111,7 @@ async function fetchYouTube() {
   } catch (err) {
     // Silently fallback - serverless function might not be deployed
   }
-  // Fallback: CORS proxies (slower, less reliable)
+  // Fallback: rss2json (no CORS proxies - they return 403 in prod)
   try {
     const rssUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=" + YOUTUBE_CHANNEL_ID;
     const url =
@@ -142,10 +119,10 @@ async function fetchYouTube() {
       encodeURIComponent(rssUrl) +
       "&count=1";
     const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return await fetchYouTubeViaProxy(rssUrl);
+    if (!res.ok) return [];
     const data = await res.json();
     if (data.status === "error" || !Array.isArray(data.items) || !data.items.length) {
-      return await fetchYouTubeViaProxy(rssUrl);
+      return [];
     }
     const raw = data.items;
     const items = raw.map((item) => {
@@ -166,63 +143,30 @@ async function fetchYouTube() {
     });
     return items.slice(0, 1);
   } catch {
-    return await fetchYouTubeViaProxy(rssUrl);
+    return [];
   }
 }
 
 const GOODGROW_RSS_URL = "https://www.goodgrow.io/projects/rss.xml";
 const GOODGROW_PROJECTS_URL = "https://www.goodgrow.io/our-projects";
 
-async function fetchViaProxy(targetUrl) {
-  const proxies = [
-    () => "https://corsproxy.io/?" + encodeURIComponent(targetUrl),
-    () => "https://api.allorigins.win/raw?url=" + encodeURIComponent(targetUrl),
-  ];
-  for (const toUrl of proxies) {
-    try {
-      const res = await fetch(toUrl(), { signal: AbortSignal.timeout(5000) });
-      if (!res.ok) continue;
-      return await res.text();
-    } catch {
-      /* try next proxy */
-    }
-  }
-  return null;
-}
+// Removed fetchViaProxy - corsproxy.io returns 403 in production
+// GoodGrow now uses rss2json for RSS feed instead
 
-/** Get the most recent project page URL from RSS or our-projects listing. */
+/** Get the most recent project page URL from RSS feed via rss2json. */
 async function getGoodgrowFirstProjectUrl() {
   try {
     const url = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(GOODGROW_RSS_URL) + "&count=1";
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     if (res.ok) {
       const data = await res.json();
-      const link = data?.items?.[0]?.link || data?.items?.[0]?.url;
-      if (link) return link.trim();
+      if (data.status === "ok" && data.items && data.items.length) {
+        const link = data.items[0].link || data.items[0].url;
+        if (link) return link.trim();
+      }
     }
   } catch {
     /* ignore */
-  }
-  const xml = await fetchViaProxy(GOODGROW_RSS_URL);
-  if (xml && xml.length > 200) {
-    const doc = new DOMParser().parseFromString(xml, "text/xml");
-    const item = doc.querySelector("item");
-    const entry = doc.querySelector("entry");
-    const first = item || entry;
-    if (first) {
-      const linkEl = first.querySelector("link[href]") || first.querySelector("link");
-      const link = linkEl ? (linkEl.getAttribute("href") || linkEl.textContent || "").trim() : "";
-      if (link) return link.startsWith("http") ? link : "https://www.goodgrow.io" + (link.startsWith("/") ? "" : "/") + link;
-    }
-  }
-  const html = await fetchViaProxy(GOODGROW_PROJECTS_URL);
-  if (html) {
-    const doc = new DOMParser().parseFromString(html, "text/html");
-    for (const a of doc.querySelectorAll('a[href*="/projects/"]')) {
-      const href = (a.getAttribute("href") || "").trim();
-      if (!href || href.includes("project-categories") || href === "/our-projects") continue;
-      return href.startsWith("http") ? href : "https://www.goodgrow.io" + (href.startsWith("/") ? "" : "/") + href;
-    }
   }
   return null;
 }
@@ -262,12 +206,29 @@ async function fetchGoodgrow() {
   } catch (err) {
     // Silently fallback - serverless function might not be deployed
   }
-  // Fallback: CORS proxies (slower, less reliable)
-  const projectUrl = await getGoodgrowFirstProjectUrl();
-  if (!projectUrl) return [];
-  const html = await fetchViaProxy(projectUrl);
-  if (!html || html.length < 100) return [];
-  return [scrapeGoodgrowProjectPage(html, projectUrl)];
+  // Fallback: Use rss2json to get project data directly from RSS (no HTML scraping needed)
+  try {
+    const url = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(GOODGROW_RSS_URL) + "&count=1";
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (data.status === "ok" && data.items && data.items.length) {
+      const item = data.items[0];
+      return [
+        {
+          source: "GoodGrow",
+          title: item.title || "Project",
+          excerpt: truncate((item.contentSnippet || item.description || "").replace(/<[^>]+>/g, " ").trim()) || "Latest from GoodGrow",
+          url: item.link || item.url || "",
+          thumbnail: item.thumbnail || (item.enclosure && item.enclosure.url) || "",
+          publishedAt: item.pubDate || item.published || item.isoDate || "",
+        },
+      ];
+    }
+  } catch {
+    return [];
+  }
+  return [];
 }
 
 async function fetchHashnode() {
