@@ -46,7 +46,7 @@ function parseRss2JsonResponse(data) {
 async function fetchSubstack() {
   try {
     const url = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent("https://aj91.substack.com/feed");
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return [];
     const data = await res.json();
     const items = parseRss2JsonResponse(data).map((item) => normalizeRssItem(item, "Substack"));
@@ -101,7 +101,7 @@ async function fetchYouTubeViaProxy(rssUrl) {
   ];
   for (const toUrl of proxies) {
     try {
-      const res = await fetch(toUrl(), { signal: AbortSignal.timeout(12000) });
+      const res = await fetch(toUrl(), { signal: AbortSignal.timeout(5000) });
       if (!res.ok) continue;
       const xml = await res.text();
       if (!xml || xml.length < 200) continue;
@@ -122,13 +122,25 @@ async function fetchYouTubeViaProxy(rssUrl) {
 
 async function fetchYouTube() {
   if (!YOUTUBE_CHANNEL_ID) return [];
+  // Try serverless function first (with caching)
+  try {
+    const apiUrl = "/api/writing-feed?source=youtube";
+    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(5000) });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.title && !data.error) return [data];
+    }
+  } catch {
+    /* fallback to CORS proxies */
+  }
+  // Fallback: CORS proxies (slower, less reliable)
   try {
     const rssUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=" + YOUTUBE_CHANNEL_ID;
     const url =
       "https://api.rss2json.com/v1/api.json?rss_url=" +
       encodeURIComponent(rssUrl) +
       "&count=1";
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return await fetchYouTubeViaProxy(rssUrl);
     const data = await res.json();
     if (data.status === "error" || !Array.isArray(data.items) || !data.items.length) {
@@ -167,7 +179,7 @@ async function fetchViaProxy(targetUrl) {
   ];
   for (const toUrl of proxies) {
     try {
-      const res = await fetch(toUrl(), { signal: AbortSignal.timeout(12000) });
+      const res = await fetch(toUrl(), { signal: AbortSignal.timeout(5000) });
       if (!res.ok) continue;
       return await res.text();
     } catch {
@@ -238,6 +250,18 @@ function scrapeGoodgrowProjectPage(html, pageUrl) {
 }
 
 async function fetchGoodgrow() {
+  // Try serverless function first (with caching)
+  try {
+    const apiUrl = "/api/writing-feed?source=goodgrow";
+    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(5000) });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.title && !data.error) return [data];
+    }
+  } catch {
+    /* fallback to CORS proxies */
+  }
+  // Fallback: CORS proxies (slower, less reliable)
   const projectUrl = await getGoodgrowFirstProjectUrl();
   if (!projectUrl) return [];
   const html = await fetchViaProxy(projectUrl);
@@ -268,7 +292,7 @@ async function fetchHashnode() {
         }`,
         variables: { host: "aj91.hashnode.dev", first: 1 },
       }),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return [];
     const json = await res.json();
@@ -422,19 +446,12 @@ function showLoading(container) {
   `;
 }
 
-function renderCards(container, items) {
-  container.classList.remove("writing-cards--loading");
-  container.innerHTML = "";
-  if (!items.length) {
-    container.innerHTML = '<p class="writing-feed-fallback">Writing feed unavailable</p>';
-    return;
-  }
-  const sorted = sortByDate(items).slice(0, MAX_CARDS);
-  const fragment = document.createDocumentFragment();
-  sorted.forEach((article, i) => fragment.appendChild(createCardElement(article, i)));
-  container.appendChild(fragment);
+let allItems = [];
+let observer = null;
 
-  const observer = new IntersectionObserver(
+function setupObserver(container) {
+  if (observer) observer.disconnect();
+  observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
         if (entry.isIntersecting) entry.target.classList.add("writing-card--visible");
@@ -445,23 +462,64 @@ function renderCards(container, items) {
   container.querySelectorAll(".writing-card").forEach((el) => observer.observe(el));
 }
 
+function renderCards(container, items) {
+  container.classList.remove("writing-cards--loading");
+  if (!items.length) {
+    if (container.querySelector(".writing-card")) return; // Keep existing cards if any
+    container.innerHTML = '<p class="writing-feed-fallback">Writing feed unavailable</p>';
+    return;
+  }
+  const sorted = sortByDate(items).slice(0, MAX_CARDS);
+  container.innerHTML = "";
+  const fragment = document.createDocumentFragment();
+  sorted.forEach((article, i) => {
+    const card = createCardElement(article, i);
+    fragment.appendChild(card);
+  });
+  container.appendChild(fragment);
+  setupObserver(container);
+}
+
+function addCards(container, newItems) {
+  if (!newItems || !newItems.length) return;
+  allItems = [...allItems, ...newItems];
+  renderCards(container, allItems);
+}
+
 export function init() {
   const container = document.getElementById("writing-cards");
   if (!container) return;
 
   showLoading(container);
+  allItems = [];
 
-  (async () => {
-    const [substack, youtube, hashnode, goodgrow] = await Promise.all([
-      fetchSubstack(),
-      fetchYouTube(),
-      fetchHashnode(),
-      fetchGoodgrow(),
-    ]);
-    const merged = [...substack, ...youtube, ...hashnode, ...goodgrow];
-    const items = merged.length ? merged : loadFallback();
-    renderCards(container, items);
-  })();
+  // Start all fetches in parallel, render as each completes
+  Promise.allSettled([
+    fetchSubstack().then((items) => {
+      if (items && items.length) addCards(container, items);
+    }),
+    fetchYouTube().then((items) => {
+      if (items && items.length) addCards(container, items);
+    }),
+    fetchHashnode().then((items) => {
+      if (items && items.length) addCards(container, items);
+    }),
+    fetchGoodgrow().then((items) => {
+      if (items && items.length) addCards(container, items);
+    }),
+  ]).then(() => {
+    // If no cards loaded, show fallback
+    if (!allItems.length) {
+      const fallback = loadFallback();
+      if (fallback.length) {
+        allItems = fallback;
+        renderCards(container, allItems);
+      } else {
+        container.classList.remove("writing-cards--loading");
+        container.innerHTML = '<p class="writing-feed-fallback">Writing feed unavailable</p>';
+      }
+    }
+  });
 }
 
 if (document.readyState === "loading") {

@@ -1,0 +1,4 @@
+name: aj91-koyeb
+functions:
+  - path: /api/writing-feed
+    handler: functions/writing-feed.js
