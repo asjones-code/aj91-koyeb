@@ -1,15 +1,8 @@
-/**
- * Writing Feed — populates #writing-cards with article cards from RSS/APIs.
- * Sources: Substack (1), YouTube (1), Hashnode (1), GoodGrow (1). Fallback: articles.json. Max 5 cards.
- */
 import fallbackArticles from "../data/articles.json";
 
 const MAX_CARDS = 5;
 const STAGGER_MS = 100;
 const EXCERPT_MAX_LEN = 140;
-
-/** Set to your YouTube channel ID (e.g. from channel page URL) to show latest video. */
-const YOUTUBE_CHANNEL_ID = "UCy1T4MetuPZMfHj-wGFIWHg";
 
 function truncate(str, max = EXCERPT_MAX_LEN) {
   if (!str || typeof str !== "string") return "";
@@ -23,11 +16,7 @@ function normalizeRssItem(item, source) {
   const pubDate = item.pubDate || item.published || item.isoDate || "";
   let excerpt = item.contentSnippet || item.content || item.description || "";
   excerpt = excerpt.replace(/<[^>]+>/g, "").trim();
-  const thumbnail =
-    item.thumbnail ||
-    (item.enclosure && item.enclosure.url) ||
-    (item.media && item.media.thumbnail && item.media.thumbnail.$ && item.media.thumbnail.$.url) ||
-    "";
+  const thumbnail = item.thumbnail || (item.enclosure && item.enclosure.url) || "";
   return {
     source,
     title,
@@ -56,115 +45,7 @@ async function fetchSubstack() {
   }
 }
 
-function parseYouTubeItemFromXml(itemEl) {
-  const atom = "http://www.w3.org/2005/Atom";
-  const media = "http://search.yahoo.com/mrss/";
-  const getText = (parent, tag) => {
-    const el = parent.getElementsByTagNameNS?.(atom, tag)?.[0] || parent.getElementsByTagName?.(tag)?.[0];
-    return el ? (el.textContent || "").trim() : "";
-  };
-  const linkEl = itemEl.getElementsByTagNameNS?.(atom, "link")?.[0] || itemEl.getElementsByTagName?.("link")?.[0];
-  const link = linkEl?.getAttribute?.("href") || "";
-  const title = getText(itemEl, "title");
-  const published = getText(itemEl, "published");
-  let thumb = "";
-  const group = itemEl.getElementsByTagNameNS?.(media, "group")?.[0] || itemEl.getElementsByTagName?.("group")?.[0];
-  if (group) {
-    const thumbEl = group.getElementsByTagNameNS?.(media, "thumbnail")?.[0] || group.getElementsByTagName?.("thumbnail")?.[0];
-    thumb = thumbEl?.getAttribute?.("url") || "";
-  }
-  if (!thumb && link) {
-    const m = link.match(/[?&]v=([^&]+)/);
-    if (m) thumb = "https://img.youtube.com/vi/" + m[1] + "/mqdefault.jpg";
-  }
-  let description = "";
-  const summaryEl = itemEl.getElementsByTagNameNS?.(atom, "summary")?.[0] || itemEl.getElementsByTagName?.("summary")?.[0];
-  if (summaryEl) description = (summaryEl.textContent || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  if (!description && group) {
-    const descEl = group.getElementsByTagNameNS?.(media, "description")?.[0] || group.getElementsByTagName?.("description")?.[0];
-    if (descEl) description = (descEl.textContent || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  }
-  return {
-    source: "YouTube",
-    title,
-    excerpt: truncate(description),
-    url: link,
-    thumbnail: thumb,
-    publishedAt: published,
-  };
-}
-
-// Removed corsproxy.io fallback - it returns 403 in production
-// Now relies on serverless function or rss2json only
-
-async function fetchYouTube() {
-  if (!YOUTUBE_CHANNEL_ID) return [];
-  // Use rss2json directly (same approach as Substack - should work)
-  try {
-    const rssUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=" + YOUTUBE_CHANNEL_ID;
-    const url =
-      "https://api.rss2json.com/v1/api.json?rss_url=" +
-      encodeURIComponent(rssUrl) +
-      "&count=1";
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return [];
-    const data = await res.json();
-    if (data.status === "error" || !Array.isArray(data.items) || !data.items.length) {
-      return [];
-    }
-    const raw = data.items;
-    const items = raw.map((item) => {
-      const link = item.link || item.url || "";
-      let thumb = item.thumbnail || "";
-      if (!thumb && link) {
-        const m = link.match(/[?&]v=([^&]+)/);
-        if (m) thumb = "https://img.youtube.com/vi/" + m[1] + "/mqdefault.jpg";
-      }
-      return {
-        source: "YouTube",
-        title: item.title || "",
-        excerpt: truncate((item.contentSnippet || item.description || "").replace(/<[^>]+>/g, "").trim()),
-        url: link,
-        thumbnail: thumb,
-        publishedAt: item.pubDate || item.published || item.isoDate || "",
-      };
-    });
-    return items.slice(0, 1);
-  } catch {
-    return [];
-  }
-}
-
-const GOODGROW_RSS_URL = "https://www.goodgrow.io/projects/rss.xml";
-
-async function fetchGoodgrow() {
-  // Use rss2json directly (same approach as Substack - should work)
-  try {
-    const url = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(GOODGROW_RSS_URL) + "&count=1";
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    if (!res.ok) return [];
-    const data = await res.json();
-    if (data.status === "ok" && data.items && data.items.length) {
-      const item = data.items[0];
-      return [
-        {
-          source: "GoodGrow",
-          title: item.title || "Project",
-          excerpt: truncate((item.contentSnippet || item.description || "").replace(/<[^>]+>/g, " ").trim()) || "Latest from GoodGrow",
-          url: item.link || item.url || "",
-          thumbnail: item.thumbnail || (item.enclosure && item.enclosure.url) || "",
-          publishedAt: item.pubDate || item.published || item.isoDate || "",
-        },
-      ];
-    }
-  } catch {
-    return [];
-  }
-  return [];
-}
-
 async function fetchHashnode() {
-  // Try GraphQL first (faster, more data)
   try {
     const res = await fetch("https://gql.hashnode.com/", {
       method: "POST",
@@ -187,61 +68,68 @@ async function fetchHashnode() {
         }`,
         variables: { host: "aj91.hashnode.dev", first: 1 },
       }),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(5000),
     });
-    if (res.ok) {
-      const json = await res.json();
-      const edges = json?.data?.publication?.posts?.edges || [];
-      if (edges.length) {
-        const base = "https://aj91.hashnode.dev";
-        return edges.map(({ node }) => {
-          let thumb = node.coverImage?.url || "";
-          if (thumb && !thumb.startsWith("http")) thumb = base + (thumb.startsWith("/") ? "" : "/") + thumb;
-          return {
-            source: "Hashnode",
-            title: node.title || "",
-            excerpt: truncate(node.brief || ""),
-            url: node.url || base + "/",
-            thumbnail: thumb,
-            publishedAt: node.publishedAt || "",
-          };
-        });
-      }
-    }
-  } catch {
-    /* fallback to RSS */
-  }
-  // Fallback: Use Hashnode RSS feed (more reliable, works everywhere)
-  try {
-    const rssUrl = "https://aj91.hashnode.dev/rss.xml";
-    const url = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(rssUrl);
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return [];
-    const data = await res.json();
-    const items = parseRss2JsonResponse(data);
-    if (!items.length) return [];
-    const item = items[0];
+    const json = await res.json();
+    const edges = json?.data?.publication?.posts?.edges || [];
+    if (!edges.length) return [];
     const base = "https://aj91.hashnode.dev";
-    let thumb = item.thumbnail || item.enclosure?.url || "";
-    if (thumb && !thumb.startsWith("http")) thumb = base + (thumb.startsWith("/") ? "" : "/") + thumb;
-    return [
-      {
+    return edges.map(({ node }) => {
+      let thumb = node.coverImage?.url || "";
+      if (thumb && !thumb.startsWith("http")) {
+        thumb = base + (thumb.startsWith("/") ? "" : "/") + thumb;
+      }
+      return {
         source: "Hashnode",
-        title: item.title || "",
-        excerpt: truncate((item.contentSnippet || item.description || "").replace(/<[^>]+>/g, " ").trim()),
-        url: item.link || item.url || base + "/",
+        title: node.title || "",
+        excerpt: truncate(node.brief || ""),
+        url: node.url || base + "/",
         thumbnail: thumb,
-        publishedAt: item.pubDate || item.published || item.isoDate || "",
-      },
-    ];
+        publishedAt: node.publishedAt || "",
+      };
+    });
   } catch {
     return [];
   }
 }
 
-function loadFallback() {
-  return Array.isArray(fallbackArticles) ? [...fallbackArticles] : [];
+// ============================================================================
+// HARDCODED CARDS - UPDATE THESE MANUALLY
+// ============================================================================
+// To update YouTube or GoodGrow cards, edit the arrays below with your latest content.
+// Format: { source, title, excerpt, url, thumbnail, publishedAt }
+
+function getHardcodedYouTube() {
+  return [
+    {
+      source: "YouTube",
+      title: "What is Goodgrow",
+      excerpt: "Discover how Goodgrow is building a fairer, more transparent marketplace — connecting artisans, farmers, and conscious consumers through regenerative supply chains.",
+      url: "https://www.youtube.com/watch?v=jyW-fOZmM0c",
+      // VIDEO CARD: Add video URL here to enable video card (looping video instead of thumbnail)
+      video: "https://res.cloudinary.com/duq7hplof/video/upload/v1771259377/Sequence_01_3_zjpuqs.mp4",
+      publishedAt: "2025-02-16T00:00:00.000Z",
+    },
+  ];
 }
+
+function getHardcodedGoodGrow() {
+  return [
+    {
+      source: "Goodgrow",
+      title: "Brands We Love: Chocolate Edition",
+      excerpt: "We’re rounding up some of our favorite chocolate brands doing things the right way: ethically sourced, thoughtfully crafted, and genuinely delicious.",
+      url: "https://www.goodgrow.io/projects/chocolate-brands-we-love-valentines-day-edition",
+      thumbnail: "https://cdn.prod.website-files.com/68d537666466c2b411241f41/698aa73923f0f83b0fdb1fdb_Screenshot%202026-02-09%20at%2022.33.32.png",
+      // VIDEO CARD: Add video URL here to enable video card (looping video instead of thumbnail)
+      // Example: video: "https://cdn.example.com/video.mp4"
+      video: "",
+      publishedAt: "2025-02-16T00:00:00.000Z",
+    },
+  ];
+}
+// ============================================================================
 
 function sortByDate(items) {
   return [...items].sort((a, b) => {
@@ -284,24 +172,41 @@ function createCardElement(article, index) {
     </svg>`;
   };
 
-  let thumbBlock = "";
-  if (article.thumbnail) {
-    thumbBlock = `<img class="card-thumb" src="" data-src="${article.thumbnail}" alt="" loading="lazy" width="80" height="80">`;
-  } else {
-    const placeholderId = "card-ph-" + index + "-" + Math.random().toString(36).slice(2, 9);
-    thumbBlock = `<div class="card-thumb card-thumb--placeholder" aria-hidden="true">${thumbPlaceholderSvg(placeholderId)}</div>`;
-  }
-
   const cardLink = document.createElement("a");
   cardLink.className = "writing-card-link";
   cardLink.href = article.url;
   cardLink.target = "_blank";
   cardLink.rel = "noopener noreferrer";
-  cardLink.innerHTML =
-    `<div class="writing-card-inner">${thumbBlock}<div class="card-body">
-      <h3 class="card-title">${escapeHtml(article.title)}</h3>
-      <p class="card-excerpt">${escapeHtml(article.excerpt)}</p>
-    </div></div>`;
+
+  if (article.video) {
+    card.classList.add("writing-card--video");
+    cardLink.innerHTML =
+      `<div class="writing-card-inner">
+        <div class="card-video-container">
+          <div class="card-video-overlay"></div>
+          <video class="card-video" playsinline loop muted autoplay preload="metadata">
+            <source src="${escapeHtml(article.video)}" type="video/mp4">
+          </video>
+        </div>
+        <div class="card-body">
+          <h3 class="card-title">${escapeHtml(article.title)}</h3>
+          <p class="card-excerpt">${escapeHtml(article.excerpt)}</p>
+        </div>
+      </div>`;
+  } else {
+    let thumbBlock = "";
+    if (article.thumbnail) {
+      thumbBlock = `<img class="card-thumb" src="" data-src="${escapeHtml(article.thumbnail)}" alt="" loading="lazy" width="80" height="80">`;
+    } else {
+      const placeholderId = "card-ph-" + index + "-" + Math.random().toString(36).slice(2, 9);
+      thumbBlock = `<div class="card-thumb card-thumb--placeholder" aria-hidden="true">${thumbPlaceholderSvg(placeholderId)}</div>`;
+    }
+    cardLink.innerHTML =
+      `<div class="writing-card-inner">${thumbBlock}<div class="card-body">
+        <h3 class="card-title">${escapeHtml(article.title)}</h3>
+        <p class="card-excerpt">${escapeHtml(article.excerpt)}</p>
+      </div></div>`;
+  }
 
   card.appendChild(cardLink);
   card.prepend(closeBtn);
@@ -331,6 +236,25 @@ function createCardElement(article, index) {
       { rootMargin: "50px" }
     );
     io.observe(img);
+  }
+
+  const video = card.querySelector(".card-video");
+  if (video) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            video.play().catch(() => {});
+            card.classList.add("writing-card--video-visible");
+          } else {
+            video.pause();
+            card.classList.remove("writing-card--video-visible");
+          }
+        });
+      },
+      { rootMargin: "50px", threshold: 0.1 }
+    );
+    io.observe(card);
   }
 
   return card;
@@ -369,7 +293,6 @@ function showLoading(container) {
   `;
 }
 
-let allItems = [];
 let observer = null;
 
 function setupObserver(container) {
@@ -388,7 +311,6 @@ function setupObserver(container) {
 function renderCards(container, items) {
   container.classList.remove("writing-cards--loading");
   if (!items.length) {
-    if (container.querySelector(".writing-card")) return; // Keep existing cards if any
     container.innerHTML = '<p class="writing-feed-fallback">Writing feed unavailable</p>';
     return;
   }
@@ -403,10 +325,8 @@ function renderCards(container, items) {
   setupObserver(container);
 }
 
-function addCards(container, newItems) {
-  if (!newItems || !newItems.length) return;
-  allItems = [...allItems, ...newItems];
-  renderCards(container, allItems);
+function loadFallback() {
+  return Array.isArray(fallbackArticles) ? [...fallbackArticles] : [];
 }
 
 export function init() {
@@ -414,35 +334,33 @@ export function init() {
   if (!container) return;
 
   showLoading(container);
-  allItems = [];
 
-  // Start all fetches in parallel, render as each completes
-  Promise.allSettled([
-    fetchSubstack().then((items) => {
-      if (items && items.length) addCards(container, items);
-    }),
-    fetchYouTube().then((items) => {
-      if (items && items.length) addCards(container, items);
-    }),
-    fetchHashnode().then((items) => {
-      if (items && items.length) addCards(container, items);
-    }),
-    fetchGoodgrow().then((items) => {
-      if (items && items.length) addCards(container, items);
-    }),
-  ]).then(() => {
-    // If no cards loaded, show fallback
-    if (!allItems.length) {
+  (async () => {
+    const [substack, hashnode] = await Promise.allSettled([
+      fetchSubstack(),
+      fetchHashnode(),
+    ]);
+    const items = [];
+    if (substack.status === "fulfilled" && substack.value?.length) {
+      items.push(...substack.value);
+    }
+    if (hashnode.status === "fulfilled" && hashnode.value?.length) {
+      items.push(...hashnode.value);
+    }
+    items.push(...getHardcodedYouTube());
+    items.push(...getHardcodedGoodGrow());
+    if (items.length > 0) {
+      renderCards(container, items);
+    } else {
       const fallback = loadFallback();
       if (fallback.length) {
-        allItems = fallback;
-        renderCards(container, allItems);
+        renderCards(container, fallback);
       } else {
         container.classList.remove("writing-cards--loading");
         container.innerHTML = '<p class="writing-feed-fallback">Writing feed unavailable</p>';
       }
     }
-  });
+  })();
 }
 
 if (document.readyState === "loading") {

@@ -1,0 +1,7 @@
+[build]
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/writing-feed"
+  to = "/.netlify/functions/writing-feed"
+  status = 200

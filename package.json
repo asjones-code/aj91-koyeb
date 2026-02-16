@@ -37,6 +37,7 @@
     "@barba/core": "^2.9.7",
     "barba": "^1.0.0",
     "dat.gui": "^0.7.9",
+    "fast-xml-parser": "^4.3.2",
     "gsap": "^3.12.5",
     "lenis": "^1.1.13",
     "locomotive-scroll": "^4.1.4",
