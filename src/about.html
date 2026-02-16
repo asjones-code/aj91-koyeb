@@ -1,11 +1,12 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>About — AJ91</title>
   <script>
-    (function() {
+    (function () {
       function setVh() {
         var v = window.visualViewport;
         var vh = (v && v.height) ? v.height : window.innerHeight;
@@ -17,14 +18,16 @@
         window.visualViewport.addEventListener('scroll', setVh);
       }
       window.addEventListener('resize', setVh);
-      window.addEventListener('orientationchange', function() { setTimeout(setVh, 100); });
+      window.addEventListener('orientationchange', function () { setTimeout(setVh, 100); });
       document.addEventListener('DOMContentLoaded', setVh);
       setTimeout(setVh, 500);
     })();
   </script>
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    crossorigin="anonymous">
 </head>
+
 <body data-barba="wrapper">
   <div class="container">
     <header class="header">
@@ -32,21 +35,24 @@
         <a href="index.html" class="header-logo logo word font-kihim">aj91</a>
         <nav class="header-nav navigation" aria-label="Main">
           <ul>
-            <li><a class="font-mono" href="https://www.linkedin.com/in/asjones91/" aria-label="LinkedIn"><i class="fa-brands fa-linkedin" aria-hidden="true"></i><span class="nav-text">Linkedin</span></a></li>
-            <li><a class="font-mono" href="https://aj91.substack.com/" aria-label="Substack"><i class="fa-solid fa-newspaper" aria-hidden="true"></i><span class="nav-text">Substack</span></a></li>
+            <li><a class="font-mono" href="https://www.linkedin.com/in/asjones91/" aria-label="LinkedIn"><i
+                  class="fa-brands fa-linkedin" aria-hidden="true"></i><span class="nav-text">Linkedin</span></a></li>
+            <li><a class="font-mono" href="https://aj91.substack.com/" aria-label="Substack"><i
+                  class="fa-solid fa-newspaper" aria-hidden="true"></i><span class="nav-text">Substack</span></a></li>
           </ul>
         </nav>
-        <button class="menuToggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="menu-panel" aria-label="Toggle menu">
-        <div class="hamburger">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-        <div class="cross">
-          <span></span>
-          <span></span>
-        </div>
-      </button>
+        <button class="menuToggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="menu-panel"
+          aria-label="Toggle menu">
+          <div class="hamburger">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="cross">
+            <span></span>
+            <span></span>
+          </div>
+        </button>
       </div>
     </header>
 
@@ -60,11 +66,20 @@
         </div>
         <div class="page-about-content">
           <h1 class="page-about-title">About</h1>
-          <p class="page-about-lead">Humanity, creativity, and technology—in that order.</p>
+          <p class="page-about-lead">Technology should make work better, not heavier.</p>
           <p class="page-about-body">
-            Building at the intersection of design and code. Interested in systems that scale
-            for people, not just machines.
+            I architect and lead enterprise SaaS implementations with a simple intention: make complex systems feel
+            clear and empowering. Across startups and large organizations, I’ve built and delivered high-impact digital
+            workflows that improve how teams operate day to day.
+            <br /><br />
+            I care about the human side of software—alignment, adoption, and the lived experience of the people inside
+            the system. When architecture is thoughtful and execution is steady, work becomes lighter and outcomes
+            stronger.
+            <br /><br />
+            <a href ='https://goodgrow.io'>Goodgrow</a>  is my life's work — a way to tell the stories about the natural goods we consume everyday. We're building a resilient, ethical marketplace of curated, high-quality natural goods. When I’m
+            not behind a screen, I bike, sail, and grow plants.
           </p>
+
           <p class="page-about-body">
             You can find me on <a href="https://www.linkedin.com/in/asjones91/" class="link">LinkedIn</a>
             and <a href="https://aj91.substack.com/" class="link">Substack</a>.
@@ -75,4 +90,5 @@
   </div>
   <script type="module" src="loader.js"></script>
 </body>
+
 </html>
