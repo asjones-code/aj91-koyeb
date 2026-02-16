@@ -104,7 +104,7 @@ function getHardcodedYouTube() {
   return [
     {
       source: "YouTube",
-      title: "What is Goodgrow",
+      title: "What is Goodgrow?",
       excerpt: "Discover how Goodgrow is building a fairer, more transparent marketplace — connecting artisans, farmers, and conscious consumers through regenerative supply chains.",
       url: "https://www.youtube.com/watch?v=jyW-fOZmM0c",
       // VIDEO CARD: Add video URL here to enable video card (looping video instead of thumbnail)
