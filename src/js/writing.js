@@ -124,14 +124,15 @@ async function fetchYouTube() {
   if (!YOUTUBE_CHANNEL_ID) return [];
   // Try serverless function first (with caching)
   try {
-    const apiUrl = "/api/writing-feed?source=youtube";
+    // Use absolute URL in case base path differs in prod
+    const apiUrl = window.location.origin + "/api/writing-feed?source=youtube";
     const res = await fetch(apiUrl, { signal: AbortSignal.timeout(5000) });
     if (res.ok) {
       const data = await res.json();
       if (data && data.title && !data.error) return [data];
     }
-  } catch {
-    /* fallback to CORS proxies */
+  } catch (err) {
+    // Silently fallback - serverless function might not be deployed
   }
   // Fallback: CORS proxies (slower, less reliable)
   try {
@@ -252,14 +253,14 @@ function scrapeGoodgrowProjectPage(html, pageUrl) {
 async function fetchGoodgrow() {
   // Try serverless function first (with caching)
   try {
-    const apiUrl = "/api/writing-feed?source=goodgrow";
+    const apiUrl = window.location.origin + "/api/writing-feed?source=goodgrow";
     const res = await fetch(apiUrl, { signal: AbortSignal.timeout(5000) });
     if (res.ok) {
       const data = await res.json();
       if (data && data.title && !data.error) return [data];
     }
-  } catch {
-    /* fallback to CORS proxies */
+  } catch (err) {
+    // Silently fallback - serverless function might not be deployed
   }
   // Fallback: CORS proxies (slower, less reliable)
   const projectUrl = await getGoodgrowFirstProjectUrl();
@@ -270,6 +271,7 @@ async function fetchGoodgrow() {
 }
 
 async function fetchHashnode() {
+  // Try GraphQL first (faster, more data)
   try {
     const res = await fetch("https://gql.hashnode.com/", {
       method: "POST",
@@ -292,25 +294,53 @@ async function fetchHashnode() {
         }`,
         variables: { host: "aj91.hashnode.dev", first: 1 },
       }),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(8000),
     });
+    if (res.ok) {
+      const json = await res.json();
+      const edges = json?.data?.publication?.posts?.edges || [];
+      if (edges.length) {
+        const base = "https://aj91.hashnode.dev";
+        return edges.map(({ node }) => {
+          let thumb = node.coverImage?.url || "";
+          if (thumb && !thumb.startsWith("http")) thumb = base + (thumb.startsWith("/") ? "" : "/") + thumb;
+          return {
+            source: "Hashnode",
+            title: node.title || "",
+            excerpt: truncate(node.brief || ""),
+            url: node.url || base + "/",
+            thumbnail: thumb,
+            publishedAt: node.publishedAt || "",
+          };
+        });
+      }
+    }
+  } catch {
+    /* fallback to RSS */
+  }
+  // Fallback: Use Hashnode RSS feed (more reliable, works everywhere)
+  try {
+    const rssUrl = "https://aj91.hashnode.dev/rss.xml";
+    const url = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(rssUrl);
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return [];
-    const json = await res.json();
-    const edges =
-      json?.data?.publication?.posts?.edges || [];
+    const data = await res.json();
+    const items = parseRss2JsonResponse(data);
+    if (!items.length) return [];
+    const item = items[0];
     const base = "https://aj91.hashnode.dev";
-    return edges.map(({ node }) => {
-      let thumb = node.coverImage?.url || "";
-      if (thumb && !thumb.startsWith("http")) thumb = base + (thumb.startsWith("/") ? "" : "/") + thumb;
-      return {
+    let thumb = item.thumbnail || item.enclosure?.url || "";
+    if (thumb && !thumb.startsWith("http")) thumb = base + (thumb.startsWith("/") ? "" : "/") + thumb;
+    return [
+      {
         source: "Hashnode",
-        title: node.title || "",
-        excerpt: truncate(node.brief || ""),
-        url: node.url || base + "/",
+        title: item.title || "",
+        excerpt: truncate((item.contentSnippet || item.description || "").replace(/<[^>]+>/g, " ").trim()),
+        url: item.link || item.url || base + "/",
         thumbnail: thumb,
-        publishedAt: node.publishedAt || "",
-      };
-    });
+        publishedAt: item.pubDate || item.published || item.isoDate || "",
+      },
+    ];
   } catch {
     return [];
   }

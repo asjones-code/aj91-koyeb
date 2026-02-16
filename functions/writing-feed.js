@@ -134,46 +134,73 @@ async function fetchGoodgrow() {
   }
 }
 
-export default async function handler(req) {
-  const url = new URL(req.url || "", `http://${req.headers?.host || "localhost"}`);
-  const source = url.searchParams.get("source");
+async function handleRequest(req) {
+  let url;
+  try {
+    url = new URL(req.url || req.originalUrl || "", `http://${req.headers?.host || req.get?.("host") || "localhost"}`);
+  } catch {
+    url = { searchParams: { get: () => null } };
+  }
+  const source = url.searchParams?.get?.("source") || req.query?.source;
   if (!source || !["youtube", "goodgrow"].includes(source)) {
-    return new Response(JSON.stringify({ error: "Invalid source. Use ?source=youtube or ?source=goodgrow" }), {
+    return {
       status: 400,
+      body: JSON.stringify({ error: "Invalid source. Use ?source=youtube or ?source=goodgrow" }),
       headers: { "Content-Type": "application/json" },
-    });
+    };
   }
   // Check cache
   const cached = getCached(source);
   if (cached) {
-    return new Response(JSON.stringify(cached), {
+    return {
+      status: 200,
+      body: JSON.stringify(cached),
       headers: {
         "Content-Type": "application/json",
         "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}`,
         "X-Cache": "HIT",
       },
-    });
+    };
   }
   // Fetch fresh data
   const data = source === "youtube" ? await fetchYouTube() : await fetchGoodgrow();
   if (!data) {
-    return new Response(JSON.stringify({ error: "Failed to fetch data" }), {
+    return {
       status: 500,
+      body: JSON.stringify({ error: "Failed to fetch data" }),
       headers: { "Content-Type": "application/json" },
-    });
+    };
   }
   // Cache and return
   setCache(source, data);
-  return new Response(JSON.stringify(data), {
+  return {
+    status: 200,
+    body: JSON.stringify(data),
     headers: {
       "Content-Type": "application/json",
       "Cache-Control": `public, max-age=${CACHE_TTL_SECONDS}`,
       "X-Cache": "MISS",
     },
+  };
+}
+
+// Web API Response format (Cloudflare Workers, Deno, etc.)
+export default async function handler(req) {
+  const result = await handleRequest(req);
+  return new Response(result.body, {
+    status: result.status,
+    headers: result.headers,
   });
+}
+
+// Express/Node.js HTTP format (Koyeb, Vercel, Netlify)
+export async function expressHandler(req, res) {
+  const result = await handleRequest(req);
+  res.status(result.status).set(result.headers).send(result.body);
 }
 
 // Koyeb/Node.js runtime compatibility
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = handler;
+  module.exports = expressHandler;
+  module.exports.default = handler;
 }
