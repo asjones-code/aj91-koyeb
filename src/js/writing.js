@@ -99,19 +99,7 @@ function parseYouTubeItemFromXml(itemEl) {
 
 async function fetchYouTube() {
   if (!YOUTUBE_CHANNEL_ID) return [];
-  // Try serverless function first (with caching)
-  try {
-    // Use absolute URL in case base path differs in prod
-    const apiUrl = window.location.origin + "/api/writing-feed?source=youtube";
-    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(5000) });
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.title && !data.error) return [data];
-    }
-  } catch (err) {
-    // Silently fallback - serverless function might not be deployed
-  }
-  // Fallback: rss2json (no CORS proxies - they return 403 in prod)
+  // Use rss2json directly (same approach as Substack - should work)
   try {
     const rssUrl = "https://www.youtube.com/feeds/videos.xml?channel_id=" + YOUTUBE_CHANNEL_ID;
     const url =
@@ -148,65 +136,9 @@ async function fetchYouTube() {
 }
 
 const GOODGROW_RSS_URL = "https://www.goodgrow.io/projects/rss.xml";
-const GOODGROW_PROJECTS_URL = "https://www.goodgrow.io/our-projects";
-
-// Removed fetchViaProxy - corsproxy.io returns 403 in production
-// GoodGrow now uses rss2json for RSS feed instead
-
-/** Get the most recent project page URL from RSS feed via rss2json. */
-async function getGoodgrowFirstProjectUrl() {
-  try {
-    const url = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(GOODGROW_RSS_URL) + "&count=1";
-    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.status === "ok" && data.items && data.items.length) {
-        const link = data.items[0].link || data.items[0].url;
-        if (link) return link.trim();
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  return null;
-}
-
-/** Scrape title from head meta tags and excerpt from first <p> on the project page. */
-function scrapeGoodgrowProjectPage(html, pageUrl) {
-  const doc = new DOMParser().parseFromString(html, "text/html");
-  let title = "";
-  const ogTitle = doc.querySelector('meta[property="og:title"]');
-  const twitterTitle = doc.querySelector('meta[name="twitter:title"]');
-  const titleTag = doc.querySelector("head title");
-  if (ogTitle) title = (ogTitle.getAttribute("content") || "").trim();
-  if (!title && twitterTitle) title = (twitterTitle.getAttribute("content") || "").trim();
-  if (!title && titleTag) title = (titleTag.textContent || "").trim();
-  let excerpt = "";
-  const firstP = doc.querySelector("body p");
-  if (firstP) excerpt = (firstP.textContent || "").replace(/\s+/g, " ").trim();
-  return {
-    source: "GoodGrow",
-    title: title || "Project",
-    excerpt: truncate(excerpt) || "Latest from GoodGrow",
-    url: pageUrl,
-    thumbnail: (doc.querySelector('meta[property="og:image"]')?.getAttribute("content") || "").trim(),
-    publishedAt: "",
-  };
-}
 
 async function fetchGoodgrow() {
-  // Try serverless function first (with caching)
-  try {
-    const apiUrl = window.location.origin + "/api/writing-feed?source=goodgrow";
-    const res = await fetch(apiUrl, { signal: AbortSignal.timeout(5000) });
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.title && !data.error) return [data];
-    }
-  } catch (err) {
-    // Silently fallback - serverless function might not be deployed
-  }
-  // Fallback: Use rss2json to get project data directly from RSS (no HTML scraping needed)
+  // Use rss2json directly (same approach as Substack - should work)
   try {
     const url = "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(GOODGROW_RSS_URL) + "&count=1";
     const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
