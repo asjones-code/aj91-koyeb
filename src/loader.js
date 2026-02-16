@@ -706,6 +706,8 @@ barba.hooks.after((data) => {
 		initTerminal();
 		// Re-mount the globe into the new .hero-globe-wrap (script only runs once on load)
 		window.dispatchEvent(new CustomEvent("hero-globe-mount"));
+		// Re-populate writing feed (container was replaced by Barba)
+		import("./js/writing.js").then((m) => m.init?.());
 	}
 });
 
