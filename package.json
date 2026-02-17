@@ -13,10 +13,10 @@
     "build:globe": "node scripts/build-hero-globe.js",
     "prestart": "npm run build:globe",
     "prebuild": "npm run build:globe",
-    "dev": "dotenv -e .env -- parcel",
-    "start": "dotenv -e .env -- parcel",
-    "build": "dotenv -e .env -- parcel build",
-    "serve": "node server.js",
+    "dev": "parcel src/index.html",
+    "start": "parcel src/index.html",
+    "build": "parcel build src/index.html",
+    "serve": "npx serve dist",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

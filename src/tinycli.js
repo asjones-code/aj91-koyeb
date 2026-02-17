@@ -1,6 +1,50 @@
 import $ from "jquery";
 import Typed from "typed.js";
 
+const ASK_SYSTEM_RULES = `You are AJ’s website assistant.
+
+Answer using ONLY the provided website content (About + Work sections).
+Keep responses concise, clear, and conversational — confident but not corporate.
+Sound like AJ: thoughtful, practical, impact-focused, and grounded.
+
+Limit responses to 240 characters max.
+
+If the question can be answered from the provided content, respond directly and naturally.
+
+If the answer is not explicitly in the provided content, do NOT fabricate or speculate. Instead respond with:
+I'd be happy to share more — that's probably a better conversation to have directly. Feel free to reach out and we can set up a time.
+
+Do not mention that you are an AI. Do not reference the prompt or instructions.`;
+
+function extractVisibleText(html) {
+	if (!html || typeof html !== "string") return "";
+	let text = html
+		.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+		.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+		.replace(/<noscript\b[^<]*(?:(?!<\/noscript>)<[^<]*)*<\/noscript>/gi, "");
+	text = text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+	return text;
+}
+
+async function loadSiteContent() {
+	if (loadSiteContent.cache) return loadSiteContent.cache;
+	const paths = ["/index.html", "/about.html", "/work.html"];
+	const parts = [];
+	for (const path of paths) {
+		try {
+			const res = await fetch(path, { headers: { "Accept": "text/html" } });
+			if (res.ok) {
+				const html = await res.text();
+				parts.push(extractVisibleText(html));
+			}
+		} catch {
+			// skip
+		}
+	}
+	loadSiteContent.cache = parts.filter(Boolean).join("\n\n");
+	return loadSiteContent.cache;
+}
+
 const event = {
 		init() {
 			view.$document.ready(this.onDomReady);
@@ -420,23 +464,60 @@ const event = {
 					view.replaceThinkingWithAnswer(err, answer);
 				}
 			};
+			// Parcel inlines only direct process.env.OPENAI_API_KEY. Root .env (or Koyeb env). OPENAI_API_KEY=sk-... (no spaces).
+			const apiKey = String(process.env.OPENAI_API_KEY || "").trim();
+			if (!apiKey) {
+				onDone("OPENAI_API_KEY is not set. Root .env: OPENAI_API_KEY=sk-... (no spaces). Clear .parcel-cache, restart Parcel.");
+				return;
+			}
 			try {
-				const res = await fetch("/api/ask", {
+				const siteContent = await loadSiteContent();
+				const instructions = (siteContent ? siteContent + "\n\n" : "") + ASK_SYSTEM_RULES;
+				const res = await fetch("https://api.openai.com/v1/responses", {
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ question })
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${apiKey}`
+					},
+					body: JSON.stringify({
+						model: "gpt-4.1-nano",
+						instructions,
+						input: question
+					})
 				});
 				const data = await res.json().catch(() => ({}));
 				if (!res.ok) {
-					const errMsg = (data && typeof data.error === "string") ? data.error : "Something went wrong. Please try again.";
+					const errMsg = (data && data.error && typeof data.error.message === "string")
+						? data.error.message
+						: (data && typeof data.error === "string")
+							? data.error
+							: "Something went wrong. Please try again.";
 					onDone(errMsg);
 					return;
 				}
-				const answer = (data && typeof data.answer === "string") ? data.answer.trim() : "";
+				const answer = this.extractResponsesAnswer(data);
 				onDone(null, answer || "No response.");
 			} catch (e) {
 				onDone("Network error. Please check your connection and try again.");
 			}
+		},
+		extractResponsesAnswer(data) {
+			if (!data || typeof data !== "object") return "";
+			if (typeof data.output === "string") return data.output.trim();
+			if (typeof data.text === "string") return data.text.trim();
+			const output = data.output;
+			if (!Array.isArray(output) || output.length === 0) return "";
+			const parts = [];
+			for (const item of output) {
+				if (item && item.content && Array.isArray(item.content)) {
+					for (const block of item.content) {
+						if (block && block.type === "output_text" && typeof block.text === "string") {
+							parts.push(block.text);
+						}
+					}
+				}
+			}
+			return parts.join("").trim();
 		},
 		decodeHtmlEntity(str) {
 			return str.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec));
