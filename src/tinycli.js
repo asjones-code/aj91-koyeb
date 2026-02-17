@@ -451,10 +451,10 @@ Additionally:
 					view.replaceThinkingWithAnswer(err, answer);
 				}
 			};
-			// Key: runtime from /api/env.js (server.js) or build-time inlined by Parcel
-			const apiKey = (typeof window !== "undefined" && window.__OPENAI_API_KEY) || process.env.OPENAI_API_KEY || "";
+			// Parcel inlines process.env.OPENAI_API_KEY at build time when OPENAI_API_KEY is set in build env
+			const apiKey = process.env.OPENAI_API_KEY || "";
 			if (!apiKey) {
-				onDone("OpenAI API key not set. Set OPENAI_API_KEY in Koyeb env (runtime or build) or in .env locally.");
+				onDone("OpenAI API key not set. Set OPENAI_API_KEY in Koyeb build env or .env locally.");
 				return;
 			}
 			try {
