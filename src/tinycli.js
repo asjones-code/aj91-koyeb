@@ -451,12 +451,10 @@ Additionally:
 					view.replaceThinkingWithAnswer(err, answer);
 				}
 			};
-			// Parcel inlines process.env.OPENAI_API_KEY at build time from .env or shell. Runtime override: window.__OPENAI_API_KEY
-			const apiKey = (typeof process !== "undefined" && process.env && process.env.OPENAI_API_KEY)
-				|| (typeof window !== "undefined" && window.__OPENAI_API_KEY)
-				|| "";
+			// Parcel inlines process.env.OPENAI_API_KEY at build time; must be a direct reference for replacement. Runtime override: window.__OPENAI_API_KEY
+			const apiKey = process.env.OPENAI_API_KEY || (typeof window !== "undefined" && window.__OPENAI_API_KEY) || "";
 			if (!apiKey) {
-				onDone("OpenAI API key not set. Add OPENAI_API_KEY to .env or set in Koyeb env (see .env.example).");
+				onDone("OpenAI API key not set. Set OPENAI_API_KEY in Koyeb build env (or .env locally).");
 				return;
 			}
 			try {
