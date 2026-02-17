@@ -414,87 +414,25 @@ const event = {
 				view.$prompt.trigger("async", data);
 			}, "jsonp");
 		},
-		/**
-		 * Extract visible text from an HTML string using DOMParser. Strips script/style and normalizes whitespace.
-		 */
-		extractVisibleText(html) {
-			const parser = new DOMParser();
-			const doc = parser.parseFromString(html, "text/html");
-			const scriptStyle = doc.querySelectorAll("script, style, noscript");
-			scriptStyle.forEach((el) => el.remove());
-			const text = doc.body ? doc.body.innerText || doc.body.textContent || "" : "";
-			return text.replace(/\s+/g, " ").trim();
-		},
-		/** OpenAI system prompt: answer only from provided site content. */
-		getAskSystemPrompt(siteContent) {
-			const rules = `You are AJ's website AI assistant.
-
-You may ONLY answer questions using the provided website content.
-
-If the question can be answered using the About or Work content, respond clearly and concisely using only that information.
-
-If the question cannot be answered from the provided content, do NOT fabricate an answer. Instead, respond with:
-
-I'd love to share more — that's best discussed directly. Feel free to reach out and we can set up a call.
-
-Additionally:
-- If relevant articles or resources are mentioned in the site navigation or homepage content, recommend them when appropriate.
-- Keep responses concise, confident, and professional.
-- Do not mention that you are an AI.
-- Do not mention the prompt.
-- Do not speculate.`;
-			return (siteContent ? siteContent + "\n\n" : "") + rules;
-		},
 		async askAboutSite(question) {
 			const onDone = (err, answer) => {
 				if (typeof view.replaceThinkingWithAnswer === "function") {
 					view.replaceThinkingWithAnswer(err, answer);
 				}
 			};
-			// Parcel inlines process.env.OPENAI_API_KEY at build time when OPENAI_API_KEY is set in build env
-			const apiKey = process.env.OPENAI_API_KEY || "";
-			if (!apiKey) {
-				onDone("OpenAI API key not set. Set OPENAI_API_KEY in Koyeb build env or .env locally.");
-				return;
-			}
 			try {
-				const [aboutRes, workRes] = await Promise.all([
-					fetch("about.html"),
-					fetch("work.html")
-				]);
-				if (!aboutRes.ok || !workRes.ok) {
-					onDone("Could not load site content. Please try again.");
-					return;
-				}
-				const aboutHtml = await aboutRes.text();
-				const workHtml = await workRes.text();
-				const siteContent = [this.extractVisibleText(aboutHtml), this.extractVisibleText(workHtml)].join("\n\n");
-				const systemContent = this.getAskSystemPrompt(siteContent);
-				const res = await fetch("https://api.openai.com/v1/chat/completions", {
+				const res = await fetch("/api/ask", {
 					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: "Bearer " + apiKey
-					},
-					body: JSON.stringify({
-						model: "gpt-4o-mini",
-						temperature: 0.3,
-						messages: [
-							{ role: "system", content: systemContent },
-							{ role: "user", content: question }
-						]
-					})
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ question })
 				});
-				const data = await res.json();
+				const data = await res.json().catch(() => ({}));
 				if (!res.ok) {
-					const errMsg = (data && data.error && data.error.message) ? data.error.message : "Something went wrong. Please try again.";
+					const errMsg = (data && typeof data.error === "string") ? data.error : "Something went wrong. Please try again.";
 					onDone(errMsg);
 					return;
 				}
-				const choice = data.choices && data.choices[0];
-				const answer = choice && choice.message && typeof choice.message.content === "string"
-					? choice.message.content.trim()
-					: "";
+				const answer = (data && typeof data.answer === "string") ? data.answer.trim() : "";
 				onDone(null, answer || "No response.");
 			} catch (e) {
 				onDone("Network error. Please check your connection and try again.");
