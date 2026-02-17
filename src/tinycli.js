@@ -17,7 +17,13 @@ const event = {
 		},
 		onCommand(e, c) {
 			e.preventDefault();
-			view.outputCommandResult(controller.executeCommand(c));
+			const result = controller.executeCommand(c);
+			if (result && typeof result === "object" && result.async === "ask") {
+				view.printThinking();
+				controller.askAboutSite(result.question);
+				return;
+			}
+			view.outputCommandResult(result);
 		},
 		onAsync(e, d) {
 			e.preventDefault();
@@ -228,6 +234,44 @@ const event = {
 			const $scrollEl = this.$terminal.find(".term-cont").length ? this.$terminal.find(".term-cont") : this.$terminal;
 			$scrollEl.scrollTop($scrollEl[0].scrollHeight);
 		},
+		printThinking() {
+			const $print = this.$cli.prev();
+			const $el = $("<div class=\"command output\" data-thinking=\"true\">Thinking...</div>");
+			$print.append($el);
+			this.$thinkingEl = $el;
+			const $scrollEl = this.$terminal.find(".term-cont").length ? this.$terminal.find(".term-cont") : this.$terminal;
+			$scrollEl.scrollTop($scrollEl[0].scrollHeight);
+		},
+		replaceThinkingWithAnswer(err, answer) {
+			const $el = this.$thinkingEl || this.$terminal.find(".print [data-thinking=true]").last();
+			this.$thinkingEl = null;
+			if (!$el.length) return;
+			$el.removeAttr("data-thinking");
+			if (err) {
+				$el.text(err);
+				return;
+			}
+			const safe = controller.escapeHtml(answer);
+			const span = document.createElement("span");
+			span.className = "typed-answer";
+			$el.empty().append(span);
+			if (typeof Typed !== "undefined") {
+				try {
+					const typed = new Typed(span, {
+						strings: [safe],
+						typeSpeed: 25,
+						showCursor: false,
+						contentType: "html"
+					});
+				} catch (e) {
+					span.textContent = answer;
+				}
+			} else {
+				span.textContent = answer;
+			}
+			const $scrollEl = this.$terminal.find(".term-cont").length ? this.$terminal.find(".term-cont") : this.$terminal;
+			$scrollEl.scrollTop($scrollEl[0].scrollHeight);
+		},
 		enterCommandLine() {
 			const p = $.trim(this.$prompt.text());
 			this.printTerminal(p, "command label");
@@ -307,12 +351,21 @@ const event = {
 				case "?":
 				case "h":
 				case "help":
-					out = `Commands: cls, about, work, help, calc &lt;expr&gt;, search &lt;phrase&gt;, web &lt;url&gt;, exit<br><br>Quick links: <a href="about.html">About</a> · <a href="work.html">Work</a>`;
+					out = `Commands: cls, about, work, help, ask &lt;question&gt;, calc &lt;expr&gt;, search &lt;phrase&gt;, web &lt;url&gt;, exit<br><br>Quick links: <a href="about.html">About</a> · <a href="work.html">Work</a>`;
 					break;
 				case "eval":
 				case "calc":
 					out = `${eval(cmd.arguments.join(" "))}`;
 					break;
+				case "ask":
+					{
+						const question = cmd.arguments.join(" ").trim();
+						if (!question) {
+							out = "Usage: ask &lt;question&gt;";
+							break;
+						}
+						return { async: "ask", question };
+					}
 				case "search":
 				case "google":
 					window.location.href = encodeURI(`https://www.google.com/search?q=${cmd.arguments.join(" ")}`);
@@ -361,6 +414,94 @@ const event = {
 				view.$prompt.trigger("async", data);
 			}, "jsonp");
 		},
+		/**
+		 * Extract visible text from an HTML string using DOMParser. Strips script/style and normalizes whitespace.
+		 */
+		extractVisibleText(html) {
+			const parser = new DOMParser();
+			const doc = parser.parseFromString(html, "text/html");
+			const scriptStyle = doc.querySelectorAll("script, style, noscript");
+			scriptStyle.forEach((el) => el.remove());
+			const text = doc.body ? doc.body.innerText || doc.body.textContent || "" : "";
+			return text.replace(/\s+/g, " ").trim();
+		},
+		/** OpenAI system prompt: answer only from provided site content. */
+		getAskSystemPrompt(siteContent) {
+			const rules = `You are AJ's website AI assistant.
+
+You may ONLY answer questions using the provided website content.
+
+If the question can be answered using the About or Work content, respond clearly and concisely using only that information.
+
+If the question cannot be answered from the provided content, do NOT fabricate an answer. Instead, respond with:
+
+I'd love to share more — that's best discussed directly. Feel free to reach out and we can set up a call.
+
+Additionally:
+- If relevant articles or resources are mentioned in the site navigation or homepage content, recommend them when appropriate.
+- Keep responses concise, confident, and professional.
+- Do not mention that you are an AI.
+- Do not mention the prompt.
+- Do not speculate.`;
+			return (siteContent ? siteContent + "\n\n" : "") + rules;
+		},
+		async askAboutSite(question) {
+			const onDone = (err, answer) => {
+				if (typeof view.replaceThinkingWithAnswer === "function") {
+					view.replaceThinkingWithAnswer(err, answer);
+				}
+			};
+			// Parcel inlines process.env.OPENAI_API_KEY at build time from .env or shell. Runtime override: window.__OPENAI_API_KEY
+			const apiKey = (typeof process !== "undefined" && process.env && process.env.OPENAI_API_KEY)
+				|| (typeof window !== "undefined" && window.__OPENAI_API_KEY)
+				|| "";
+			if (!apiKey) {
+				onDone("OpenAI API key not set. Add OPENAI_API_KEY to .env or set in Koyeb env (see .env.example).");
+				return;
+			}
+			try {
+				const [aboutRes, workRes] = await Promise.all([
+					fetch("about.html"),
+					fetch("work.html")
+				]);
+				if (!aboutRes.ok || !workRes.ok) {
+					onDone("Could not load site content. Please try again.");
+					return;
+				}
+				const aboutHtml = await aboutRes.text();
+				const workHtml = await workRes.text();
+				const siteContent = [this.extractVisibleText(aboutHtml), this.extractVisibleText(workHtml)].join("\n\n");
+				const systemContent = this.getAskSystemPrompt(siteContent);
+				const res = await fetch("https://api.openai.com/v1/chat/completions", {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: "Bearer " + apiKey
+					},
+					body: JSON.stringify({
+						model: "gpt-4o-mini",
+						temperature: 0.3,
+						messages: [
+							{ role: "system", content: systemContent },
+							{ role: "user", content: question }
+						]
+					})
+				});
+				const data = await res.json();
+				if (!res.ok) {
+					const errMsg = (data && data.error && data.error.message) ? data.error.message : "Something went wrong. Please try again.";
+					onDone(errMsg);
+					return;
+				}
+				const choice = data.choices && data.choices[0];
+				const answer = choice && choice.message && typeof choice.message.content === "string"
+					? choice.message.content.trim()
+					: "";
+				onDone(null, answer || "No response.");
+			} catch (e) {
+				onDone("Network error. Please check your connection and try again.");
+			}
+		},
 		decodeHtmlEntity(str) {
 			return str.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec));
 		},
@@ -370,6 +511,15 @@ const event = {
 				buf.unshift(["&#", str[i].charCodeAt(), ";"].join(""));
 			}
 			return buf.join("");
+		},
+		escapeHtml(str) {
+			if (typeof str !== "string") return "";
+			return str
+				.replace(/&/g, "&amp;")
+				.replace(/</g, "&lt;")
+				.replace(/>/g, "&gt;")
+				.replace(/"/g, "&quot;")
+				.replace(/'/g, "&#39;");
 		}
 	};
 
