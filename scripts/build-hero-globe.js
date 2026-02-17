@@ -3,8 +3,13 @@
  * Run before parcel so the page loads the bundled file from public/.
  * Resolve esbuild from project root so we use the project's binary (correct arch), not a parent node_modules.
  */
-const path = require("path");
-const fs = require("fs");
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
 const projectRoot = path.join(__dirname, "..");
 const esbuild = require(require.resolve("esbuild", { paths: [projectRoot] }));
 
