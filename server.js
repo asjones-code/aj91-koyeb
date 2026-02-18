@@ -85,6 +85,7 @@ async function handleApiAsk(req, body) {
 
 	const apiKey = (process.env.OPENAI_API_KEY || "").trim();
 	if (!apiKey) {
+		console.error("[api/ask] OPENAI_API_KEY is not set. Add it in Koyeb Service → Environment or Secrets.");
 		return { error: "Server configuration error. Please try again later." };
 	}
 
@@ -111,12 +112,14 @@ async function handleApiAsk(req, body) {
 					: (data && typeof data.error === "string")
 						? data.error
 						: "Something went wrong. Please try again.";
+			console.error("[api/ask] OpenAI error", res.status, data.error || data);
 			return { error: msg };
 		}
 
 		const answer = extractResponsesAnswer(data);
 		return { answer: answer || "No response." };
 	} catch (err) {
+		console.error("[api/ask] Request failed:", err.message || err);
 		if (err.cause && (err.cause.code === "ENOTFOUND" || err.cause.code === "ECONNREFUSED")) {
 			return { error: "Service temporarily unavailable. Please try again." };
 		}
