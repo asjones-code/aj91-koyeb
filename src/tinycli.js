@@ -464,38 +464,25 @@ const event = {
 					view.replaceThinkingWithAnswer(err, answer);
 				}
 			};
-			// Parcel inlines only direct process.env.OPENAI_API_KEY. Root .env (or Koyeb env). OPENAI_API_KEY=sk-... (no spaces).
-			const apiKey = String(process.env.OPENAI_API_KEY || "").trim();
-			if (!apiKey) {
-				onDone("OPENAI_API_KEY is not set. Root .env: OPENAI_API_KEY=sk-... (no spaces). Clear .parcel-cache, restart Parcel.");
-				return;
-			}
 			try {
 				const siteContent = await loadSiteContent();
 				const instructions = (siteContent ? siteContent + "\n\n" : "") + ASK_SYSTEM_RULES;
-				const res = await fetch("https://api.openai.com/v1/responses", {
+				const apiOrigin = String(process.env.API_ORIGIN || "").trim();
+				const res = await fetch(`${apiOrigin}/api/ask`, {
 					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${apiKey}`
-					},
-					body: JSON.stringify({
-						model: "gpt-4.1-nano",
-						instructions,
-						input: question
-					})
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ instructions, input: question })
 				});
 				const data = await res.json().catch(() => ({}));
 				if (!res.ok) {
-					const errMsg = (data && data.error && typeof data.error.message === "string")
-						? data.error.message
-						: (data && typeof data.error === "string")
+					const errMsg =
+						(data && typeof data.error === "string")
 							? data.error
 							: "Something went wrong. Please try again.";
 					onDone(errMsg);
 					return;
 				}
-				const answer = this.extractResponsesAnswer(data);
+				const answer = (data && typeof data.answer === "string") ? data.answer.trim() : "";
 				onDone(null, answer || "No response.");
 			} catch (e) {
 				onDone("Network error. Please check your connection and try again.");

@@ -1,0 +1,229 @@
+/**
+ * Koyeb Web Service: serves static /dist and POST /api/ask (OpenAI Responses API).
+ * Node 18+ native http and fetch. OPENAI_API_KEY from env (Koyeb) or .env (dev).
+ */
+import "dotenv/config";
+import http from "node:http";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const DIST = path.join(__dirname, "dist");
+const PORT = Number(process.env.PORT) || 3000;
+
+function corsHeaders(origin) {
+	const o = origin && (origin.startsWith("http://localhost:") || origin.startsWith("https://localhost:"));
+	return o ? { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" } : {};
+}
+
+const MIME = {
+	".html": "text/html; charset=utf-8",
+	".css": "text/css; charset=utf-8",
+	".js": "application/javascript; charset=utf-8",
+	".json": "application/json",
+	".ico": "image/x-icon",
+	".png": "image/png",
+	".jpg": "image/jpeg",
+	".jpeg": "image/jpeg",
+	".gif": "image/gif",
+	".svg": "image/svg+xml",
+	".webp": "image/webp",
+	".woff": "font/woff",
+	".woff2": "font/woff2",
+	".ttf": "font/ttf",
+	".txt": "text/plain; charset=utf-8",
+};
+
+function extractResponsesAnswer(data) {
+	if (!data || typeof data !== "object") return "";
+	if (typeof data.output === "string") return data.output.trim();
+	if (typeof data.text === "string") return data.text.trim();
+	const output = data.output;
+	if (!Array.isArray(output) || output.length === 0) return "";
+	const parts = [];
+	for (const item of output) {
+		if (item && item.content && Array.isArray(item.content)) {
+			for (const block of item.content) {
+				if (block && block.type === "output_text" && typeof block.text === "string") {
+					parts.push(block.text);
+				}
+			}
+		}
+	}
+	return parts.join("").trim();
+}
+
+function safePath(relative) {
+	const normalized = path.normalize(relative).replace(/^(\.\.(\/|\\|$))+/, "");
+	return path.join(DIST, normalized);
+}
+
+function isInsideDist(resolved) {
+	const distReal = path.resolve(DIST);
+	const resolvedReal = path.resolve(resolved);
+	return resolvedReal === distReal || resolvedReal.startsWith(distReal + path.sep);
+}
+
+function jsonResponse(res, status, data, extraHeaders = {}) {
+	res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", ...extraHeaders });
+	res.end(JSON.stringify(data));
+}
+
+async function handleApiAsk(req, body) {
+	let parsed;
+	try {
+		parsed = JSON.parse(body);
+	} catch {
+		return { error: "Invalid JSON body." };
+	}
+	const instructions = typeof parsed.instructions === "string" ? parsed.instructions : "";
+	const input = typeof parsed.input === "string" ? parsed.input.trim() : "";
+	if (!input) {
+		return { error: "Missing or empty input." };
+	}
+
+	const apiKey = (process.env.OPENAI_API_KEY || "").trim();
+	if (!apiKey) {
+		return { error: "Server configuration error. Please try again later." };
+	}
+
+	try {
+		const res = await fetch("https://api.openai.com/v1/responses", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${apiKey}`,
+			},
+			body: JSON.stringify({
+				model: "gpt-4.1-nano",
+				instructions: instructions || undefined,
+				input,
+			}),
+		});
+
+		const data = await res.json().catch(() => ({}));
+
+		if (!res.ok) {
+			const msg =
+				(data && data.error && typeof data.error.message === "string")
+					? data.error.message
+					: (data && typeof data.error === "string")
+						? data.error
+						: "Something went wrong. Please try again.";
+			return { error: msg };
+		}
+
+		const answer = extractResponsesAnswer(data);
+		return { answer: answer || "No response." };
+	} catch (err) {
+		if (err.cause && (err.cause.code === "ENOTFOUND" || err.cause.code === "ECONNREFUSED")) {
+			return { error: "Service temporarily unavailable. Please try again." };
+		}
+		return { error: "Something went wrong. Please try again." };
+	}
+}
+
+async function serveStatic(res, pathname, method = "GET") {
+	const file = pathname === "/" || pathname === "" ? "/index.html" : pathname;
+	const resolved = safePath(file);
+	if (!isInsideDist(resolved)) {
+		return 403;
+	}
+
+	let stat;
+	try {
+		stat = await fs.stat(resolved);
+	} catch (e) {
+		if (e.code === "ENOENT") return 404;
+		return 500;
+	}
+
+	if (!stat.isFile()) {
+		const indexCandidate = path.join(resolved, "index.html");
+		try {
+			await fs.access(indexCandidate);
+			const subPath = (pathname.endsWith("/") ? pathname : pathname + "/") + "index.html";
+			return serveStatic(res, subPath, method);
+		} catch {
+			return 404;
+		}
+	}
+
+	const ext = path.extname(resolved);
+	const contentType = MIME[ext] || "application/octet-stream";
+	const buf = await fs.readFile(resolved);
+	res.writeHead(200, {
+		"Content-Type": contentType,
+		"Content-Length": Buffer.byteLength(buf),
+	});
+	if (method !== "HEAD") {
+		res.end(buf);
+	} else {
+		res.end();
+	}
+	return 200;
+}
+
+function collectBody(req) {
+	return new Promise((resolve, reject) => {
+		const chunks = [];
+		req.on("data", (chunk) => chunks.push(chunk));
+		req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+		req.on("error", reject);
+	});
+}
+
+const server = http.createServer(async (req, res) => {
+	const method = req.method || "GET";
+	const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+	const pathname = url.pathname;
+
+	if (pathname === "/api/ask") {
+		const origin = req.headers.origin;
+		const cors = corsHeaders(origin);
+		if (method === "OPTIONS") {
+			res.writeHead(204, { ...cors, "Access-Control-Max-Age": "86400" });
+			res.end();
+			return;
+		}
+		if (method === "POST") {
+			let body;
+			try {
+				body = await collectBody(req);
+			} catch {
+				jsonResponse(res, 500, { error: "Something went wrong. Please try again." }, cors);
+				return;
+			}
+			const result = await handleApiAsk(req, body);
+			if (result.error) {
+				const status =
+					result.error === "Invalid JSON body." || result.error === "Missing or empty input."
+						? 400
+						: 500;
+				jsonResponse(res, status, { error: result.error }, cors);
+			} else {
+				jsonResponse(res, 200, { answer: result.answer }, cors);
+			}
+			return;
+		}
+	}
+
+	if (method !== "GET" && method !== "HEAD") {
+		res.writeHead(405, { "Content-Type": "text/plain; charset=utf-8" });
+		res.end("Method Not Allowed");
+		return;
+	}
+
+	const status = await serveStatic(res, pathname, method);
+	if (status !== 200) {
+		const code = status === 404 ? 404 : status === 403 ? 403 : 500;
+		const msg = code === 404 ? "Not Found" : code === 403 ? "Forbidden" : "Internal Server Error";
+		res.writeHead(code, { "Content-Type": "text/plain; charset=utf-8" });
+		res.end(msg);
+	}
+});
+
+server.listen(PORT, () => {
+	console.log(`Listening on port ${PORT}`);
+});

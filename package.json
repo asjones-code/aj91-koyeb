@@ -11,12 +11,10 @@
   ],
   "scripts": {
     "build:globe": "node scripts/build-hero-globe.js",
-    "prestart": "npm run build:globe",
     "prebuild": "npm run build:globe",
-    "dev": "parcel src/index.html",
-    "start": "parcel src/index.html",
-    "build": "parcel build src/index.html",
-    "serve": "npx serve dist",
+    "dev": "node node_modules/parcel/lib/bin.js src/index.html",
+    "build": "node node_modules/parcel/lib/bin.js build src/index.html",
+    "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -39,6 +37,7 @@
   },
   "dependencies": {
     "@barba/core": "^2.9.7",
+    "dotenv": "^16.4.5",
     "barba": "^1.0.0",
     "dat.gui": "^0.7.9",
     "express": "^4.21.0",
