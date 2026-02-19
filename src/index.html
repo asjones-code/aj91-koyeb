@@ -148,6 +148,20 @@
         <div class="menu-cards" aria-hidden="true">
           <div id="writing-cards" class="writing-cards" aria-label="Writing feed"></div>
         </div>
+
+        <div class="email-capture-card" id="email-capture-card" aria-hidden="true" aria-label="Contact signup">
+          <button type="button" class="email-capture-close" aria-label="Close" id="email-capture-close"></button>
+          <div class="email-capture-inner">
+            <p class="email-capture-title">Stay in touch</p>
+            <p class="email-capture-desc">Get updates on new writing and projects.</p>
+            <form class="email-capture-form" id="email-capture-form" action="#" method="post">
+              <label for="email-capture-input" class="visually-hidden">Email</label>
+              <input type="email" id="email-capture-input" class="email-capture-input" placeholder="you@example.com" required autocomplete="email" />
+              <button type="submit" class="email-capture-submit">Subscribe</button>
+            </form>
+          </div>
+        </div>
+        <div class="email-capture-backdrop" id="email-capture-backdrop" aria-hidden="true"></div>
       </div>
     </main>
   </div>

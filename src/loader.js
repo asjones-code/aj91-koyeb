@@ -652,10 +652,58 @@ function initNavIndicator() {
 
 let hasRunIntro = false;
 
+function initEmailCaptureCard() {
+	const card = document.getElementById("email-capture-card");
+	const backdrop = document.getElementById("email-capture-backdrop");
+	const contactLink = document.querySelector('a.nav-badge[href="#contact"]');
+	const closeBtn = document.getElementById("email-capture-close");
+	const menuBreakpoint = window.matchMedia("(max-width: 768px)");
+	if (!card || !backdrop) return;
+
+	function openEmailCard() {
+		document.activeElement?.blur();
+		card.classList.add("is-open");
+		backdrop.classList.add("is-open");
+		card.setAttribute("aria-hidden", "false");
+		backdrop.setAttribute("aria-hidden", "false");
+		const input = document.getElementById("email-capture-input");
+		requestAnimationFrame(() => {
+			input?.focus({ preventScroll: true });
+		});
+	}
+	function closeEmailCard() {
+		card.classList.remove("is-open");
+		backdrop.classList.remove("is-open");
+		card.setAttribute("aria-hidden", "true");
+		backdrop.setAttribute("aria-hidden", "true");
+	}
+
+	if (contactLink) {
+		contactLink.addEventListener("click", (e) => {
+			if (menuBreakpoint.matches) {
+				e.preventDefault();
+				openEmailCard();
+			}
+		});
+	}
+	closeBtn?.addEventListener("click", closeEmailCard);
+	backdrop.addEventListener("click", closeEmailCard);
+
+	const form = document.getElementById("email-capture-form");
+	if (form) {
+		form.addEventListener("submit", (e) => {
+			e.preventDefault();
+			// TODO: send to your email/CRM endpoint; for now just close on mobile
+			if (menuBreakpoint.matches) closeEmailCard();
+		});
+	}
+}
+
 function runPageInit() {
 	initStickyHeader();
 	initMenuToggle();
 	initNavIndicator();
+	initEmailCaptureCard();
 }
 
 barba.init({
