@@ -91,8 +91,9 @@ function initHeroGlobe() {
   );
   scene.add(atmosphere);
 
-  // Location dots: driven by globe-locations event (from live WebSocket when users opt in)
-  const locationDots = new Map(); // id -> THREE.Mesh
+  // Location dots: driven by globe-locations event; fade out by last_seen_at (session ends)
+  const locationDots = new Map(); // id -> THREE.Mesh (mesh.userData.lastSeenAt)
+  const FADE_TTL_MS = 60000; // match server prune interval
   function latLngToPosition(lat, lng, radius = 1.62) {
     const phi = (90 - lat) * (Math.PI / 180);
     const theta = (lng + 180) * (Math.PI / 180);
@@ -103,25 +104,55 @@ function initHeroGlobe() {
   }
 
   function setLocationDots(locations) {
-    const ids = new Set((locations || []).map((l) => l.id));
+    const now = Date.now();
+    const list = locations || [];
+    const ids = new Set(list.map((l) => l.id));
     locationDots.forEach((mesh, id) => {
       if (!ids.has(id)) {
         globe.remove(mesh);
         locationDots.delete(id);
       }
     });
-    (locations || []).forEach(({ id, lat, lng }) => {
+    list.forEach(({ id, lat, lng, last_seen_at }) => {
       if (typeof lat !== "number" || typeof lng !== "number") return;
+      const lastSeen = typeof last_seen_at === "number" ? last_seen_at : now;
       if (locationDots.has(id)) {
-        locationDots.get(id).position.copy(latLngToPosition(lat, lng));
+        const dot = locationDots.get(id);
+        dot.position.copy(latLngToPosition(lat, lng));
+        dot.userData.lastSeenAt = lastSeen;
       } else {
         const dotGeometry = new THREE.SphereGeometry(0.035, 16, 16);
-        const dotMaterial = new THREE.MeshBasicMaterial({ color: 0xff6b00 });
+        const dotMaterial = new THREE.MeshBasicMaterial({
+          color: 0xff6b00,
+          transparent: true,
+          opacity: 1
+        });
         const dot = new THREE.Mesh(dotGeometry, dotMaterial);
         dot.position.copy(latLngToPosition(lat, lng));
+        dot.userData.lastSeenAt = lastSeen;
         globe.add(dot);
         locationDots.set(id, dot);
       }
+    });
+  }
+
+  function updateDotOpacity() {
+    const now = Date.now();
+    const toRemove = [];
+    locationDots.forEach((mesh, id) => {
+      const lastSeen = mesh.userData.lastSeenAt || 0;
+      const age = now - lastSeen;
+      if (age >= FADE_TTL_MS) {
+        toRemove.push(id);
+      } else {
+        const opacity = Math.max(0, 1 - age / FADE_TTL_MS);
+        if (mesh.material) mesh.material.opacity = opacity;
+      }
+    });
+    toRemove.forEach((id) => {
+      const mesh = locationDots.get(id);
+      if (mesh) globe.remove(mesh);
+      locationDots.delete(id);
     });
   }
 
@@ -170,6 +201,7 @@ function initHeroGlobe() {
 
   function animate() {
     globe.rotation.y += 0.0007;
+    updateDotOpacity();
     composer.render();
     requestAnimationFrame(animate);
   }

@@ -4,6 +4,7 @@
  */
 import "dotenv/config";
 import http from "node:http";
+import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,6 +41,18 @@ async function initDatabase() {
 				anonymized_email TEXT NOT NULL,
 				message TEXT NOT NULL
 			);
+			CREATE TABLE IF NOT EXISTS live_visitors (
+				session_id UUID PRIMARY KEY,
+				latitude DOUBLE PRECISION NOT NULL,
+				longitude DOUBLE PRECISION NOT NULL,
+				accuracy_meters INTEGER,
+				country TEXT,
+				region TEXT,
+				user_agent TEXT,
+				connected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				is_active BOOLEAN NOT NULL DEFAULT TRUE
+			);
 		`);
 		console.log("[db] Database initialized");
 		return pool;
@@ -71,6 +84,59 @@ async function saveMessage(ip, anonymizedEmail, message) {
 		);
 	} catch (err) {
 		console.error("[db] Save message error:", err.message);
+	}
+}
+
+async function upsertLiveVisitor(sessionId, lat, lng, accuracy, userAgent, country = null, region = null) {
+	if (!dbPool) return;
+	try {
+		await dbPool.query(
+			`INSERT INTO live_visitors (session_id, latitude, longitude, accuracy_meters, user_agent, country, region, connected_at, last_seen_at, is_active)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW(), TRUE)
+			 ON CONFLICT (session_id) DO UPDATE SET
+			   latitude = EXCLUDED.latitude,
+			   longitude = EXCLUDED.longitude,
+			   accuracy_meters = EXCLUDED.accuracy_meters,
+			   user_agent = EXCLUDED.user_agent,
+			   last_seen_at = NOW(),
+			   is_active = TRUE`,
+			[sessionId, lat, lng, accuracy ?? null, userAgent || null, country, region]
+		);
+	} catch (err) {
+		console.error("[db] Upsert live_visitor error:", err.message);
+	}
+}
+
+async function setLiveVisitorInactive(sessionId) {
+	if (!dbPool) return;
+	try {
+		await dbPool.query("UPDATE live_visitors SET is_active = FALSE WHERE session_id = $1", [sessionId]);
+	} catch (err) {
+		console.error("[db] Set live_visitor inactive error:", err.message);
+	}
+}
+
+async function touchLiveVisitorsLastSeen(sessionIds) {
+	if (!dbPool || sessionIds.length === 0) return;
+	try {
+		await dbPool.query(
+			"UPDATE live_visitors SET last_seen_at = NOW() WHERE session_id = ANY($1::uuid[])",
+			[sessionIds]
+		);
+	} catch (err) {
+		console.error("[db] Touch live_visitors error:", err.message);
+	}
+}
+
+async function pruneStaleLiveVisitors() {
+	if (!dbPool) return;
+	try {
+		const r = await dbPool.query(
+			"DELETE FROM live_visitors WHERE last_seen_at < NOW() - INTERVAL '60 seconds'"
+		);
+		if (r.rowCount > 0) console.log("[live] Pruned", r.rowCount, "stale visitors");
+	} catch (err) {
+		console.error("[db] Prune live_visitors error:", err.message);
 	}
 }
 
@@ -435,7 +501,7 @@ function collectBody(req) {
 // ——— Live: WebSocket for location sharing + ephemeral chat (5 min) ———
 const CHAT_TTL_MS = 5 * 60 * 1000;
 const CHAT_RATE_MS = 2000;
-const liveClients = new Map(); // id -> { ws, email?, lastChatAt?, lat?, lng? }
+const liveClients = new Map(); // id -> { ws, sessionId, email?, lastChatAt?, lat?, lng?, lastSeenAt?, userAgent?, ip }
 const chatBuffer = []; // { id, sender, text, ts }
 
 function maskEmail(email) {
@@ -452,11 +518,17 @@ function pruneChatBuffer() {
 }
 
 function getLocationsPayload() {
+	const now = Date.now();
 	return {
 		type: "locations",
 		locations: Array.from(liveClients.entries())
 			.filter(([, c]) => c.lat != null && c.lng != null)
-			.map(([id, c]) => ({ id, lat: c.lat, lng: c.lng })),
+			.map(([id, c]) => ({
+				id: c.sessionId || id,
+				lat: c.lat,
+				lng: c.lng,
+				last_seen_at: c.lastSeenAt ?? now,
+			})),
 	};
 }
 
@@ -485,9 +557,11 @@ function getClientIp(req) {
 const wss = new WebSocketServer({ noServer: true });
 wss.on("connection", (ws, req) => {
 	const id = "c" + Date.now() + "_" + Math.random().toString(36).slice(2, 9);
+	const sessionId = crypto.randomUUID();
 	const clientIp = getClientIp(req);
-	liveClients.set(id, { ws, lastChatAt: 0, ip: clientIp });
-	ws.send(JSON.stringify({ type: "welcome", id }));
+	const userAgent = (req.headers && req.headers["user-agent"]) ? req.headers["user-agent"] : null;
+	liveClients.set(id, { ws, sessionId, lastChatAt: 0, ip: clientIp, userAgent });
+	ws.send(JSON.stringify({ type: "welcome", id, sessionId }));
 
 	// Send current locations and recent chat to new client
 	ws.send(JSON.stringify(getLocationsPayload()));
@@ -507,6 +581,17 @@ wss.on("connection", (ws, req) => {
 		if (msg.type === "location" && typeof msg.lat === "number" && typeof msg.lng === "number") {
 			client.lat = msg.lat;
 			client.lng = msg.lng;
+			client.lastSeenAt = Date.now();
+			const acc = typeof msg.accuracy === "number" ? Math.round(msg.accuracy) : null;
+			upsertLiveVisitor(
+				sessionId,
+				msg.lat,
+				msg.lng,
+				acc,
+				client.userAgent,
+				msg.country || null,
+				msg.region || null
+			).catch(() => {});
 			broadcastLocations();
 			return;
 		}
@@ -536,10 +621,28 @@ wss.on("connection", (ws, req) => {
 	});
 
 	ws.on("close", () => {
+		setLiveVisitorInactive(sessionId).catch(() => {});
 		liveClients.delete(id);
 		broadcastLocations();
 	});
 });
+
+// Periodic: touch last_seen_at for connected clients with location; prune stale rows
+const LIVE_TOUCH_INTERVAL_MS = 10000;
+const LIVE_PRUNE_INTERVAL_MS = 60000;
+setInterval(() => {
+	const sessionIds = Array.from(liveClients.values())
+		.filter((c) => c.sessionId && c.lat != null)
+		.map((c) => c.sessionId);
+	if (sessionIds.length > 0) {
+		touchLiveVisitorsLastSeen(sessionIds).catch(() => {});
+		liveClients.forEach((c) => {
+			if (c.lat != null) c.lastSeenAt = Date.now();
+		});
+		broadcastLocations();
+	}
+}, LIVE_TOUCH_INTERVAL_MS);
+setInterval(() => pruneStaleLiveVisitors(), LIVE_PRUNE_INTERVAL_MS);
 
 const server = http.createServer(async (req, res) => {
 	const method = req.method || "GET";

@@ -1622,6 +1622,30 @@ html {
   object-fit: cover;
 }
 
+.globe-opt-in-btn {
+  position: absolute;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 2rem;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.globe-opt-in-btn:hover {
+  background: rgba(0, 0, 0, 0.6);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+.globe-opt-in-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .hero-content {
   display: flex;
   justify-content: space-between;

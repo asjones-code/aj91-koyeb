@@ -79,4 +79,35 @@ function closeLiveSession() {
 	emailOptedIn = false;
 }
 
-export { getLiveWsUrl, openLiveSession, closeLiveSession, sendMessage, getState, setChatCallback };
+/**
+ * Opt in to show your location on the globe (outside terminal).
+ * Requests geolocation, opens WebSocket if needed, sends location.
+ */
+function optInGlobeLocation() {
+	return new Promise((resolve, reject) => {
+		if (!navigator.geolocation) {
+			reject(new Error("Geolocation not supported"));
+			return;
+		}
+		navigator.geolocation.getCurrentPosition(
+			(pos) => {
+				openLiveSession({
+					onOpen: () => {
+						sendMessage({
+							type: "location",
+							lat: pos.coords.latitude,
+							lng: pos.coords.longitude,
+							accuracy: pos.coords.accuracy != null ? pos.coords.accuracy : undefined
+						});
+						resolve();
+					},
+					onError: () => reject(new Error("Connection failed"))
+				});
+			},
+			() => reject(new Error("Location denied or unavailable")),
+			{ enableHighAccuracy: false, maximumAge: 60000, timeout: 10000 }
+		);
+	});
+}
+
+export { getLiveWsUrl, openLiveSession, closeLiveSession, sendMessage, getState, setChatCallback, optInGlobeLocation };

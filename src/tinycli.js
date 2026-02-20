@@ -62,15 +62,29 @@ const event = {
 		},
 		onCommand(e, c) {
 			e.preventDefault();
+			const rawLine = (c.command + " " + (c.arguments || []).join(" ")).trim();
+			if (controller.chatModeActive) {
+				if (rawLine === "/exit" || rawLine.toLowerCase() === "exit") {
+					controller.chatModeActive = false;
+					view.outputCommandResult("Left chat.");
+					return;
+				}
+				if (rawLine) {
+					live.sendMessage({ type: "chat", text: rawLine });
+					view.outputCommandResult("Sent.");
+				}
+				return;
+			}
 			if (controller.waitingForChatEmail) {
-				const raw = (c.command + " " + (c.arguments || []).join(" ")).trim();
+				const raw = rawLine;
 				controller.waitingForChatEmail = false;
 				if (!raw || !raw.includes("@")) {
 					view.outputCommandResult("Invalid email. Type <strong>chat</strong> to try again.");
 					return;
 				}
 				live.sendMessage({ type: "email_optin", email: raw });
-				view.outputCommandResult("You can send messages now. Messages disappear after 5 min. Type: <strong>chat</strong> &lt;message&gt;");
+				controller.chatModeActive = true;
+				view.outputCommandResult("You're in chat mode. Type your messages and press Enter. Type <strong>/exit</strong> to leave.");
 				return;
 			}
 			const result = controller.executeCommand(c);
@@ -429,6 +443,7 @@ const event = {
 
 	const controller = {
 		waitingForChatEmail: false,
+		chatModeActive: false,
 		triggerCtrlCodes(codename) {
 			let r = "";
 			if (codename.length > 1) {
@@ -461,7 +476,7 @@ const event = {
 				case "?":
 				case "h":
 				case "help":
-					out = `Commands: cls, about, work, help, news, ask &lt;question&gt;, calc &lt;expr&gt;, search &lt;phrase&gt;, web &lt;url&gt;, location, chat &lt;msg&gt;, exit<br><br>Quick links: <a href="about.html">About</a> · <a href="work.html">Work</a>`;
+					out = `Commands: cls, about, work, help, news, ask &lt;question&gt;, calc &lt;expr&gt;, search &lt;phrase&gt;, web &lt;url&gt;, location, chat, exit<br><br>Quick links: <a href="about.html">About</a> · <a href="work.html">Work</a>`;
 					break;
 				case "eval":
 				case "calc":
@@ -498,9 +513,8 @@ const event = {
 				case "chat":
 					{
 						const state = live.getState();
-						const text = cmd.arguments.join(" ").trim();
 						if (!state.connected) {
-							out = "Share your location first: type <strong>location</strong> and opt in. That opens the live session.";
+							out = "Open the live session first: click <strong>Show me on the globe</strong> above, or type <strong>location</strong> in the terminal.";
 							break;
 						}
 						if (!state.emailOptedIn) {
@@ -508,12 +522,9 @@ const event = {
 							out = "Enter your email to send messages (anti-spam). Type it and press Enter:";
 							break;
 						}
-						if (!text) {
-							out = "Usage: chat &lt;message&gt;. Messages disappear after 5 min.";
-							break;
-						}
-						live.sendMessage({ type: "chat", text });
-						out = "Sent.";
+						// Already in chat mode from previous opt-in; "chat" with no args just enters chat mode
+						this.chatModeActive = true;
+						out = "You're in chat mode. Type your messages and press Enter. Type <strong>/exit</strong> to leave.";
 						break;
 					}
 				default:

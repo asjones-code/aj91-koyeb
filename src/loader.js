@@ -228,6 +228,26 @@ function initTerminal() {
 	import("./tinycli.js").then((m) => m.initTinycli());
 }
 
+function initGlobeOptIn() {
+	const btn = document.getElementById("globe-opt-in");
+	if (!btn) return;
+	btn.addEventListener("click", () => {
+		btn.disabled = true;
+		btn.textContent = "…";
+		import("./live.js").then((live) => {
+			live.optInGlobeLocation()
+				.then(() => {
+					btn.textContent = "You're on the globe";
+				})
+				.catch((err) => {
+					btn.disabled = false;
+					btn.textContent = "Show me on the globe";
+					console.warn("[globe] Opt-in failed:", err.message);
+				});
+		});
+	});
+}
+
 // Resize in real time: progress 0→1 over this scroll distance (driven by Lenis in scroll callback)
 const WORK_HEADER_SCROLL_END_PX = 120;
 
@@ -790,6 +810,7 @@ barba.hooks.after((data) => {
 		const heroTl = heroAnimation();
 		introTimeline.add(preloaderTl).add(heroTl, "-=2.4");
 		initTerminal();
+		initGlobeOptIn();
 		// Re-mount the globe into the new .hero-globe-wrap (script only runs once on load)
 		window.dispatchEvent(new CustomEvent("hero-globe-mount"));
 		// Re-populate writing feed (container was replaced by Barba)
@@ -804,6 +825,7 @@ window.addEventListener("load", () => {
 		const heroTl = heroAnimation();
 		introTimeline.add(preloaderTl).add(heroTl, "-=2.4");
 		initTerminal();
+		initGlobeOptIn();
 		hasRunIntro = true;
 	}
 	runPageInit();
