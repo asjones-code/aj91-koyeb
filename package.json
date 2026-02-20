@@ -47,6 +47,7 @@
     "locomotive-scroll": "^4.1.4",
     "lunarphase-js": "^2.0.3",
     "openai": "^4.73.0",
+    "pg": "^8.11.3",
     "pixi.js": "^8.5.2",
     "route-recognizer": "^0.3.4",
     "router_js": "^8.0.6",

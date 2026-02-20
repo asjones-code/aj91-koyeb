@@ -690,11 +690,49 @@ function initEmailCaptureCard() {
 	backdrop.addEventListener("click", closeEmailCard);
 
 	const form = document.getElementById("email-capture-form");
-	if (form) {
-		form.addEventListener("submit", (e) => {
+	const input = document.getElementById("email-capture-input");
+	if (form && input) {
+		form.addEventListener("submit", async (e) => {
 			e.preventDefault();
-			// TODO: send to your email/CRM endpoint; for now just close on mobile
-			if (menuBreakpoint.matches) closeEmailCard();
+			const email = input.value.trim();
+			if (!email) return;
+			const submitBtn = form.querySelector(".email-capture-submit");
+			const originalText = submitBtn?.textContent;
+			if (submitBtn) {
+				submitBtn.disabled = true;
+				submitBtn.textContent = "Subscribing...";
+			}
+			try {
+				const res = await fetch("/api/subscribe", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ email })
+				});
+				const data = await res.json().catch(() => ({}));
+				if (res.ok && data.success) {
+					if (submitBtn) submitBtn.textContent = "Subscribed!";
+					input.value = "";
+					setTimeout(() => {
+						if (menuBreakpoint.matches) closeEmailCard();
+						if (submitBtn) {
+							submitBtn.disabled = false;
+							submitBtn.textContent = originalText;
+						}
+					}, 1500);
+				} else {
+					alert(data.error || "Something went wrong. Please try again.");
+					if (submitBtn) {
+						submitBtn.disabled = false;
+						submitBtn.textContent = originalText;
+					}
+				}
+			} catch (err) {
+				alert("Network error. Please check your connection and try again.");
+				if (submitBtn) {
+					submitBtn.disabled = false;
+					submitBtn.textContent = originalText;
+				}
+			}
 		});
 	}
 }

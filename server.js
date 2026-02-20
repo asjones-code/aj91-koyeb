@@ -1,19 +1,88 @@
 /**
- * Koyeb Web Service: serves static /dist and POST /api/ask (OpenAI Responses API).
- * Node 18+ native http and fetch. OPENAI_API_KEY from env (Koyeb) or .env (dev).
+ * Koyeb Web Service: serves static /dist, POST /api/ask (OpenAI), POST /api/subscribe (email capture).
+ * Node 18+ native http and fetch. OPENAI_API_KEY and DATABASE_URL from env (Koyeb) or .env (dev).
  */
 import "dotenv/config";
 import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import pg from "pg";
+const { Pool } = pg;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(__dirname, "dist");
 const PORT = Number(process.env.PORT) || 3000;
 
-function corsHeaders(origin) {
-	const o = origin && (origin.startsWith("http://localhost:") || origin.startsWith("https://localhost:"));
+let dbPool = null;
+async function initDatabase() {
+	const dbUrl = (process.env.DATABASE_URL || "").trim();
+	if (!dbUrl) {
+		console.warn("[db] DATABASE_URL not set; email capture disabled");
+		return null;
+	}
+	try {
+		const pool = new Pool({ connectionString: dbUrl, ssl: dbUrl.includes("localhost") ? false : { rejectUnauthorized: false } });
+		await pool.query(`
+			CREATE TABLE IF NOT EXISTS email_subscriptions (
+				id SERIAL PRIMARY KEY,
+				email VARCHAR(255) NOT NULL UNIQUE,
+				source VARCHAR(50) DEFAULT 'website',
+				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE INDEX IF NOT EXISTS idx_email_subscriptions_email ON email_subscriptions(email);
+		`);
+		console.log("[db] Database initialized");
+		return pool;
+	} catch (err) {
+		console.error("[db] Failed to initialize:", err.message);
+		return null;
+	}
+}
+
+async function saveEmail(email, source = "website") {
+	if (!dbPool) return { error: "Database not available." };
+	const normalized = email.trim().toLowerCase();
+	if (!normalized || !normalized.includes("@")) return { error: "Invalid email address." };
+	try {
+		await dbPool.query("INSERT INTO email_subscriptions (email, source) VALUES ($1, $2) ON CONFLICT (email) DO NOTHING", [normalized, source]);
+		return { success: true };
+	} catch (err) {
+		console.error("[db] Save email error:", err.message);
+		return { error: "Failed to save email." };
+	}
+}
+
+async function handleApiSubscribe(req, body) {
+	let parsed;
+	try {
+		parsed = JSON.parse(body);
+	} catch {
+		return { error: "Invalid JSON body." };
+	}
+	let email = "";
+	let source = "website";
+	if (parsed.email && typeof parsed.email === "string") {
+		email = parsed.email;
+	} else if (parsed.data && parsed.data.email && typeof parsed.data.email === "string") {
+		email = parsed.data.email;
+		source = "tally";
+	} else if (parsed.fields && Array.isArray(parsed.fields)) {
+		const emailField = parsed.fields.find((f) => f.type === "EMAIL" || f.key === "email" || f.label?.toLowerCase().includes("email"));
+		if (emailField && emailField.value) email = emailField.value;
+		source = "tally";
+	}
+	if (!email) {
+		return { error: "Email address not found in request." };
+	}
+	return await saveEmail(email, source);
+}
+
+function corsHeaders(origin, allowAll = false) {
+	if (allowAll) {
+		return { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" };
+	}
+	const o = origin && (origin.startsWith("http://localhost:") || origin.startsWith("https://localhost:") || origin.includes("tally.so"));
 	return o ? { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type" } : {};
 }
 
@@ -212,6 +281,33 @@ const server = http.createServer(async (req, res) => {
 		}
 	}
 
+	if (pathname === "/api/subscribe") {
+		const origin = req.headers.origin;
+		const cors = corsHeaders(origin, true);
+		if (method === "OPTIONS") {
+			res.writeHead(204, { ...cors, "Access-Control-Max-Age": "86400" });
+			res.end();
+			return;
+		}
+		if (method === "POST") {
+			let body;
+			try {
+				body = await collectBody(req);
+			} catch {
+				jsonResponse(res, 500, { error: "Something went wrong. Please try again." }, cors);
+				return;
+			}
+			const result = await handleApiSubscribe(req, body);
+			if (result.error) {
+				const status = result.error === "Invalid JSON body." || result.error === "Email address not found in request." || result.error === "Invalid email address." ? 400 : 500;
+				jsonResponse(res, status, { error: result.error }, cors);
+			} else {
+				jsonResponse(res, 200, { success: true, message: "Email saved successfully." }, cors);
+			}
+			return;
+		}
+	}
+
 	if (method !== "GET" && method !== "HEAD") {
 		res.writeHead(405, { "Content-Type": "text/plain; charset=utf-8" });
 		res.end("Method Not Allowed");
@@ -227,6 +323,9 @@ const server = http.createServer(async (req, res) => {
 	}
 });
 
-server.listen(PORT, () => {
-	console.log(`Listening on port ${PORT}`);
+initDatabase().then((pool) => {
+	dbPool = pool;
+	server.listen(PORT, () => {
+		console.log(`Listening on port ${PORT}`);
+	});
 });
