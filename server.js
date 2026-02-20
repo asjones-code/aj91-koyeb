@@ -8,6 +8,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { WebSocketServer } from "ws";
 import { XMLParser } from "fast-xml-parser";
 const { Pool } = pg;
 
@@ -32,6 +33,13 @@ async function initDatabase() {
 				created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 			);
 			CREATE INDEX IF NOT EXISTS idx_email_subscriptions_email ON email_subscriptions(email);
+			CREATE TABLE IF NOT EXISTS messages (
+				id BIGSERIAL PRIMARY KEY,
+				event_timestamp TIMESTAMPTZ NOT NULL DEFAULT now(),
+				ip INET NOT NULL,
+				anonymized_email TEXT NOT NULL,
+				message TEXT NOT NULL
+			);
 		`);
 		console.log("[db] Database initialized");
 		return pool;
@@ -51,6 +59,18 @@ async function saveEmail(email, source = "website") {
 	} catch (err) {
 		console.error("[db] Save email error:", err.message);
 		return { error: "Failed to save email." };
+	}
+}
+
+async function saveMessage(ip, anonymizedEmail, message) {
+	if (!dbPool) return;
+	try {
+		await dbPool.query(
+			"INSERT INTO messages (ip, anonymized_email, message) VALUES ($1::inet, $2, $3)",
+			[ip, anonymizedEmail, message]
+		);
+	} catch (err) {
+		console.error("[db] Save message error:", err.message);
 	}
 }
 
@@ -259,9 +279,8 @@ async function summarizeArticle(apiKey, articleText, sourceName) {
 	if (!articleText || articleText.length < 100) return null;
 	const instructions = `You are a news summarizer. Given article text, respond with exactly:
 1. Three bullet-point key takeaways (one line each).
-2. One short notable quote from the article in quotes.
-3. A line: "Comments: Not available for this source."
-Keep the response concise. Use plain text, no markdown.`;
+2. One short notable quote from the article body in quotes.
+Never use promotional or sign-up text as the quote (e.g. no "Read free articles", "Editor's Digest", "register", "newsletters", "subscribe"). For FT (Financial Times) especially, only quote actual reporting from the article. Keep the response concise. Use plain text, no markdown.`;
 	try {
 		const res = await fetch("https://api.openai.com/v1/responses", {
 			method: "POST",
@@ -413,6 +432,115 @@ function collectBody(req) {
 	});
 }
 
+// ——— Live: WebSocket for location sharing + ephemeral chat (5 min) ———
+const CHAT_TTL_MS = 5 * 60 * 1000;
+const CHAT_RATE_MS = 2000;
+const liveClients = new Map(); // id -> { ws, email?, lastChatAt?, lat?, lng? }
+const chatBuffer = []; // { id, sender, text, ts }
+
+function maskEmail(email) {
+	if (!email || !email.includes("@")) return "***";
+	const [local, domain] = email.split("@");
+	return (local.slice(0, 1) + "***@" + (domain || "***")).toLowerCase();
+}
+
+function pruneChatBuffer() {
+	const now = Date.now();
+	while (chatBuffer.length > 0 && chatBuffer[0].ts < now - CHAT_TTL_MS) {
+		chatBuffer.shift();
+	}
+}
+
+function getLocationsPayload() {
+	return {
+		type: "locations",
+		locations: Array.from(liveClients.entries())
+			.filter(([, c]) => c.lat != null && c.lng != null)
+			.map(([id, c]) => ({ id, lat: c.lat, lng: c.lng })),
+	};
+}
+
+function broadcastLocations() {
+	const payload = JSON.stringify(getLocationsPayload());
+	liveClients.forEach((c) => {
+		if (c.ws.readyState === 1) c.ws.send(payload);
+	});
+}
+
+function broadcastChat(msg) {
+	const payload = JSON.stringify(msg);
+	liveClients.forEach((c) => {
+		if (c.ws.readyState === 1) c.ws.send(payload);
+	});
+}
+
+function getClientIp(req) {
+	const raw = req.socket && req.socket.remoteAddress;
+	if (!raw) return "127.0.0.1";
+	// IPv6-mapped IPv4: ::ffff:192.168.1.1 -> 192.168.1.1 for inet
+	if (raw.startsWith("::ffff:")) return raw.slice(7);
+	return raw;
+}
+
+const wss = new WebSocketServer({ noServer: true });
+wss.on("connection", (ws, req) => {
+	const id = "c" + Date.now() + "_" + Math.random().toString(36).slice(2, 9);
+	const clientIp = getClientIp(req);
+	liveClients.set(id, { ws, lastChatAt: 0, ip: clientIp });
+	ws.send(JSON.stringify({ type: "welcome", id }));
+
+	// Send current locations and recent chat to new client
+	ws.send(JSON.stringify(getLocationsPayload()));
+	pruneChatBuffer();
+	chatBuffer.forEach((m) => ws.send(JSON.stringify(m)));
+
+	ws.on("message", (raw) => {
+		let msg;
+		try {
+			msg = JSON.parse(raw.toString());
+		} catch {
+			return;
+		}
+		const client = liveClients.get(id);
+		if (!client) return;
+
+		if (msg.type === "location" && typeof msg.lat === "number" && typeof msg.lng === "number") {
+			client.lat = msg.lat;
+			client.lng = msg.lng;
+			broadcastLocations();
+			return;
+		}
+		if (msg.type === "email_optin" && typeof msg.email === "string") {
+			const email = msg.email.trim().toLowerCase();
+			if (email.includes("@")) {
+				client.email = email;
+				if (dbPool) saveEmail(email, "live_chat").catch(() => {});
+				ws.send(JSON.stringify({ type: "email_ok" }));
+			}
+			return;
+		}
+		if (msg.type === "chat" && typeof msg.text === "string") {
+			if (!client.email) return;
+			const now = Date.now();
+			if (now - client.lastChatAt < CHAT_RATE_MS) return;
+			client.lastChatAt = now;
+			const text = msg.text.slice(0, 500).trim();
+			if (!text) return;
+			const anonymized = maskEmail(client.email);
+			pruneChatBuffer();
+			const payload = { type: "chat", id, sender: anonymized, text, ts: now };
+			chatBuffer.push(payload);
+			broadcastChat(payload);
+			saveMessage(client.ip || "127.0.0.1", anonymized, text).catch(() => {});
+		}
+	});
+
+	ws.on("close", () => {
+		liveClients.delete(id);
+		broadcastLocations();
+	});
+});
+
 const server = http.createServer(async (req, res) => {
 	const method = req.method || "GET";
 	const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
@@ -511,6 +639,17 @@ const server = http.createServer(async (req, res) => {
 		const msg = code === 404 ? "Not Found" : code === 403 ? "Forbidden" : "Internal Server Error";
 		res.writeHead(code, { "Content-Type": "text/plain; charset=utf-8" });
 		res.end(msg);
+	}
+});
+
+server.on("upgrade", (request, socket, head) => {
+	const pathname = new URL(request.url || "/", "http://" + (request.headers.host || "localhost")).pathname;
+	if (pathname === "/live") {
+		wss.handleUpgrade(request, socket, head, (ws) => {
+			wss.emit("connection", ws, request);
+		});
+	} else {
+		socket.destroy();
 	}
 });
 

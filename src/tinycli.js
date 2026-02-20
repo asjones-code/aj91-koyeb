@@ -1,5 +1,6 @@
 import $ from "jquery";
 import Typed from "typed.js";
+import * as live from "./live.js";
 
 const ASK_SYSTEM_RULES = `You are AJ’s website assistant.
 
@@ -61,6 +62,17 @@ const event = {
 		},
 		onCommand(e, c) {
 			e.preventDefault();
+			if (controller.waitingForChatEmail) {
+				const raw = (c.command + " " + (c.arguments || []).join(" ")).trim();
+				controller.waitingForChatEmail = false;
+				if (!raw || !raw.includes("@")) {
+					view.outputCommandResult("Invalid email. Type <strong>chat</strong> to try again.");
+					return;
+				}
+				live.sendMessage({ type: "email_optin", email: raw });
+				view.outputCommandResult("You can send messages now. Messages disappear after 5 min. Type: <strong>chat</strong> &lt;message&gt;");
+				return;
+			}
 			const result = controller.executeCommand(c);
 			if (result && typeof result === "object" && result.async === "ask") {
 				view.printThinking();
@@ -70,6 +82,10 @@ const event = {
 			if (result && typeof result === "object" && result.async === "news") {
 				view.printThinking();
 				controller.fetchNews();
+				return;
+			}
+			if (result && typeof result === "object" && result.async === "location") {
+				controller.shareLocation((err, msg) => view.outputCommandResult(err || msg));
 				return;
 			}
 			view.outputCommandResult(result);
@@ -175,6 +191,25 @@ const event = {
 			this.curPos = 0;
 			this.isScrolling = false;
 			this.scrollSpeed = 1000;
+			// Mobile: tap anywhere in terminal to focus input (makes it typable)
+			const $termCont = this.$terminal.find(".term-cont");
+			if ($termCont.length) {
+				$termCont.off("click.termFocus touchend.termFocus").on("click.termFocus touchend.termFocus", (e) => {
+					const input = document.getElementById("term-input");
+					if (input && document.activeElement !== input) {
+						e.preventDefault();
+						input.focus();
+					}
+				});
+			}
+			live.setChatCallback((data) => {
+				const sender = (data && data.sender) ? data.sender : "***";
+				const text = (data && typeof data.text === "string") ? data.text : "";
+				this.printTerminal(
+					`<span class="output">[chat] ${controller.escapeHtml(sender)}</span>: ${controller.escapeHtml(text)}`,
+					"command output"
+				);
+			});
 		},
 		clearTerminal() {
 			const cliHtml = `<div class="print"></div><div id="cli"><span class="label">$ </span><span class="prompt"></span></div>`;
@@ -393,6 +428,7 @@ const event = {
 	};
 
 	const controller = {
+		waitingForChatEmail: false,
 		triggerCtrlCodes(codename) {
 			let r = "";
 			if (codename.length > 1) {
@@ -425,7 +461,7 @@ const event = {
 				case "?":
 				case "h":
 				case "help":
-					out = `Commands: cls, about, work, help, news, ask &lt;question&gt;, calc &lt;expr&gt;, search &lt;phrase&gt;, web &lt;url&gt;, exit<br><br>Quick links: <a href="about.html">About</a> · <a href="work.html">Work</a>`;
+					out = `Commands: cls, about, work, help, news, ask &lt;question&gt;, calc &lt;expr&gt;, search &lt;phrase&gt;, web &lt;url&gt;, location, chat &lt;msg&gt;, exit<br><br>Quick links: <a href="about.html">About</a> · <a href="work.html">Work</a>`;
 					break;
 				case "eval":
 				case "calc":
@@ -456,6 +492,30 @@ const event = {
 					break;
 				case "news":
 					return { async: "news" };
+				case "location":
+				case "share":
+					return { async: "location" };
+				case "chat":
+					{
+						const state = live.getState();
+						const text = cmd.arguments.join(" ").trim();
+						if (!state.connected) {
+							out = "Share your location first: type <strong>location</strong> and opt in. That opens the live session.";
+							break;
+						}
+						if (!state.emailOptedIn) {
+							this.waitingForChatEmail = true;
+							out = "Enter your email to send messages (anti-spam). Type it and press Enter:";
+							break;
+						}
+						if (!text) {
+							out = "Usage: chat &lt;message&gt;. Messages disappear after 5 min.";
+							break;
+						}
+						live.sendMessage({ type: "chat", text });
+						out = "Sent.";
+						break;
+					}
 				default:
 					out = `'${cmd.command}' command not found. Type <strong>help</strong> for commands.`;
 					break;
@@ -551,6 +611,26 @@ const event = {
 			} catch (e) {
 				onDone("Network error. Please check your connection and try again.");
 			}
+		},
+		shareLocation(cb) {
+			if (!navigator.geolocation) {
+				cb("Geolocation not supported.");
+				return;
+			}
+			view.printTerminal("Getting location...", "command output");
+			navigator.geolocation.getCurrentPosition(
+				(pos) => {
+					live.openLiveSession({
+						onOpen: () => {
+							live.sendMessage({ type: "location", lat: pos.coords.latitude, lng: pos.coords.longitude });
+							cb(null, "Location shared. You're on the globe.");
+						},
+						onError: () => cb("Connection failed. Try again.")
+					});
+				},
+				() => cb("Location denied or unavailable."),
+				{ enableHighAccuracy: false, maximumAge: 60000, timeout: 10000 }
+			);
 		},
 		extractResponsesAnswer(data) {
 			if (!data || typeof data !== "object") return "";

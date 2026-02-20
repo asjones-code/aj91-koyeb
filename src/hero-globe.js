@@ -91,7 +91,8 @@ function initHeroGlobe() {
   );
   scene.add(atmosphere);
 
-  // POC: green dot at user's location on the globe
+  // Location dots: driven by globe-locations event (from live WebSocket when users opt in)
+  const locationDots = new Map(); // id -> THREE.Mesh
   function latLngToPosition(lat, lng, radius = 1.62) {
     const phi = (90 - lat) * (Math.PI / 180);
     const theta = (lng + 180) * (Math.PI / 180);
@@ -101,21 +102,32 @@ function initHeroGlobe() {
     return new THREE.Vector3(x, y, z);
   }
 
-  function addLocationDot(lat, lng) {
-    const dotGeometry = new THREE.SphereGeometry(0.035, 16, 16);
-    const dotMaterial = new THREE.MeshBasicMaterial({ color: 0xff6b00 });
-    const dot = new THREE.Mesh(dotGeometry, dotMaterial);
-    dot.position.copy(latLngToPosition(lat, lng));
-    globe.add(dot);
+  function setLocationDots(locations) {
+    const ids = new Set((locations || []).map((l) => l.id));
+    locationDots.forEach((mesh, id) => {
+      if (!ids.has(id)) {
+        globe.remove(mesh);
+        locationDots.delete(id);
+      }
+    });
+    (locations || []).forEach(({ id, lat, lng }) => {
+      if (typeof lat !== "number" || typeof lng !== "number") return;
+      if (locationDots.has(id)) {
+        locationDots.get(id).position.copy(latLngToPosition(lat, lng));
+      } else {
+        const dotGeometry = new THREE.SphereGeometry(0.035, 16, 16);
+        const dotMaterial = new THREE.MeshBasicMaterial({ color: 0xff6b00 });
+        const dot = new THREE.Mesh(dotGeometry, dotMaterial);
+        dot.position.copy(latLngToPosition(lat, lng));
+        globe.add(dot);
+        locationDots.set(id, dot);
+      }
+    });
   }
 
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => addLocationDot(pos.coords.latitude, pos.coords.longitude),
-      () => {},
-      { enableHighAccuracy: false, maximumAge: 60000, timeout: 5000 }
-    );
-  }
+  window.addEventListener("globe-locations", (e) => {
+    setLocationDots(e.detail && e.detail.locations ? e.detail.locations : []);
+  });
 
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
