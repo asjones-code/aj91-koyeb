@@ -114,13 +114,25 @@ const event = {
 			}
 		},
 		onKeyUp(e) {
+			const active = document.activeElement;
+			if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
+				return;
+			}
 			e.preventDefault();
 		},
 		onKeyDown(e) {
+			const active = document.activeElement;
+			if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
+				return;
+			}
 			e.preventDefault();
 			view.typeChar(e.key);
 		},
 		onKeyPress(e) {
+			const active = document.activeElement;
+			if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable)) {
+				return;
+			}
 			e.preventDefault();
 		},
 		onScroll(e) {
