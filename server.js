@@ -343,10 +343,16 @@ async function fetchArticleWithBypass(articleUrl) {
 
 async function summarizeArticle(apiKey, articleText, sourceName) {
 	if (!articleText || articleText.length < 100) return null;
-	const instructions = `You are a news summarizer. Given article text, respond with exactly:
+	const isFT = /^FT$/i.test(String(sourceName).trim());
+	const instructions = isFT
+		? `You are a news summarizer. Given article text, respond with exactly:
+1. Three bullet-point key takeaways (one line each).
+2. Do not include a quote. Use a single dash: —.
+Keep the response concise. Use plain text, no markdown.`
+		: `You are a news summarizer. Given article text, respond with exactly:
 1. Three bullet-point key takeaways (one line each).
 2. One short notable quote from the article body in quotes.
-Never use promotional or sign-up text as the quote (e.g. no "Read free articles", "Editor's Digest", "register", "newsletters", "subscribe"). For FT (Financial Times) especially, only quote actual reporting from the article. Keep the response concise. Use plain text, no markdown.`;
+Never use promotional or sign-up text as the quote. Keep the response concise. Use plain text, no markdown.`;
 	try {
 		const res = await fetch("https://api.openai.com/v1/responses", {
 			method: "POST",

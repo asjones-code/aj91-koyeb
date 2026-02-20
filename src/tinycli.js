@@ -216,14 +216,31 @@ const event = {
 					const input = document.getElementById("term-input");
 					if (input && document.activeElement !== input) {
 						input.focus();
+						$termCont.addClass("term-input-focused");
 					}
 				};
+				// Ensure overlay exists (re-added after clearTerminal); one tap focuses input and opens keyboard on mobile
+				let $overlay = $termCont.find(".term-tap-overlay");
+				if (!$overlay.length) {
+					$termCont.append('<div class="term-tap-overlay" aria-hidden="true"></div>');
+					$overlay = $termCont.find(".term-tap-overlay");
+					const overlayEl = $overlay[0];
+					if (overlayEl) {
+						overlayEl.addEventListener("touchstart", (e) => {
+							e.preventDefault();
+							focusInput();
+						}, { passive: false });
+					}
+				}
+				$overlay.off("click.termFocus").on("click.termFocus", (e) => {
+					e.preventDefault();
+					focusInput();
+				});
 				$termCont.off("click.termFocus touchend.termFocus focus.termFocus");
-				// touchstart with preventDefault so iOS doesn't scroll away; then focus so keyboard opens (bind once per element)
 				if (!termContEl._termTouchBound) {
 					termContEl._termTouchBound = true;
 					termContEl.addEventListener("touchstart", (e) => {
-						if (e.target.closest("a")) return;
+						if (e.target.closest("a") || e.target.closest(".term-tap-overlay")) return;
 						e.preventDefault();
 						focusInput();
 					}, { passive: false });
@@ -234,6 +251,12 @@ const event = {
 					focusInput();
 				});
 				$termCont.on("focus.termFocus", focusInput);
+				const inputEl = document.getElementById("term-input");
+				if (inputEl) {
+					$(inputEl).off("focus.termBlur blur.termBlur");
+					$(inputEl).on("focus.termBlur", () => $termCont.addClass("term-input-focused"));
+					$(inputEl).on("blur.termBlur", () => $termCont.removeClass("term-input-focused"));
+				}
 			}
 			live.setChatCallback((data) => {
 				const sender = (data && data.sender) ? data.sender : "***";
@@ -242,6 +265,12 @@ const event = {
 					`<span class="output">[chat] ${controller.escapeHtml(sender)}</span>: ${controller.escapeHtml(text)}`,
 					"command output"
 				);
+			});
+			// When Connect button succeeds: show chat prompt in terminal (second path to chat)
+			window.addEventListener("live-connected", () => {
+				if (this.$terminal.length) {
+					this.printTerminal("You're connected. Type <strong>chat</strong> to join the conversation.", "command output");
+				}
 			});
 		},
 		clearTerminal() {

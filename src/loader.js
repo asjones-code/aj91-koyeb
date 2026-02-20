@@ -238,6 +238,7 @@ function initGlobeOptIn() {
 			live.optInGlobeLocation()
 				.then(() => {
 					btn.textContent = "You're connected";
+					window.dispatchEvent(new CustomEvent("live-connected"));
 				})
 				.catch((err) => {
 					btn.disabled = false;

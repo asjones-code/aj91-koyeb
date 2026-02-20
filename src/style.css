@@ -1699,6 +1699,11 @@ html {
   max-width: 480px;
 }
 
+.content-cta.term {
+  position: relative;
+  z-index: 10; /* above globe/hero so terminal gets taps on mobile */
+}
+
 .content-cta.term #terminal,
 .content-cta.term .term {
   height: 20rem;
@@ -1770,6 +1775,7 @@ html {
 }
 
 .content-cta.term .term-cont {
+  position: relative;
   font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
   color: #fff;
   padding: 0.5rem;
@@ -1784,6 +1790,25 @@ html {
   overflow-wrap: break-word;
   cursor: text;
   touch-action: manipulation; /* allow tap-to-focus and scroll on mobile */
+}
+
+/* Mobile: transparent tap overlay so first tap focuses input and opens keyboard */
+.content-cta.term .term-tap-overlay {
+  display: none;
+}
+@media (max-width: 768px) {
+  .content-cta.term .term-tap-overlay {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    cursor: text;
+    touch-action: manipulation;
+  }
+  .content-cta.term .term-cont.term-input-focused .term-tap-overlay {
+    pointer-events: none;
+    opacity: 0;
+  }
 }
 
 .content-cta.term .term-cmd {
