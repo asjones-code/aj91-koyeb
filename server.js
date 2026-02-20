@@ -8,6 +8,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
+import { XMLParser } from "fast-xml-parser";
 const { Pool } = pg;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -137,6 +138,112 @@ function isInsideDist(resolved) {
 function jsonResponse(res, status, data, extraHeaders = {}) {
 	res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", ...extraHeaders });
 	res.end(JSON.stringify(data));
+}
+
+const NEWS_SOURCES = [
+	{ name: "NYT", rssUrl: "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml" },
+	{ name: "WSJ", rssUrl: "https://feeds.content.dowjones.io/public/rss/RSSWorldNews" },
+	{ name: "FT", rssUrl: "https://www.ft.com/?format=rss" },
+	{ name: "Al Jazeera", rssUrl: "https://www.aljazeera.com/xml/rss/all.xml" },
+];
+
+function extractArticleText(html) {
+	if (!html || typeof html !== "string") return "";
+	const stripped = html
+		.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+		.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+		.replace(/<[^>]+>/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+	return stripped.slice(0, 12000);
+}
+
+async function fetchFirstRssItem(rssUrl) {
+	try {
+		const res = await fetch(rssUrl, { headers: { "User-Agent": "NewsDigest/1.0" } });
+		if (!res.ok) return null;
+		const xml = await res.text();
+		const parser = new XMLParser();
+		const parsed = parser.parse(xml);
+		const channel = parsed?.rss?.channel || parsed?.feed;
+		if (!channel) return null;
+		let item = channel.item;
+		if (Array.isArray(item)) item = item[0];
+		else if (!item) item = channel["rss:item"]?.[0] || channel.entry?.[0];
+		if (!item) return null;
+		const link = item.link || item.guid || (typeof item.link === "object" ? item.link["#text"] : null);
+		const title = (item.title && typeof item.title === "string") ? item.title : (item.title?.["#text"]) || "";
+		return { title: title.trim(), link: typeof link === "string" ? link.trim() : null };
+	} catch (e) {
+		console.error("[news] RSS fetch failed", rssUrl, e.message);
+		return null;
+	}
+}
+
+async function fetchArticleWithBypass(articleUrl) {
+	try {
+		const bypassUrl = `https://removepaywalls.com/${articleUrl}`;
+		const res = await fetch(bypassUrl, {
+			headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsDigest/1.0)" },
+			redirect: "follow",
+		});
+		if (!res.ok) return null;
+		return await res.text();
+	} catch (e) {
+		console.error("[news] Bypass fetch failed", articleUrl, e.message);
+		return null;
+	}
+}
+
+async function summarizeArticle(apiKey, articleText, sourceName) {
+	if (!articleText || articleText.length < 100) return null;
+	const instructions = `You are a news summarizer. Given article text, respond with exactly:
+1. Three bullet-point key takeaways (one line each).
+2. One short notable quote from the article in quotes.
+3. A line: "Comments: Not available for this source."
+Keep the response concise. Use plain text, no markdown.`;
+	try {
+		const res = await fetch("https://api.openai.com/v1/responses", {
+			method: "POST",
+			headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+			body: JSON.stringify({
+				model: "gpt-4.1-nano",
+				instructions,
+				input: `Source: ${sourceName}\n\nArticle text:\n${articleText.slice(0, 10000)}`,
+			}),
+		});
+		const data = await res.json().catch(() => ({}));
+		if (!res.ok) return null;
+		return extractResponsesAnswer(data);
+	} catch (e) {
+		console.error("[news] Summarize failed", e.message);
+		return null;
+	}
+}
+
+async function handleApiNews() {
+	const apiKey = (process.env.OPENAI_API_KEY || "").trim();
+	if (!apiKey) {
+		return { error: "Server configuration error. OPENAI_API_KEY not set." };
+	}
+	const results = [];
+	for (const source of NEWS_SOURCES) {
+		const item = await fetchFirstRssItem(source.rssUrl);
+		if (!item?.link) {
+			results.push({ source: source.name, title: item?.title || "—", error: "No headline" });
+			continue;
+		}
+		const html = await fetchArticleWithBypass(item.link);
+		const text = html ? extractArticleText(html) : "";
+		const summary = text ? await summarizeArticle(apiKey, text, source.name) : null;
+		results.push({
+			source: source.name,
+			title: item.title,
+			link: item.link,
+			summary: summary || "Could not fetch or summarize article.",
+		});
+	}
+	return { articles: results };
 }
 
 async function handleApiAsk(req, body) {
@@ -276,6 +383,30 @@ const server = http.createServer(async (req, res) => {
 				jsonResponse(res, status, { error: result.error }, cors);
 			} else {
 				jsonResponse(res, 200, { answer: result.answer }, cors);
+			}
+			return;
+		}
+	}
+
+	if (pathname === "/api/news") {
+		const origin = req.headers.origin;
+		const cors = corsHeaders(origin, true);
+		if (method === "OPTIONS") {
+			res.writeHead(204, { ...cors, "Access-Control-Max-Age": "86400" });
+			res.end();
+			return;
+		}
+		if (method === "GET" || method === "POST") {
+			try {
+				const result = await handleApiNews();
+				if (result.error) {
+					jsonResponse(res, 500, { error: result.error }, cors);
+				} else {
+					jsonResponse(res, 200, result, cors);
+				}
+			} catch (err) {
+				console.error("[api/news]", err);
+				jsonResponse(res, 500, { error: "News digest failed. Try again later." }, cors);
 			}
 			return;
 		}

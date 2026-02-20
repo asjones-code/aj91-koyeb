@@ -67,6 +67,11 @@ const event = {
 				controller.askAboutSite(result.question);
 				return;
 			}
+			if (result && typeof result === "object" && result.async === "news") {
+				view.printThinking();
+				controller.fetchNews();
+				return;
+			}
 			view.outputCommandResult(result);
 		},
 		onAsync(e, d) {
@@ -328,6 +333,19 @@ const event = {
 			const $scrollEl = this.$terminal.find(".term-cont").length ? this.$terminal.find(".term-cont") : this.$terminal;
 			$scrollEl.scrollTop($scrollEl[0].scrollHeight);
 		},
+		replaceThinkingWithHtml(err, html) {
+			const $el = this.$thinkingEl || this.$terminal.find(".print [data-thinking=true]").last();
+			this.$thinkingEl = null;
+			if (!$el.length) return;
+			$el.removeAttr("data-thinking");
+			if (err) {
+				$el.text(err);
+				return;
+			}
+			$el.addClass("command output").html(html);
+			const $scrollEl = this.$terminal.find(".term-cont").length ? this.$terminal.find(".term-cont") : this.$terminal;
+			$scrollEl.scrollTop($scrollEl[0].scrollHeight);
+		},
 		enterCommandLine() {
 			const p = $.trim(this.$prompt.text());
 			this.printTerminal(p, "command label");
@@ -407,7 +425,7 @@ const event = {
 				case "?":
 				case "h":
 				case "help":
-					out = `Commands: cls, about, work, help, ask &lt;question&gt;, calc &lt;expr&gt;, search &lt;phrase&gt;, web &lt;url&gt;, exit<br><br>Quick links: <a href="about.html">About</a> · <a href="work.html">Work</a>`;
+					out = `Commands: cls, about, work, help, news, ask &lt;question&gt;, calc &lt;expr&gt;, search &lt;phrase&gt;, web &lt;url&gt;, exit<br><br>Quick links: <a href="about.html">About</a> · <a href="work.html">Work</a>`;
 					break;
 				case "eval":
 				case "calc":
@@ -436,6 +454,8 @@ const event = {
 				case "rss":
 					this.getFeedYQL(cmd.arguments[0]);
 					break;
+				case "news":
+					return { async: "news" };
 				default:
 					out = `'${cmd.command}' command not found. Type <strong>help</strong> for commands.`;
 					break;
@@ -496,6 +516,38 @@ const event = {
 				}
 				const answer = (data && typeof data.answer === "string") ? data.answer.trim() : "";
 				onDone(null, answer || "No response.");
+			} catch (e) {
+				onDone("Network error. Please check your connection and try again.");
+			}
+		},
+		formatNewsHtml(articles) {
+			if (!Array.isArray(articles) || articles.length === 0) {
+				return "No articles could be loaded. Try again later.";
+			}
+			const parts = articles.map((a) => {
+				const titleEsc = this.escapeHtml(a.title || "—");
+				const linkHtml = a.link ? `<a href="${this.escapeHtml(a.link)}" target="_blank" rel="noopener">${titleEsc}</a>` : titleEsc;
+				const summaryEsc = a.summary ? this.escapeHtml(a.summary).replace(/\n/g, "<br>") : (a.error || "—");
+				return `<strong>${this.escapeHtml(a.source)}</strong> · ${linkHtml}<br><span class="news-summary">${summaryEsc}</span>`;
+			});
+			return parts.join("<br><br>");
+		},
+		async fetchNews() {
+			const onDone = (err, html) => {
+				if (typeof view.replaceThinkingWithHtml === "function") {
+					view.replaceThinkingWithHtml(err, html);
+				}
+			};
+			try {
+				const apiOrigin = String(process.env.API_ORIGIN || "").trim();
+				const res = await fetch(`${apiOrigin}/api/news`, { method: "GET" });
+				const data = await res.json().catch(() => ({}));
+				if (!res.ok) {
+					onDone(data.error || "News digest failed. Try again later.");
+					return;
+				}
+				const html = this.formatNewsHtml(data.articles || []);
+				onDone(null, html);
 			} catch (e) {
 				onDone("Network error. Please check your connection and try again.");
 			}
