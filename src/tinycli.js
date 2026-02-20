@@ -71,7 +71,6 @@ const event = {
 				}
 				if (rawLine) {
 					live.sendMessage({ type: "chat", text: rawLine });
-					view.outputCommandResult("Sent.");
 				}
 				return;
 			}
@@ -110,6 +109,10 @@ const event = {
 		},
 		onCtrlChar(e, t) {
 			e.preventDefault();
+			if (t.toLowerCase() === "enter" && view.newsTypingInstance) {
+				view.skipNewsTyping();
+				return;
+			}
 			switch (t.toLowerCase()) {
 				case "backspace":
 					view.deleteChar();
@@ -362,15 +365,28 @@ const event = {
 		},
 		printThinking() {
 			const $print = this.$cli.prev();
-			const $el = $("<div class=\"command output\" data-thinking=\"true\">Thinking...</div>");
+			const $el = $("<div class=\"command output\" data-thinking=\"true\">Thinking.</div>");
 			$print.append($el);
 			this.$thinkingEl = $el;
+			let dotCount = 1;
+			this._thinkingInterval = setInterval(() => {
+				if (!this.$thinkingEl || !this.$thinkingEl.length) {
+					if (this._thinkingInterval) clearInterval(this._thinkingInterval);
+					return;
+				}
+				dotCount = (dotCount % 3) + 1;
+				this.$thinkingEl.text("Thinking" + ".".repeat(dotCount));
+			}, 400);
 			const $scrollEl = this.$terminal.find(".term-cont").length ? this.$terminal.find(".term-cont") : this.$terminal;
 			$scrollEl.scrollTop($scrollEl[0].scrollHeight);
 		},
 		replaceThinkingWithAnswer(err, answer) {
 			const $el = this.$thinkingEl || this.$terminal.find(".print [data-thinking=true]").last();
 			this.$thinkingEl = null;
+			if (this._thinkingInterval) {
+				clearInterval(this._thinkingInterval);
+				this._thinkingInterval = null;
+			}
 			if (!$el.length) return;
 			$el.removeAttr("data-thinking");
 			if (err) {
@@ -401,13 +417,52 @@ const event = {
 		replaceThinkingWithHtml(err, html) {
 			const $el = this.$thinkingEl || this.$terminal.find(".print [data-thinking=true]").last();
 			this.$thinkingEl = null;
+			if (this._thinkingInterval) {
+				clearInterval(this._thinkingInterval);
+				this._thinkingInterval = null;
+			}
 			if (!$el.length) return;
 			$el.removeAttr("data-thinking");
 			if (err) {
 				$el.text(err);
 				return;
 			}
-			$el.addClass("command output").html(html);
+			$el.addClass("command output").empty();
+			const span = document.createElement("span");
+			span.className = "news-typed";
+			$el.append(span);
+			$el.append('<div class="output news-typed-hint">Press Enter to show all</div>');
+			this.newsTypingHtml = html;
+			this.newsTypingEl = $el;
+			const self = this;
+			try {
+				this.newsTypingInstance = new Typed(span, {
+					strings: [html],
+					typeSpeed: 8,
+					showCursor: false,
+					contentType: "html",
+					onComplete: () => {
+						if (self.newsTypingEl) self.newsTypingEl.find(".news-typed-hint").remove();
+						self.newsTypingInstance = null;
+						self.newsTypingHtml = null;
+						self.newsTypingEl = null;
+					}
+				});
+			} catch (e) {
+				span.innerHTML = html;
+				$el.find(".news-typed-hint").remove();
+			}
+			const $scrollEl = this.$terminal.find(".term-cont").length ? this.$terminal.find(".term-cont") : this.$terminal;
+			$scrollEl.scrollTop($scrollEl[0].scrollHeight);
+		},
+		skipNewsTyping() {
+			if (!this.newsTypingInstance || !this.newsTypingHtml || !this.newsTypingEl) return;
+			this.newsTypingInstance.destroy();
+			this.newsTypingInstance = null;
+			this.newsTypingEl.find(".news-typed-hint").remove();
+			this.newsTypingEl.find("span.news-typed").html(this.newsTypingHtml);
+			this.newsTypingHtml = null;
+			this.newsTypingEl = null;
 			const $scrollEl = this.$terminal.find(".term-cont").length ? this.$terminal.find(".term-cont") : this.$terminal;
 			$scrollEl.scrollTop($scrollEl[0].scrollHeight);
 		},
@@ -613,7 +668,15 @@ const event = {
 			}
 			const parts = articles.map((a) => {
 				const titleEsc = this.escapeHtml(a.title || "—");
-				const linkHtml = a.link ? `<a href="${this.escapeHtml(a.link)}" target="_blank" rel="noopener">${titleEsc}</a>` : titleEsc;
+				const articleUrl = a.link ? this.escapeHtml(a.link) : "";
+				const paywallHref = a.link ? "https://12ft.io/" + encodeURI(a.link) : "";
+				const paywallHrefEsc = paywallHref ? this.escapeHtml(paywallHref) : "";
+				const paywallLink = paywallHrefEsc
+					? `<a href="${paywallHrefEsc}" target="_blank" rel="noopener">Read (no paywall)</a> · `
+					: "";
+				const linkHtml = articleUrl
+					? `${paywallLink}<a href="${articleUrl}" target="_blank" rel="noopener">${titleEsc}</a>`
+					: titleEsc;
 				const summaryEsc = a.summary ? this.escapeHtml(a.summary).replace(/\n/g, "<br>") : (a.error || "—");
 				return `<strong>${this.escapeHtml(a.source)}</strong> · ${linkHtml}<br><span class="news-summary">${summaryEsc}</span>`;
 			});
