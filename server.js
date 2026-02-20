@@ -149,13 +149,24 @@ const NEWS_SOURCES = [
 
 function extractArticleText(html) {
 	if (!html || typeof html !== "string") return "";
+	const lower = html.toLowerCase();
+	if (lower.includes("removepaywalls") || lower.includes("searching archives") || lower.includes("install our extensions") || html.length < 1000) return "";
 	const stripped = html
 		.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
 		.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+		.replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, "")
+		.replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, "")
+		.replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, "")
+		.replace(/<aside\b[^<]*(?:(?!<\/aside>)<[^<]*)*<\/aside>/gi, "")
 		.replace(/<[^>]+>/g, " ")
 		.replace(/\s+/g, " ")
 		.trim();
-	return stripped.slice(0, 12000);
+	const cleaned = stripped
+		.replace(/archive\.(is|today|ph)/gi, "")
+		.replace(/wayback machine/gi, "")
+		.replace(/removepaywalls\.com/gi, "")
+		.trim();
+	return cleaned.length > 500 ? cleaned.slice(0, 12000) : "";
 }
 
 async function fetchFirstRssItem(rssUrl) {
@@ -181,18 +192,67 @@ async function fetchFirstRssItem(rssUrl) {
 }
 
 async function fetchArticleWithBypass(articleUrl) {
+	const bypassServices = [
+		`https://archive.is/newest/${articleUrl}`,
+		`https://archive.today/newest/${articleUrl}`,
+		`https://archive.ph/newest/${articleUrl}`,
+	];
+	for (const bypassUrl of bypassServices) {
+		try {
+			const res = await fetch(bypassUrl, {
+				headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+				redirect: "follow",
+			});
+			if (res.ok) {
+				const html = await res.text();
+				if (html && html.length > 5000 && !html.toLowerCase().includes("removepaywalls") && !html.toLowerCase().includes("searching archives") && !html.toLowerCase().includes("install our extensions")) {
+					return html;
+				}
+			}
+		} catch (e) {
+			continue;
+		}
+	}
 	try {
-		const bypassUrl = `https://removepaywalls.com/${articleUrl}`;
-		const res = await fetch(bypassUrl, {
-			headers: { "User-Agent": "Mozilla/5.0 (compatible; NewsDigest/1.0)" },
+		const waybackUrl = `https://web.archive.org/web/${new Date().toISOString().split("T")[0]}000000/${articleUrl}`;
+		const res = await fetch(waybackUrl, {
+			headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
 			redirect: "follow",
 		});
-		if (!res.ok) return null;
-		return await res.text();
+		if (res.ok) {
+			const html = await res.text();
+			if (html && html.length > 5000 && !html.toLowerCase().includes("removepaywalls") && !html.toLowerCase().includes("searching archives")) {
+				return html;
+			}
+		}
 	} catch (e) {
-		console.error("[news] Bypass fetch failed", articleUrl, e.message);
-		return null;
 	}
+	try {
+		const removePaywallsUrl = `https://removepaywalls.com/${articleUrl}`;
+		const res = await fetch(removePaywallsUrl, {
+			headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+			redirect: "follow",
+		});
+		if (res.ok) {
+			const html = await res.text();
+			const archiveLinkMatch = html.match(/href=["'](https?:\/\/(?:archive\.(?:is|today|ph)|web\.archive\.org)[^"']+)["']/i);
+			if (archiveLinkMatch) {
+				const archiveLink = archiveLinkMatch[1];
+				const archiveRes = await fetch(archiveLink, {
+					headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+					redirect: "follow",
+				});
+				if (archiveRes.ok) {
+					const archiveHtml = await archiveRes.text();
+					if (archiveHtml && archiveHtml.length > 5000 && !archiveHtml.toLowerCase().includes("removepaywalls") && !archiveHtml.toLowerCase().includes("searching archives")) {
+						return archiveHtml;
+					}
+				}
+			}
+		}
+	} catch (e) {
+	}
+	return null;
 }
 
 async function summarizeArticle(apiKey, articleText, sourceName) {
