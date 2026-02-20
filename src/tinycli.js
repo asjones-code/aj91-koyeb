@@ -208,35 +208,31 @@ const event = {
 			this.curPos = 0;
 			this.isScrolling = false;
 			this.scrollSpeed = 1000;
-			// Mobile: tap anywhere in terminal to focus input (makes it typable)
+			// Mobile: tap to focus input. Use <label for="term-input"> so iOS focuses natively (programmatic focus often blocked).
 			const $termCont = this.$terminal.find(".term-cont");
 			const termContEl = $termCont[0];
 			if (termContEl) {
 				const focusInput = () => {
 					const input = document.getElementById("term-input");
-					if (input && document.activeElement !== input) {
+					if (!input) return;
+					if (document.activeElement === input) {
+						$termCont.addClass("term-input-focused");
+						return;
+					}
+					// Delayed focus helps some iOS versions that ignore sync focus
+					setTimeout(() => {
 						input.focus();
 						$termCont.addClass("term-input-focused");
-					}
+					}, 0);
 				};
-				// Ensure overlay exists (re-added after clearTerminal); one tap focuses input and opens keyboard on mobile
+				// Overlay = <label for="term-input"> so tap uses native focus (iOS allows this; programmatic focus often blocked)
 				let $overlay = $termCont.find(".term-tap-overlay");
 				if (!$overlay.length) {
-					$termCont.append('<div class="term-tap-overlay" aria-hidden="true"></div>');
+					$termCont.append('<label for="term-input" class="term-tap-overlay" id="term-tap-overlay" aria-label="Tap to focus terminal">Tap to type</label>');
 					$overlay = $termCont.find(".term-tap-overlay");
-					const overlayEl = $overlay[0];
-					if (overlayEl) {
-						overlayEl.addEventListener("touchstart", (e) => {
-							e.preventDefault();
-							focusInput();
-						}, { passive: false });
-					}
 				}
-				$overlay.off("click.termFocus").on("click.termFocus", (e) => {
-					e.preventDefault();
-					focusInput();
-				});
-				$termCont.off("click.termFocus touchend.termFocus focus.termFocus");
+				// Do not preventDefault on the label — let native label->input focus run
+				$termCont.off("click.termFocus focus.termFocus");
 				if (!termContEl._termTouchBound) {
 					termContEl._termTouchBound = true;
 					termContEl.addEventListener("touchstart", (e) => {
@@ -256,6 +252,15 @@ const event = {
 					$(inputEl).off("focus.termBlur blur.termBlur");
 					$(inputEl).on("focus.termBlur", () => $termCont.addClass("term-input-focused"));
 					$(inputEl).on("blur.termBlur", () => $termCont.removeClass("term-input-focused"));
+				}
+				// Debug: log when overlay/input get events (check Safari DevTools > Console on device)
+				if (typeof window !== "undefined" && (window.location.search.includes("termdebug") || window.location.search.includes("debug"))) {
+					$overlay.on("touchstart.termdebug", () => console.log("[term] overlay touchstart"));
+					$overlay.on("click.termdebug", () => console.log("[term] overlay click"));
+					if (inputEl) {
+						inputEl.addEventListener("focus", () => console.log("[term] input focused"), true);
+						inputEl.addEventListener("blur", () => console.log("[term] input blurred"), true);
+					}
 				}
 			}
 			live.setChatCallback((data) => {
