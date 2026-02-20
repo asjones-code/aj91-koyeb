@@ -237,11 +237,11 @@ function initGlobeOptIn() {
 		import("./live.js").then((live) => {
 			live.optInGlobeLocation()
 				.then(() => {
-					btn.textContent = "You're on the globe";
+					btn.textContent = "You're connected";
 				})
 				.catch((err) => {
 					btn.disabled = false;
-					btn.textContent = "Show me on the globe";
+					btn.textContent = "Connect with the world";
 					console.warn("[globe] Opt-in failed:", err.message);
 				});
 		});

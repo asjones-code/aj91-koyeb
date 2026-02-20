@@ -263,7 +263,7 @@ body.page-is-work .header .cross span {
 }
 
 .header.is-scrolled .header-logo.logo {
-  color: rgba(0, 0, 0, 0.9);
+  color: rgba(255, 255, 255, 0.95);
 }
 
 /* Nav: own compositor layer so parent transform changes don’t raster-invalidate; GSAP drives scaleX/y */
@@ -372,7 +372,7 @@ body.page-is-work .header .cross span {
 }
 
 .header.is-scrolled .hamburger span {
-  background: rgba(0, 0, 0, 0.9);
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .cross span {

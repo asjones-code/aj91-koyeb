@@ -207,14 +207,30 @@ const event = {
 			this.scrollSpeed = 1000;
 			// Mobile: tap anywhere in terminal to focus input (makes it typable)
 			const $termCont = this.$terminal.find(".term-cont");
-			if ($termCont.length) {
-				$termCont.off("click.termFocus touchend.termFocus").on("click.termFocus touchend.termFocus", (e) => {
+			const termContEl = $termCont[0];
+			if (termContEl) {
+				const focusInput = () => {
 					const input = document.getElementById("term-input");
 					if (input && document.activeElement !== input) {
-						e.preventDefault();
 						input.focus();
 					}
+				};
+				$termCont.off("click.termFocus touchend.termFocus focus.termFocus");
+				// touchstart with preventDefault so iOS doesn't scroll away; then focus so keyboard opens (bind once per element)
+				if (!termContEl._termTouchBound) {
+					termContEl._termTouchBound = true;
+					termContEl.addEventListener("touchstart", (e) => {
+						if (e.target.closest("a")) return;
+						e.preventDefault();
+						focusInput();
+					}, { passive: false });
+				}
+				$termCont.on("click.termFocus", (e) => {
+					if (e.target.closest("a")) return;
+					e.preventDefault();
+					focusInput();
 				});
+				$termCont.on("focus.termFocus", focusInput);
 			}
 			live.setChatCallback((data) => {
 				const sender = (data && data.sender) ? data.sender : "***";
@@ -514,7 +530,7 @@ const event = {
 					{
 						const state = live.getState();
 						if (!state.connected) {
-							out = "Open the live session first: click <strong>Show me on the globe</strong> above, or type <strong>location</strong> in the terminal.";
+							out = "Open the live session first: click <strong>Connect with the world</strong> above, or type <strong>location</strong> in the terminal.";
 							break;
 						}
 						if (!state.emailOptedIn) {
