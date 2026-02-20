@@ -668,14 +668,11 @@ const event = {
 			}
 			const parts = articles.map((a) => {
 				const titleEsc = this.escapeHtml(a.title || "—");
-				const articleUrl = a.link ? this.escapeHtml(a.link) : "";
-				const paywallHref = a.link ? "https://12ft.io/" + encodeURI(a.link) : "";
-				const paywallHrefEsc = paywallHref ? this.escapeHtml(paywallHref) : "";
-				const paywallLink = paywallHrefEsc
-					? `<a href="${paywallHrefEsc}" target="_blank" rel="noopener">Read (no paywall)</a> · `
-					: "";
-				const linkHtml = articleUrl
-					? `${paywallLink}<a href="${articleUrl}" target="_blank" rel="noopener">${titleEsc}</a>`
+				const articleUrl = a.link || "";
+				const readUrl = articleUrl ? "https://removepaywalls.com/" + articleUrl : "";
+				const readUrlEsc = readUrl ? this.escapeHtml(readUrl) : "";
+				const linkHtml = readUrlEsc
+					? `<a href="${readUrlEsc}" target="_blank" rel="noopener">${titleEsc}</a>`
 					: titleEsc;
 				const summaryEsc = a.summary ? this.escapeHtml(a.summary).replace(/\n/g, "<br>") : (a.error || "—");
 				return `<strong>${this.escapeHtml(a.source)}</strong> · ${linkHtml}<br><span class="news-summary">${summaryEsc}</span>`;
