@@ -235,6 +235,26 @@ const event = {
 				$(inputEl).off("focus.termBlur blur.termBlur");
 				$(inputEl).on("focus.termBlur", () => $termCont.addClass("term-input-focused"));
 				$(inputEl).on("blur.termBlur", () => $termCont.removeClass("term-input-focused"));
+				// When typing in the real input (mobile overlay), sync value to prompt display so characters appear
+				const syncInputToPrompt = () => {
+					if (!inputEl) return;
+					this.curPos = inputEl.selectionStart != null ? inputEl.selectionStart : inputEl.value.length;
+					const text = inputEl.value;
+					const left = controller.escapeHtml(text.substring(0, this.curPos));
+					const right = controller.escapeHtml(text.substring(this.curPos));
+					this.$prompt.html(left + this.getCursor() + right);
+				};
+				$(inputEl).off("input.termSync keydown.termSync");
+				$(inputEl).on("input.termSync", syncInputToPrompt);
+				$(inputEl).on("keydown.termSync", (e) => {
+					if (e.key === "Enter") {
+						e.preventDefault();
+						syncInputToPrompt();
+						this.enterCommandLine();
+						inputEl.value = "";
+						this.initCursor();
+					}
+				});
 			}
 			// Remove old tap overlay/label (no longer used; input is the tap target on mobile)
 			this.$terminal.find(".term-tap-overlay").remove();
