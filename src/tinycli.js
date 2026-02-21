@@ -208,61 +208,36 @@ const event = {
 			this.curPos = 0;
 			this.isScrolling = false;
 			this.scrollSpeed = 1000;
-			// Mobile: tap to focus input. Use <label for="term-input"> so iOS focuses natively (programmatic focus often blocked).
+			// Mobile: make the input cover the whole terminal so tap = direct tap on input (keyboard opens)
 			const $termCont = this.$terminal.find(".term-cont");
 			const termContEl = $termCont[0];
-			if (termContEl) {
-				const focusInput = () => {
-					const input = document.getElementById("term-input");
-					if (!input) return;
-					if (document.activeElement === input) {
-						$termCont.addClass("term-input-focused");
-						return;
+			const inputEl = document.getElementById("term-input");
+			const isMobile = typeof window !== "undefined" && window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+			if (termContEl && inputEl) {
+				if (isMobile) {
+					// Move input to top of term-cont so it can cover the whole area; tap anywhere = tap on input
+					if (!inputEl.classList.contains("term-input-overlay")) {
+						inputEl.classList.add("term-input-overlay");
+						$termCont.prepend(inputEl);
 					}
-					// Delayed focus helps some iOS versions that ignore sync focus
-					setTimeout(() => {
-						input.focus();
-						$termCont.addClass("term-input-focused");
-					}, 0);
-				};
-				// Overlay = <label for="term-input"> so tap uses native focus (iOS allows this; programmatic focus often blocked)
-				let $overlay = $termCont.find(".term-tap-overlay");
-				if (!$overlay.length) {
-					$termCont.append('<label for="term-input" class="term-tap-overlay" id="term-tap-overlay" aria-label="Tap to focus terminal">Tap to type</label>');
-					$overlay = $termCont.find(".term-tap-overlay");
+				} else {
+					// Desktop: ensure input is inside #cli
+					inputEl.classList.remove("term-input-overlay");
+					if (!document.getElementById("cli")?.contains(inputEl)) {
+						const $cli = this.$terminal.find("#cli");
+						if ($cli.length) $cli.append(inputEl);
+					}
 				}
-				// Do not preventDefault on the label — let native label->input focus run
 				$termCont.off("click.termFocus focus.termFocus");
-				if (!termContEl._termTouchBound) {
-					termContEl._termTouchBound = true;
-					termContEl.addEventListener("touchstart", (e) => {
-						if (e.target.closest("a") || e.target.closest(".term-tap-overlay")) return;
-						e.preventDefault();
-						focusInput();
-					}, { passive: false });
-				}
-				$termCont.on("click.termFocus", (e) => {
-					if (e.target.closest("a")) return;
-					e.preventDefault();
-					focusInput();
+				$termCont.on("focus.termFocus", () => {
+					if (inputEl && document.activeElement !== inputEl) inputEl.focus();
 				});
-				$termCont.on("focus.termFocus", focusInput);
-				const inputEl = document.getElementById("term-input");
-				if (inputEl) {
-					$(inputEl).off("focus.termBlur blur.termBlur");
-					$(inputEl).on("focus.termBlur", () => $termCont.addClass("term-input-focused"));
-					$(inputEl).on("blur.termBlur", () => $termCont.removeClass("term-input-focused"));
-				}
-				// Debug: log when overlay/input get events (check Safari DevTools > Console on device)
-				if (typeof window !== "undefined" && (window.location.search.includes("termdebug") || window.location.search.includes("debug"))) {
-					$overlay.on("touchstart.termdebug", () => console.log("[term] overlay touchstart"));
-					$overlay.on("click.termdebug", () => console.log("[term] overlay click"));
-					if (inputEl) {
-						inputEl.addEventListener("focus", () => console.log("[term] input focused"), true);
-						inputEl.addEventListener("blur", () => console.log("[term] input blurred"), true);
-					}
-				}
+				$(inputEl).off("focus.termBlur blur.termBlur");
+				$(inputEl).on("focus.termBlur", () => $termCont.addClass("term-input-focused"));
+				$(inputEl).on("blur.termBlur", () => $termCont.removeClass("term-input-focused"));
 			}
+			// Remove old tap overlay/label (no longer used; input is the tap target on mobile)
+			this.$terminal.find(".term-tap-overlay").remove();
 			live.setChatCallback((data) => {
 				const sender = (data && data.sender) ? data.sender : "***";
 				const text = (data && typeof data.text === "string") ? data.text : "";
@@ -271,15 +246,19 @@ const event = {
 					"command output"
 				);
 			});
-			// When Connect button succeeds: show chat prompt in terminal (second path to chat)
-			window.addEventListener("live-connected", () => {
+			// When Connect button succeeds: show chat prompt in terminal (single listener to avoid duplicate message)
+			if (window._liveConnectedHandler) {
+				window.removeEventListener("live-connected", window._liveConnectedHandler);
+			}
+			window._liveConnectedHandler = () => {
 				if (this.$terminal.length) {
 					this.printTerminal("You're connected. Type <strong>chat</strong> to join the conversation.", "command output");
 				}
-			});
+			};
+			window.addEventListener("live-connected", window._liveConnectedHandler);
 		},
 		clearTerminal() {
-			const cliHtml = `<div class="print"></div><div id="cli"><span class="label">$ </span><span class="prompt"></span></div>`;
+			const cliHtml = `<div class="print"></div><div id="cli"><span class="label">$ </span><span class="prompt"></span><input type="text" class="term-cmd term-input-hide" id="term-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Terminal input"></div>`;
 			const $termCont = this.$terminal.find(".term-cont");
 			if ($termCont.length) {
 				$termCont.html(cliHtml);
