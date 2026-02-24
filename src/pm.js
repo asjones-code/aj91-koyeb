@@ -167,21 +167,33 @@
 	window.pmShowLogin = showLogin;
 
 	function setLoading(loading) {
-		const main = $("pm-main");
-		if (loading) main.innerHTML = "<p class=\"pm-loading\">Loading…</p>";
+		const loadingEl = $("pm-loading");
+		const listView = $("pm-list-view");
+		const detailView = $("pm-detail-view");
+		if (loadingEl) loadingEl.style.display = loading ? "block" : "none";
+		if (listView) listView.style.display = loading ? "none" : (currentProjectId ? "none" : "block");
+		if (detailView) detailView.style.display = loading ? "none" : (currentProjectId ? "block" : "none");
 	}
 
 	function loadAndRender() {
 		setLoading(true);
 		getWorkspace()
 			.then((w) => {
+				document.getElementById("pm-load-fail")?.remove();
 				workspace = w;
 				setLoading(false);
 				render();
 			})
 			.catch((err) => {
 				setLoading(false);
-				$("pm-main").innerHTML = "<p class=\"pm-empty\">Failed to load: " + (err.message || "Unknown error") + "</p>";
+				const main = $("pm-main");
+				const prev = document.getElementById("pm-load-fail");
+				if (prev) prev.remove();
+				const fail = document.createElement("p");
+				fail.id = "pm-load-fail";
+				fail.className = "pm-empty";
+				fail.textContent = "Failed to load: " + (err.message || "Unknown error");
+				main.insertBefore(fail, main.firstChild);
 			});
 	}
 
