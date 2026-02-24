@@ -589,9 +589,9 @@ async function handlePmLogin(body) {
 }
 
 async function handlePmGetWorkspace() {
-	if (!dbPool) return { error: "Database not available. Set DATABASE_URL to use sync." };
-	try {
-		const [projectsRows, statusesRows, viewsRows, tasksRows, tagsRows] = await Promise.all([
+	if (!dbPool) return { error: "Database not available. Set DATABASE_URL to use sync (or check server logs if it is set)." };
+		try {
+			const [projectsRows, statusesRows, viewsRows, tasksRows, tagsRows] = await Promise.all([
 			dbPool.query("SELECT id, name, description, cover, icon, is_archived, created_at, updated_at FROM pm_projects ORDER BY updated_at DESC"),
 			dbPool.query("SELECT id, project_id, name, color, \"order\", type FROM pm_task_statuses ORDER BY project_id, \"order\""),
 			dbPool.query("SELECT id, project_id, type, name, data, \"order\" FROM pm_project_views ORDER BY project_id, \"order\""),
@@ -658,7 +658,7 @@ async function handlePmGetWorkspace() {
 }
 
 async function handlePmSyncWorkspace(body) {
-	if (!dbPool) return { error: "Database not available. Set DATABASE_URL to use sync." };
+	if (!dbPool) return { error: "Database not available. Set DATABASE_URL to use sync (or check server logs if it is set)." };
 	let parsed;
 	try {
 		parsed = JSON.parse(body);
