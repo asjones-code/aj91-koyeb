@@ -336,15 +336,49 @@
   --pm-accent: #00ffaa;
 }
 
-/* ========== PM COMPONENT OVERRIDES (design system look) ========== */
+/* ========== PM LAYOUT: CENTERED & RESPONSIVE ========== */
 .pm-root {
   min-height: 100vh;
   background: var(--pm-bg);
   color: var(--pm-text);
   font-family: "Segoe UI", system-ui, sans-serif;
-  padding: 1.5rem;
+  padding: 1rem;
   transition: background 0.3s ease, color 0.3s ease;
+  box-sizing: border-box;
 }
+.pm-root #pm-app {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+.pm-root #pm-login {
+  max-width: 20rem;
+  margin: 4rem auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+@media (max-width: 768px) {
+  .pm-root { padding: 0.75rem; }
+  .pm-root .pm-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .pm-root .pm-actions { width: 100%; }
+  .pm-root .pm-detail { max-width: 100%; }
+  .pm-root .pm-statuses { flex-direction: column; min-width: 0; }
+  .pm-root .pm-status { min-width: 0; }
+  .pm-root .pm-list-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .pm-root .pm-list-table .pm-col-task { min-width: 10rem; }
+  .pm-root .pm-view-toggle { flex-wrap: wrap; }
+  .pm-root .pm-filter-bar { flex-wrap: wrap; }
+}
+@media (min-width: 769px) {
+  .pm-root { padding: 1.5rem; }
+}
+
+/* ========== PM COMPONENT OVERRIDES (design system look) ========== */
 
 /* Glassmorphic needs solid fallback for some surfaces */
 .pm-root[data-theme="glassmorphic"] {

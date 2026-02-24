@@ -497,12 +497,21 @@
 						today.setHours(0, 0, 0, 0);
 						if (dueDate < today) dueClass = "overdue";
 					}
+					const priVal = (t.priority || "").toLowerCase();
+					const priorityOptions = [
+						{ value: "", label: "—" },
+						{ value: "urgent", label: "🔴 Urgent" },
+						{ value: "high", label: "🟠 High" },
+						{ value: "medium", label: "🟡 Medium" },
+						{ value: "low", label: "🟢 Low" },
+					];
+					const prioritySelectHtml = `<select class="pm-list-priority-select pm-priority ${priClass}" data-task-id="${t.id}" data-field="priority">${priorityOptions.map((o) => `<option value="${o.value}" ${o.value === priVal ? "selected" : ""}>${o.label}</option>`).join("")}</select>`;
 					return `<tr data-task-id="${t.id}" class="pm-list-task-row">
   <td class="pm-col-check"><input type="checkbox" ${isDone ? "checked" : ""} data-task-id="${t.id}" data-done></td>
-  <td class="pm-col-task"><span class="pm-list-task-title">${escapeHtml(t.title || "Untitled")}</span></td>
+  <td class="pm-col-task"><span class="pm-list-edit pm-list-task-title" data-task-id="${t.id}" data-field="title" contenteditable="true">${escapeHtml(t.title || "Untitled")}</span></td>
   <td class="pm-col-assignee"><span class="pm-list-edit" data-task-id="${t.id}" data-field="assigneeIds" contenteditable="true">${escapeHtml(assigneeDisplay)}</span></td>
   <td class="pm-col-type"><span class="pm-list-edit" data-task-id="${t.id}" data-field="type" contenteditable="true">${escapeHtml(t.type || "Task")}</span></td>
-  <td class="pm-col-priority"><span class="pm-list-edit pm-priority ${priClass}" data-task-id="${t.id}" data-field="priority" contenteditable="true">${escapeHtml(t.priority || "—")}</span></td>
+  <td class="pm-col-priority">${prioritySelectHtml}</td>
   <td class="pm-col-point pm-list-point pm-point-stars-wrap">${pointStarsHtml}</td>
   <td class="pm-col-due pm-list-due ${dueClass}">${escapeHtml(dueStr)}</td>
   <td class="pm-col-actions"><button type="button" class="pm-list-delete-btn" data-task-id="${t.id}" title="Delete task" aria-label="Delete">⌫</button></td>
@@ -532,7 +541,7 @@
 
 		container.querySelectorAll("tr.pm-list-task-row").forEach((row) => {
 			row.addEventListener("click", (e) => {
-				if (e.target.closest("input, [contenteditable], .pm-list-delete-btn")) return;
+				if (e.target.closest("input, select, [contenteditable], .pm-list-delete-btn, .pm-point-star")) return;
 				openTaskPanel(row.dataset.taskId);
 			});
 		});
@@ -554,18 +563,25 @@
 				if (!task) return;
 				const field = span.dataset.field;
 				const raw = span.textContent.trim();
-				if (field === "assigneeIds") {
+				if (field === "title") task.title = raw || "Untitled";
+				else if (field === "assigneeIds") {
 					const assigneeIds = raw === "—" || !raw ? [] : raw.split(",").map((s) => s.trim()).filter(Boolean);
 					task.assigneeIds = assigneeIds;
 					task.assignee = assigneeIds[0] || "";
-				} 				else if (field === "type") task.type = raw || "Task";
-				else if (field === "priority") {
-					const prev = (task.priority || "").toLowerCase();
-					task.priority = raw === "—" ? "" : raw;
-					const next = (task.priority || "").toLowerCase();
-					if (prev !== next) appendActivity(task.id, "TASK_PRIORITY_CHANGED", { from: prev || "none", to: next || "none" });
-				}
+				} else if (field === "type") task.type = raw || "Task";
 				task.updatedAt = new Date().toISOString();
+				saveWorkspace(workspace).then(() => render());
+			});
+		});
+		container.querySelectorAll(".pm-list-priority-select").forEach((sel) => {
+			sel.addEventListener("change", () => {
+				const task = workspace.tasks.find((t) => t.id === sel.dataset.taskId);
+				if (!task) return;
+				const prev = (task.priority || "").toLowerCase();
+				const next = (sel.value || "").toLowerCase();
+				task.priority = sel.value || "";
+				task.updatedAt = new Date().toISOString();
+				if (prev !== next) appendActivity(task.id, "TASK_PRIORITY_CHANGED", { from: prev || "none", to: next || "none" });
 				saveWorkspace(workspace).then(() => render());
 			});
 		});
@@ -722,7 +738,24 @@
 		}
 		const statuses = workspace.taskStatuses || [];
 		const status = statuses.find((s) => s.id === task.taskStatusId);
-		$("pm-task-panel-title").textContent = task.title || "Untitled";
+		const titleEl = $("pm-task-panel-title");
+		if (titleEl) {
+			titleEl.textContent = task.title || "Untitled";
+			titleEl.contentEditable = "true";
+			titleEl.setAttribute("title", "Click to edit");
+			if (!titleEl._pmTitleBound) {
+				titleEl._pmTitleBound = true;
+				titleEl.addEventListener("blur", () => {
+					if (!selectedTaskId) return;
+					const t = workspace.tasks.find((x) => x.id === selectedTaskId);
+					if (!t) return;
+					const v = (titleEl.textContent || "").trim();
+					t.title = v || "Untitled";
+					t.updatedAt = new Date().toISOString();
+					saveWorkspace(workspace).then(() => renderTaskPanel());
+				});
+			}
+		}
 		const metaParts = [];
 		if (status) metaParts.push("Status: " + status.name);
 		if (task.priority) metaParts.push("Priority: " + task.priority);

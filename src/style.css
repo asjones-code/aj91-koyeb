@@ -1,5 +1,14 @@
 @import url("https://api.fontshare.com/v2/css?f[]=kihim@200,300,400,500,600,700,800&display=swap");
 
+/* Local Kihim fallback when font server is down */
+@font-face {
+  font-family: "Kihim";
+  src: url("./Kihim-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* Prevent FOUC: show content only after this stylesheet has loaded */
 html {
   visibility: visible;
