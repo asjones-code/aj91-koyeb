@@ -88,9 +88,13 @@ async function initDatabase() {
 				due_date DATE,
 				"order" INTEGER NOT NULL DEFAULT 0,
 				priority TEXT,
+				assignee TEXT,
+				type TEXT,
 				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 			);
+			ALTER TABLE pm_tasks ADD COLUMN IF NOT EXISTS assignee TEXT;
+			ALTER TABLE pm_tasks ADD COLUMN IF NOT EXISTS type TEXT;
 			CREATE TABLE IF NOT EXISTS pm_tags (
 				id TEXT PRIMARY KEY,
 				project_id TEXT NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
@@ -595,7 +599,7 @@ async function handlePmGetWorkspace() {
 			dbPool.query("SELECT id, name, description, cover, icon, is_archived, created_at, updated_at FROM pm_projects ORDER BY updated_at DESC"),
 			dbPool.query("SELECT id, project_id, name, color, \"order\", type FROM pm_task_statuses ORDER BY project_id, \"order\""),
 			dbPool.query("SELECT id, project_id, type, name, data, \"order\" FROM pm_project_views ORDER BY project_id, \"order\""),
-			dbPool.query("SELECT id, project_id, task_status_id, title, description, due_date, \"order\", priority, created_at, updated_at FROM pm_tasks ORDER BY project_id, \"order\""),
+			dbPool.query("SELECT id, project_id, task_status_id, title, description, due_date, \"order\", priority, assignee, type, created_at, updated_at FROM pm_tasks ORDER BY project_id, \"order\""),
 			dbPool.query("SELECT id, project_id, name, color FROM pm_tags ORDER BY project_id"),
 		]);
 		const projects = projectsRows.rows.map((r) => ({
@@ -633,6 +637,8 @@ async function handlePmGetWorkspace() {
 			dueDate: r.due_date,
 			order: r.order,
 			priority: r.priority ?? "",
+			assignee: r.assignee ?? "",
+			type: r.type ?? "Task",
 			createdAt: r.created_at,
 			updatedAt: r.updated_at,
 		}));
@@ -700,9 +706,9 @@ async function handlePmSyncWorkspace(body) {
 		}
 		for (const t of tasks) {
 			await dbPool.query(
-				`INSERT INTO pm_tasks (id, project_id, task_status_id, title, description, due_date, "order", priority, created_at, updated_at)
-				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9::timestamptz, NOW()), COALESCE($10::timestamptz, NOW()))`,
-				[t.id, t.projectId, t.taskStatusId ?? null, t.title || "", t.description ?? "", t.dueDate ?? null, Number(t.order) || 0, t.priority ?? "", t.createdAt ?? null, t.updatedAt ?? null]
+				`INSERT INTO pm_tasks (id, project_id, task_status_id, title, description, due_date, "order", priority, assignee, type, created_at, updated_at)
+				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, COALESCE($11::timestamptz, NOW()), COALESCE($12::timestamptz, NOW()))`,
+				[t.id, t.projectId, t.taskStatusId ?? null, t.title || "", t.description ?? "", t.dueDate ?? null, Number(t.order) || 0, t.priority ?? "", t.assignee ?? "", t.type ?? "Task", t.createdAt ?? null, t.updatedAt ?? null]
 			);
 		}
 		for (const g of tags) {

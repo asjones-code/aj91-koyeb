@@ -39,9 +39,14 @@ CREATE TABLE IF NOT EXISTS pm_tasks (
   due_date DATE,
   "order" INTEGER NOT NULL DEFAULT 0,
   priority TEXT,
+  assignee TEXT,
+  type TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+-- If table already exists without assignee/type:
+ALTER TABLE pm_tasks ADD COLUMN IF NOT EXISTS assignee TEXT;
+ALTER TABLE pm_tasks ADD COLUMN IF NOT EXISTS type TEXT;
 
 CREATE TABLE IF NOT EXISTS pm_tags (
   id TEXT PRIMARY KEY,

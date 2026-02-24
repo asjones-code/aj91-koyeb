@@ -32,9 +32,24 @@
     .pm-statuses { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
     .pm-status { min-width: 12rem; flex: 1; background: var(--pm-surface); border-radius: 8px; padding: 0.75rem; border: 1px solid var(--pm-border); }
     .pm-status h4 { font-size: 0.75rem; text-transform: uppercase; color: var(--pm-muted); margin-bottom: 0.5rem; }
-    .pm-task { padding: 0.5rem 0.75rem; background: var(--pm-bg); border-radius: 6px; margin-bottom: 0.5rem; font-size: 0.875rem; cursor: pointer; border: 1px solid transparent; }
+    .pm-task { padding: 0.5rem 0.75rem; background: var(--pm-bg); border-radius: 6px; margin-bottom: 0.5rem; font-size: 0.875rem; cursor: grab; border: 1px solid transparent; user-select: none; }
     .pm-task:hover { border-color: var(--pm-border); }
+    .pm-task.dragging { opacity: 0.5; cursor: grabbing; }
+    .pm-status.drag-over { background: rgba(59, 130, 246, 0.15); border-color: var(--pm-accent); }
     .pm-task-form { margin-top: 0.5rem; }
+    .pm-sync-status { font-size: 0.75rem; color: var(--pm-muted); display: inline-flex; align-items: center; gap: 0.35rem; }
+    .pm-sync-status.synced { color: #22c55e; }
+    .pm-view-toggle { display: flex; gap: 0.25rem; margin-bottom: 1rem; }
+    .pm-view-toggle button { padding: 0.35rem 0.6rem; font-size: 0.8125rem; border-radius: 4px; border: 1px solid var(--pm-border); background: var(--pm-surface); color: var(--pm-text); cursor: pointer; }
+    .pm-view-toggle button.active { background: var(--pm-accent); border-color: var(--pm-accent); color: #fff; }
+    .pm-list-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .pm-list-table th, .pm-list-table td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--pm-border); }
+    .pm-list-table th { color: var(--pm-muted); font-weight: 500; }
+    .pm-list-table .pm-priority { font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px; }
+    .pm-list-table .pm-priority.urgent { background: #7f1d1d; color: #fca5a5; }
+    .pm-list-table .pm-priority.high { background: #78350f; color: #fcd34d; }
+    .pm-list-table .pm-priority.medium { background: #1e3a5f; color: #93c5fd; }
+    .pm-list-table .pm-priority.low { background: #14532d; color: #86efac; }
     .pm-task-form input { width: 100%; padding: 0.4rem 0.5rem; border: 1px solid var(--pm-border); border-radius: 4px; background: var(--pm-bg); color: var(--pm-text); font-size: 0.875rem; }
     .pm-empty { color: var(--pm-muted); font-size: 0.875rem; padding: 0.5rem 0; }
     .pm-loading { color: var(--pm-muted); }
@@ -61,6 +76,7 @@
           <input type="radio" id="pm-mode-sync" name="pm-mode" value="sync">
           <label for="pm-mode-sync">Sync to server</label>
         </div>
+        <span id="pm-sync-status" class="pm-sync-status" aria-live="polite"></span>
       </div>
       <div class="pm-actions">
         <button type="button" class="pm-btn" id="pm-export-btn">Export JSON</button>
@@ -79,7 +95,20 @@
       <div id="pm-detail-view" class="pm-detail" style="display: none;">
         <button type="button" class="pm-btn" id="pm-back">← Back</button>
         <h2 id="pm-detail-title"></h2>
-        <div class="pm-statuses" id="pm-status-columns"></div>
+        <div class="pm-view-toggle">
+          <button type="button" id="pm-view-list" class="pm-view-btn">List</button>
+          <button type="button" id="pm-view-board" class="pm-view-btn active">Board</button>
+        </div>
+        <div id="pm-board-wrap">
+          <div class="pm-statuses" id="pm-status-columns"></div>
+        </div>
+        <div id="pm-list-wrap" style="display: none;">
+          <table class="pm-list-table">
+            <thead><tr><th>TODO</th><th>ASSIGNEE</th><th>TYPE</th><th>PRIORITY</th></tr></thead>
+            <tbody id="pm-list-tbody"></tbody>
+          </table>
+          <button type="button" class="pm-btn" id="pm-list-add-task" style="margin-top: 0.5rem;">+ Create new task</button>
+        </div>
       </div>
     </main>
   </div>

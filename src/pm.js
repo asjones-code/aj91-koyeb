@@ -112,6 +112,8 @@
 	let workspace = emptyWorkspace();
 	let mode = "local"; // "local" | "sync"
 	let currentProjectId = null;
+	let detailViewMode = "board"; // "board" | "list"
+	let lastSyncedAt = null; // timestamp when last sync succeeded
 
 	function isLocal() {
 		return mode === "local";
@@ -128,13 +130,30 @@
 		if (isLocal()) {
 			return localSet(payload).then(() => {
 				workspace = payload;
+				updateSyncStatus();
 				render();
 			});
 		}
 		return apiSyncWorkspace(payload).then(() => {
+			lastSyncedAt = Date.now();
 			workspace = { ...workspace, ...payload };
+			updateSyncStatus();
 			render();
 		});
+	}
+
+	function updateSyncStatus() {
+		const el = document.getElementById("pm-sync-status");
+		if (!el) return;
+		if (isLocal()) {
+			el.textContent = "Stored locally";
+			el.classList.remove("synced");
+		} else {
+			el.textContent = lastSyncedAt
+				? "Synced to server · Last synced " + new Date(lastSyncedAt).toLocaleTimeString()
+				: "Synced to server";
+			el.classList.add("synced");
+		}
 	}
 
 	function ensureDefaultStatuses(projectId) {
@@ -182,6 +201,7 @@
 				document.getElementById("pm-load-fail")?.remove();
 				workspace = w;
 				setLoading(false);
+				updateSyncStatus();
 				render();
 			})
 			.catch((err) => {
@@ -247,6 +267,20 @@
 		$("pm-detail-title").textContent = project.name || "Untitled";
 		const statuses = (workspace.taskStatuses || []).filter((s) => s.projectId === currentProjectId).sort((a, b) => (a.order || 0) - (b.order || 0));
 		const tasks = (workspace.tasks || []).filter((t) => t.projectId === currentProjectId);
+		const doneStatus = statuses.find((s) => (s.type || "").toUpperCase() === "DONE");
+
+		// View toggle
+		$("pm-view-list").classList.toggle("active", detailViewMode === "list");
+		$("pm-view-board").classList.toggle("active", detailViewMode === "board");
+		$("pm-board-wrap").style.display = detailViewMode === "board" ? "block" : "none";
+		$("pm-list-wrap").style.display = detailViewMode === "list" ? "block" : "none";
+
+		if (detailViewMode === "list") {
+			renderListView(tasks, doneStatus);
+			return;
+		}
+
+		// Board view
 		const columns = $("pm-status-columns");
 		columns.innerHTML = statuses
 			.map(
@@ -256,7 +290,7 @@
           <div class="pm-status" data-status-id="${s.id}">
             <h4 style="color:${s.color || "#888"}">${escapeHtml(s.name)}</h4>
             <div class="pm-task-list" data-status-id="${s.id}">
-              ${statusTasks.map((t) => `<div class="pm-task" data-task-id="${t.id}">${escapeHtml(t.title || "Untitled")}</div>`).join("")}
+              ${statusTasks.map((t) => `<div class="pm-task" data-task-id="${t.id}" draggable="true">${escapeHtml(t.title || "Untitled")}</div>`).join("")}
             </div>
             <div class="pm-task-form">
               <input type="text" placeholder="+ Add task" data-status-id="${s.id}" data-add-task>
@@ -265,18 +299,46 @@
 				}
 			)
 			.join("");
+
+		// Drag and drop
 		columns.querySelectorAll(".pm-task[data-task-id]").forEach((el) => {
-			el.addEventListener("click", () => {
-				// Optional: open edit / delete
+			el.addEventListener("dragstart", (e) => {
+				e.dataTransfer.setData("text/plain", el.dataset.taskId);
+				e.dataTransfer.effectAllowed = "move";
+				el.classList.add("dragging");
+			});
+			el.addEventListener("dragend", () => el.classList.remove("dragging"));
+		});
+		columns.querySelectorAll(".pm-status").forEach((col) => {
+			const statusId = col.dataset.statusId;
+			col.addEventListener("dragover", (e) => {
+				e.preventDefault();
+				e.dataTransfer.dropEffect = "move";
+				col.classList.add("drag-over");
+			});
+			col.addEventListener("dragleave", () => col.classList.remove("drag-over"));
+			col.addEventListener("drop", (e) => {
+				e.preventDefault();
+				col.classList.remove("drag-over");
+				const taskId = e.dataTransfer.getData("text/plain");
+				if (!taskId) return;
+				const task = workspace.tasks.find((t) => t.id === taskId);
+				if (!task || task.taskStatusId === statusId) return;
+				const statusTasks = tasks.filter((t) => t.taskStatusId === statusId).map((t) => t.order || 0);
+				const maxOrder = statusTasks.length ? Math.max(...statusTasks) : 0;
+				task.taskStatusId = statusId;
+				task.order = maxOrder + 1;
+				task.updatedAt = new Date().toISOString();
+				saveWorkspace(workspace);
 			});
 		});
+
 		columns.querySelectorAll("input[data-add-task]").forEach((input) => {
 			input.addEventListener("keydown", (e) => {
 				if (e.key !== "Enter") return;
 				const title = input.value.trim();
 				if (!title) return;
 				const statusId = input.dataset.statusId;
-				const status = statuses.find((s) => s.id === statusId);
 				const maxOrder = Math.max(0, ...tasks.filter((t) => t.taskStatusId === statusId).map((t) => t.order || 0));
 				const newTask = {
 					id: id(),
@@ -287,6 +349,8 @@
 					dueDate: null,
 					order: maxOrder + 1,
 					priority: "",
+					assignee: "",
+					type: "Task",
 					createdAt: new Date().toISOString(),
 					updatedAt: new Date().toISOString(),
 				};
@@ -297,6 +361,77 @@
 				});
 			});
 		});
+	}
+
+	function renderListView(tasks, doneStatus) {
+		const tbody = $("pm-list-tbody");
+		const doneId = doneStatus ? doneStatus.id : null;
+		const sorted = [...tasks].sort((a, b) => (a.order || 0) - (b.order || 0));
+		tbody.innerHTML = sorted
+			.map(
+				(t) => {
+					const isDone = t.taskStatusId === doneId;
+					const pri = (t.priority || "").toLowerCase();
+					const priClass = pri === "urgent" ? "urgent" : pri === "high" ? "high" : pri === "medium" ? "medium" : pri === "low" ? "low" : "";
+					return `<tr data-task-id="${t.id}">
+            <td><input type="checkbox" ${isDone ? "checked" : ""} data-task-id="${t.id}" data-done> ${escapeHtml(t.title || "Untitled")}</td>
+            <td><span class="pm-list-edit" data-task-id="${t.id}" data-field="assignee" contenteditable="true">${escapeHtml(t.assignee || "—")}</span></td>
+            <td><span class="pm-list-edit" data-task-id="${t.id}" data-field="type" contenteditable="true">${escapeHtml(t.type || "Task")}</span></td>
+            <td><span class="pm-list-edit pm-priority ${priClass}" data-task-id="${t.id}" data-field="priority" contenteditable="true">${escapeHtml(t.priority || "—")}</span></td>
+          </tr>`;
+				}
+			)
+			.join("");
+		tbody.querySelectorAll("input[data-done]").forEach((cb) => {
+			cb.addEventListener("change", () => {
+				const task = workspace.tasks.find((t) => t.id === cb.dataset.taskId);
+				if (!task || !doneStatus) return;
+				const firstTodo = (workspace.taskStatuses || []).find((s) => s.projectId === currentProjectId && (s.type || "").toUpperCase() !== "DONE");
+				task.taskStatusId = cb.checked ? doneStatus.id : (firstTodo && firstTodo.id) || task.taskStatusId;
+				task.updatedAt = new Date().toISOString();
+				saveWorkspace(workspace);
+			});
+		});
+		tbody.querySelectorAll(".pm-list-edit").forEach((span) => {
+			span.addEventListener("blur", () => {
+				const task = workspace.tasks.find((t) => t.id === span.dataset.taskId);
+				if (!task) return;
+				const field = span.dataset.field;
+				const value = span.textContent.trim() || (field === "priority" ? "" : field === "type" ? "Task" : "—");
+				if (field === "assignee") task.assignee = value === "—" ? "" : value;
+				else if (field === "type") task.type = value;
+				else if (field === "priority") task.priority = value;
+				task.updatedAt = new Date().toISOString();
+				saveWorkspace(workspace);
+			});
+		});
+	}
+
+	function onListAddTask() {
+		const statuses = (workspace.taskStatuses || []).filter((s) => s.projectId === currentProjectId).sort((a, b) => (a.order || 0) - (b.order || 0));
+		const firstStatus = statuses[0];
+		if (!firstStatus) return;
+		const tasks = (workspace.tasks || []).filter((t) => t.projectId === currentProjectId);
+		const maxOrder = Math.max(0, ...tasks.map((t) => t.order || 0));
+		const title = window.prompt("Task title", "");
+		if (title == null) return;
+		const newTask = {
+			id: id(),
+			projectId: currentProjectId,
+			taskStatusId: firstStatus.id,
+			title: (title || "").trim() || "New task",
+			description: "",
+			dueDate: null,
+			order: maxOrder + 1,
+			priority: "",
+			assignee: "",
+			type: "Task",
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+		workspace.tasks = workspace.tasks || [];
+		workspace.tasks.push(newTask);
+		saveWorkspace(workspace).then(() => render());
 	}
 
 	function escapeHtml(s) {
@@ -370,6 +505,19 @@
 		currentProjectId = null;
 		render();
 	});
+
+	// ——— Detail view toggle (List / Board) ———
+	$("pm-view-list").addEventListener("click", () => {
+		detailViewMode = "list";
+		render();
+	});
+	$("pm-view-board").addEventListener("click", () => {
+		detailViewMode = "board";
+		render();
+	});
+
+	// ——— List view: Create new task ———
+	$("pm-list-add-task").addEventListener("click", onListAddTask);
 
 	// ——— Export / Import ———
 	$("pm-export-btn").addEventListener("click", () => {
