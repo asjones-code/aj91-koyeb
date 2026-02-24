@@ -118,7 +118,7 @@
 	let detailViewMode = "board"; // "board" | "list" | "calendar"
 	let lastSyncedAt = null;
 	let selectedTaskId = null;
-	let filterState = { statusIds: [], assigneeIds: [], priority: "" };
+	let filterState = { statusId: "", assigneeIds: [], priority: "" };
 	let calendarMonth = new Date();
 
 	function isLocal() {
@@ -195,9 +195,20 @@
 		return [];
 	}
 
+	function pointToStars(n) {
+		const v = n == null || n === "" ? 0 : Math.min(5, Math.max(0, parseInt(Number(n), 10)));
+		if (Number.isNaN(v)) return 0;
+		return "★".repeat(v) + "☆".repeat(5 - v);
+	}
+	function pointValueForDisplay(n) {
+		if (n == null || n === "") return 0;
+		const v = parseInt(Number(n), 10);
+		return Number.isNaN(v) ? 0 : Math.min(5, Math.max(0, v));
+	}
+
 	function getFilteredTasks(projectId) {
 		let list = (workspace.tasks || []).filter((t) => t.projectId === projectId);
-		if (filterState.statusIds.length > 0) list = list.filter((t) => filterState.statusIds.includes(t.taskStatusId));
+		if (filterState.statusId) list = list.filter((t) => t.taskStatusId === filterState.statusId);
 		if (filterState.priority) list = list.filter((t) => (t.priority || "").toLowerCase() === filterState.priority);
 		if (filterState.assigneeIds.length > 0) list = list.filter((t) => getTaskAssigneeIds(t).some((aid) => filterState.assigneeIds.includes(aid)));
 		return list;
@@ -375,8 +386,8 @@
               ${statusTasks.map((t) => {
 								const pri = (t.priority || "").toLowerCase();
 								const priClass = pri === "urgent" ? "priority-urgent" : pri === "high" ? "priority-high" : pri === "medium" ? "priority-medium" : pri === "low" ? "priority-low" : "";
-								const pointStr = t.point != null && t.point !== "" ? ` [${t.point}]` : "";
-								return `<div class="pm-task ${priClass}" data-task-id="${t.id}" draggable="true">${escapeHtml(t.title || "Untitled")}${pointStr}</div>`;
+								const stars = pointToStars(t.point);
+								return `<div class="pm-task ${priClass}" data-task-id="${t.id}" draggable="true"><span class="pm-task-title-text">${escapeHtml(t.title || "Untitled")}</span>${stars ? `<span class="pm-task-point-stars" title="${pointValueForDisplay(t.point)}/5">${stars}</span>` : ""}</div>`;
 							}).join("")}
             </div>
             <div class="pm-task-form">
@@ -420,6 +431,7 @@
 				task.order = maxOrder + 1;
 				task.updatedAt = new Date().toISOString();
 				appendActivity(taskId, "TASK_STATUS_CHANGED", { from: oldStatus?.name, to: newStatus?.name });
+				render();
 				saveWorkspace(workspace);
 			});
 		});
@@ -474,7 +486,8 @@
 					const pri = (t.priority || "").toLowerCase();
 					const priClass = pri === "urgent" ? "urgent" : pri === "high" ? "high" : pri === "medium" ? "medium" : pri === "low" ? "low" : "";
 					const assigneeDisplay = getTaskAssigneeIds(t).length ? getTaskAssigneeIds(t).join(", ") : "—";
-					const pointStr = t.point != null && t.point !== "" ? String(t.point) : "—";
+					const pointVal = pointValueForDisplay(t.point);
+					const pointStarsHtml = [1, 2, 3, 4, 5].map((i) => `<span class="pm-point-star" data-task-id="${t.id}" data-value="${i}" role="button" tabindex="0" title="${i}/5">${i <= pointVal ? "★" : "☆"}</span>`).join("");
 					const dueStr = formatDueDateRelative(t.dueDate);
 					let dueClass = "";
 					if (t.dueDate) {
@@ -490,7 +503,7 @@
   <td class="pm-col-assignee"><span class="pm-list-edit" data-task-id="${t.id}" data-field="assigneeIds" contenteditable="true">${escapeHtml(assigneeDisplay)}</span></td>
   <td class="pm-col-type"><span class="pm-list-edit" data-task-id="${t.id}" data-field="type" contenteditable="true">${escapeHtml(t.type || "Task")}</span></td>
   <td class="pm-col-priority"><span class="pm-list-edit pm-priority ${priClass}" data-task-id="${t.id}" data-field="priority" contenteditable="true">${escapeHtml(t.priority || "—")}</span></td>
-  <td class="pm-col-point pm-list-point"><span class="pm-list-edit" data-task-id="${t.id}" data-field="point" contenteditable="true">${escapeHtml(pointStr)}</span></td>
+  <td class="pm-col-point pm-list-point pm-point-stars-wrap">${pointStarsHtml}</td>
   <td class="pm-col-due pm-list-due ${dueClass}">${escapeHtml(dueStr)}</td>
   <td class="pm-col-actions"><button type="button" class="pm-list-delete-btn" data-task-id="${t.id}" title="Delete task" aria-label="Delete">⌫</button></td>
 </tr>`;
@@ -545,11 +558,8 @@
 					const assigneeIds = raw === "—" || !raw ? [] : raw.split(",").map((s) => s.trim()).filter(Boolean);
 					task.assigneeIds = assigneeIds;
 					task.assignee = assigneeIds[0] || "";
-				} else if (field === "type") task.type = raw || "Task";
-				else if (field === "point") {
-					const num = raw === "—" || raw === "" ? undefined : parseInt(raw, 10);
-					task.point = Number.isNaN(num) ? undefined : num;
-				} else if (field === "priority") {
+				} 				else if (field === "type") task.type = raw || "Task";
+				else if (field === "priority") {
 					const prev = (task.priority || "").toLowerCase();
 					task.priority = raw === "—" ? "" : raw;
 					const next = (task.priority || "").toLowerCase();
@@ -561,6 +571,18 @@
 		});
 		container.querySelectorAll(".pm-list-delete-btn").forEach((btn) => {
 			btn.addEventListener("click", (e) => { e.stopPropagation(); deleteTask(btn.dataset.taskId); });
+		});
+		container.querySelectorAll(".pm-point-star").forEach((star) => {
+			star.addEventListener("click", (e) => {
+				e.stopPropagation();
+				const task = workspace.tasks.find((t) => t.id === star.dataset.taskId);
+				if (!task) return;
+				const val = parseInt(star.dataset.value, 10);
+				task.point = val;
+				task.updatedAt = new Date().toISOString();
+				saveWorkspace(workspace).then(() => render());
+			});
+			star.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); star.click(); } });
 		});
 		container.querySelectorAll(".pm-list-create-link").forEach((link) => {
 			link.addEventListener("click", () => addTaskInListForStatus(link.dataset.statusId));
@@ -610,13 +632,13 @@
 		const assigneeEl = $("pm-filter-assignee");
 		if (!statusEl || !priorityEl || !assigneeEl) return;
 		statusEl.innerHTML = '<option value="">Any status</option>' + statuses.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+		statusEl.value = filterState.statusId || "";
 		priorityEl.value = filterState.priority || "";
 		const allTasks = (workspace.tasks || []).filter((t) => t.projectId === currentProjectId);
 		const assigneeSet = new Set();
 		allTasks.forEach((t) => getTaskAssigneeIds(t).forEach((a) => assigneeSet.add(a)));
 		assigneeEl.innerHTML = '<option value="">Any assignee</option>' + [...assigneeSet].sort().map((a) => `<option value="${a}">${escapeHtml(a)}</option>`).join("");
 		assigneeEl.value = filterState.assigneeIds[0] || "";
-		;[].slice.call(statusEl.options).forEach((opt) => { opt.selected = filterState.statusIds.includes(opt.value); });
 	}
 
 	function renderCalendarView(tasks) {
@@ -709,11 +731,25 @@
 		const descEl = $("pm-task-description");
 		const startEl = $("pm-task-start-date");
 		const dueEl = $("pm-task-due-date");
-		const pointEl = $("pm-task-point");
+		const pointStarsEl = $("pm-task-point-stars");
 		if (descEl) descEl.value = task.description || "";
 		if (startEl) startEl.value = task.startDate ? task.startDate.slice(0, 10) : "";
 		if (dueEl) dueEl.value = task.dueDate ? task.dueDate.slice(0, 10) : "";
-		if (pointEl) pointEl.value = task.point != null && task.point !== "" ? task.point : "";
+		const pv = pointValueForDisplay(task.point);
+		if (pointStarsEl) {
+			pointStarsEl.innerHTML = [1, 2, 3, 4, 5].map((i) => `<button type="button" class="pm-panel-star" data-value="${i}" title="${i}/5" aria-pressed="${i <= pv}">${i <= pv ? "★" : "☆"}</button>`).join("");
+			pointStarsEl.querySelectorAll(".pm-panel-star").forEach((btn) => {
+				btn.addEventListener("click", () => {
+					if (!selectedTaskId) return;
+					const t = workspace.tasks.find((x) => x.id === selectedTaskId);
+					if (!t) return;
+					const val = parseInt(btn.dataset.value, 10);
+					t.point = val;
+					t.updatedAt = new Date().toISOString();
+					saveWorkspace(workspace).then(() => renderTaskPanel());
+				});
+			});
+		}
 		// One-time bind save handlers if not already bound
 		if (!descEl._pmBound) {
 			descEl._pmBound = true;
@@ -736,11 +772,6 @@
 				saveWorkspace(workspace).then(() => renderTaskPanel());
 			});
 		}
-		if (!pointEl._pmBound) {
-			pointEl._pmBound = true;
-			pointEl.addEventListener("change", () => { if (selectedTaskId) { const t = workspace.tasks.find((x) => x.id === selectedTaskId); if (t) { const v = pointEl.value.trim(); t.point = v === "" ? undefined : Number(v); t.updatedAt = new Date().toISOString(); saveWorkspace(workspace).then(() => renderTaskPanel()); } } });
-		}
-
 		// Checklist
 		const checklists = (workspace.taskChecklists || []).filter((c) => c.taskId === task.id).sort((a, b) => (a.order || 0) - (b.order || 0));
 		const listEl = $("pm-task-checklist-list");
@@ -908,7 +939,7 @@
 		const statusEl = $("pm-filter-status");
 		const priorityEl = $("pm-filter-priority");
 		const assigneeEl = $("pm-filter-assignee");
-		if (statusEl) filterState.statusIds = Array.from(statusEl.selectedOptions).map((o) => o.value).filter(Boolean);
+		if (statusEl) filterState.statusId = (statusEl.value || "").trim();
 		if (priorityEl) filterState.priority = (priorityEl.value || "").trim();
 		if (assigneeEl) filterState.assigneeIds = assigneeEl.value ? [assigneeEl.value] : [];
 		render();
@@ -917,7 +948,7 @@
 	if ($("pm-filter-priority")) $("pm-filter-priority").addEventListener("change", applyFilterFromBar);
 	if ($("pm-filter-assignee")) $("pm-filter-assignee").addEventListener("change", applyFilterFromBar);
 	$("pm-filter-clear").addEventListener("click", () => {
-		filterState = { statusIds: [], assigneeIds: [], priority: "" };
+		filterState = { statusId: "", assigneeIds: [], priority: "" };
 		render();
 	});
 
@@ -929,7 +960,7 @@
 		if (!view) return;
 		detailViewMode = view.data && view.data.viewType ? view.data.viewType : view.type || "board";
 		if (view.data && view.data.filter) filterState = { ...view.data.filter };
-		if (!filterState.statusIds) filterState.statusIds = [];
+		if (filterState.statusIds !== undefined) { filterState.statusId = Array.isArray(filterState.statusIds) ? (filterState.statusIds[0] || "") : ""; delete filterState.statusIds; }
 		if (!filterState.assigneeIds) filterState.assigneeIds = [];
 		$("pm-saved-views").value = "";
 		render();

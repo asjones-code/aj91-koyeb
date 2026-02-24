@@ -455,20 +455,26 @@
   color: var(--success);
 }
 
-/* Theme bar (fixed top-right, visible on login and app) */
+/* Kihim logotype (Projects title) – ensure it isn’t overridden by design system font */
+.pm-root .pm-header h1.font-kihim {
+  font-family: "Kihim", sans-serif;
+}
+
+/* Theme bar (fixed bottom-right) */
 .pm-ds-bar {
   position: fixed;
-  top: 0;
+  bottom: 0;
   right: 0;
+  top: auto;
   z-index: 200;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 1rem;
   background: var(--pm-surface);
-  border-bottom: 1px solid var(--pm-border);
+  border-top: 1px solid var(--pm-border);
   border-left: 1px solid var(--pm-border);
-  border-radius: 0 0 0 var(--radius-md);
+  border-radius: var(--radius-md) 0 0 0;
   box-shadow: var(--shadow-sm);
 }
 .pm-ds-theme-select {

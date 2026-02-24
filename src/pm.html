@@ -118,6 +118,14 @@
     .pm-calendar-task:hover { border-color: var(--pm-accent); }
     .pm-calendar-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
     .pm-saved-views-select { padding: 0.35rem 0.5rem; border: 1px solid var(--pm-border); border-radius: 4px; background: var(--pm-surface); color: var(--pm-text); font-size: 0.8125rem; }
+    .pm-point-stars-wrap { display: flex; gap: 0.1rem; }
+    .pm-point-star { background: none; border: none; padding: 0; font-size: 1rem; cursor: pointer; color: var(--pm-muted); line-height: 1; }
+    .pm-point-star:hover { color: var(--pm-accent); }
+    .pm-task-point-stars { font-size: 0.75rem; color: var(--pm-muted); margin-left: 0.25rem; }
+    .pm-panel-point-stars { display: flex; gap: 0.25rem; }
+    .pm-panel-point-stars .pm-panel-star { background: none; border: none; padding: 0; font-size: 1.5rem; cursor: pointer; color: var(--pm-muted); line-height: 1; }
+    .pm-panel-point-stars .pm-panel-star:hover { color: var(--pm-accent); }
+    .pm-panel-point-stars .pm-panel-star[aria-pressed="true"] { color: var(--pm-accent); }
   </style>
 </head>
 <body class="pm-root" data-theme="neuromorphic" data-mode="light">
@@ -146,7 +154,7 @@
   <div id="pm-app" style="display: none;">
     <header class="pm-header">
       <div>
-        <h1>Projects</h1>
+        <h1 class="font-kihim">Projects</h1>
         <div class="pm-mode">
           <input type="radio" id="pm-mode-local" name="pm-mode" value="local">
           <label for="pm-mode-local">Store locally</label>
@@ -183,15 +191,15 @@
         </div>
         <div id="pm-filter-bar" class="pm-filter-bar" style="display: none;">
           <span>Filter:</span>
-          <select id="pm-filter-status" multiple title="Status">
+          <select id="pm-filter-status" title="Status">
             <option value="">Any status</option>
           </select>
           <select id="pm-filter-priority" title="Priority">
             <option value="">Any priority</option>
-            <option value="urgent">Urgent</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
+            <option value="urgent">🔴 Urgent</option>
+            <option value="high">🟠 High</option>
+            <option value="medium">🟡 Medium</option>
+            <option value="low">🟢 Low</option>
           </select>
           <select id="pm-filter-assignee" title="Assignee">
             <option value="">Any assignee</option>
@@ -234,8 +242,8 @@
                 <input type="date" id="pm-task-due-date">
               </div>
               <div class="pm-task-point-wrap">
-                <label>Points</label>
-                <input type="number" id="pm-task-point" min="0" step="1" placeholder="—">
+                <label>Points (1–5)</label>
+                <div id="pm-task-point-stars" class="pm-panel-point-stars" role="group" aria-label="Points"></div>
               </div>
               <section class="pm-task-section" id="pm-task-checklist-section">
                 <h4>Checklist</h4>
