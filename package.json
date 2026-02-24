@@ -7,13 +7,14 @@
   "source": [
     "src/index.html",
     "src/about.html",
-    "src/work.html"
+    "src/work.html",
+    "src/pm.html"
   ],
   "scripts": {
     "build:globe": "node scripts/build-hero-globe.js",
     "prebuild": "npm run build:globe",
     "dev": "node node_modules/parcel/lib/bin.js src/index.html",
-    "build": "node node_modules/parcel/lib/bin.js build src/index.html",
+    "build": "node node_modules/parcel/lib/bin.js build src/index.html src/pm.html",
     "start": "node server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

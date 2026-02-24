@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Projects · PM</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .pm-root { --pm-bg: #0f0f0f; --pm-surface: #1a1a1a; --pm-border: #2a2a2a; --pm-text: #e5e5e5; --pm-muted: #737373; --pm-accent: #3b82f6; }
+    .pm-root { min-height: 100vh; background: var(--pm-bg); color: var(--pm-text); font-family: ui-sans-serif, system-ui, sans-serif; padding: 1.5rem; }
+    .pm-login { max-width: 20rem; margin: 4rem auto; }
+    .pm-login h1 { font-size: 1.25rem; margin-bottom: 1rem; }
+    .pm-login input[type="password"] { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--pm-border); border-radius: 6px; background: var(--pm-surface); color: var(--pm-text); font-size: 1rem; margin-bottom: 1rem; }
+    .pm-login button { width: 100%; padding: 0.5rem 0.75rem; background: var(--pm-accent); color: #fff; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; }
+    .pm-login .error { color: #ef4444; font-size: 0.875rem; margin-top: 0.5rem; }
+    .pm-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
+    .pm-header h1 { font-size: 1.25rem; font-weight: 600; }
+    .pm-mode { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--pm-muted); }
+    .pm-mode input { margin: 0; }
+    .pm-mode label { cursor: pointer; }
+    .pm-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .pm-btn { padding: 0.4rem 0.75rem; border-radius: 6px; font-size: 0.875rem; cursor: pointer; border: 1px solid var(--pm-border); background: var(--pm-surface); color: var(--pm-text); }
+    .pm-btn.primary { background: var(--pm-accent); border-color: var(--pm-accent); color: #fff; }
+    .pm-btn:hover { opacity: 0.9; }
+    .pm-projects { display: grid; gap: 0.75rem; }
+    .pm-project-card { padding: 1rem; background: var(--pm-surface); border: 1px solid var(--pm-border); border-radius: 8px; cursor: pointer; transition: border-color 0.15s; }
+    .pm-project-card:hover { border-color: var(--pm-accent); }
+    .pm-project-card h3 { font-size: 1rem; margin-bottom: 0.25rem; }
+    .pm-project-card p { font-size: 0.875rem; color: var(--pm-muted); }
+    .pm-detail { max-width: 42rem; }
+    .pm-detail h2 { font-size: 1.125rem; margin-bottom: 1rem; }
+    .pm-statuses { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .pm-status { min-width: 12rem; flex: 1; background: var(--pm-surface); border-radius: 8px; padding: 0.75rem; border: 1px solid var(--pm-border); }
+    .pm-status h4 { font-size: 0.75rem; text-transform: uppercase; color: var(--pm-muted); margin-bottom: 0.5rem; }
+    .pm-task { padding: 0.5rem 0.75rem; background: var(--pm-bg); border-radius: 6px; margin-bottom: 0.5rem; font-size: 0.875rem; cursor: pointer; border: 1px solid transparent; }
+    .pm-task:hover { border-color: var(--pm-border); }
+    .pm-task-form { margin-top: 0.5rem; }
+    .pm-task-form input { width: 100%; padding: 0.4rem 0.5rem; border: 1px solid var(--pm-border); border-radius: 4px; background: var(--pm-bg); color: var(--pm-text); font-size: 0.875rem; }
+    .pm-empty { color: var(--pm-muted); font-size: 0.875rem; padding: 0.5rem 0; }
+    .pm-loading { color: var(--pm-muted); }
+    .pm-logout { font-size: 0.875rem; color: var(--pm-muted); cursor: pointer; }
+    .pm-logout:hover { color: var(--pm-text); }
+  </style>
+</head>
+<body class="pm-root">
+  <div id="pm-login" class="pm-login" style="display: none;">
+    <h1>Sign in</h1>
+    <form id="pm-login-form">
+      <input type="password" name="password" placeholder="Password" autocomplete="current-password" required>
+      <button type="submit">Sign in</button>
+    </form>
+    <p id="pm-login-error" class="error" style="display: none;"></p>
+  </div>
+  <div id="pm-app" style="display: none;">
+    <header class="pm-header">
+      <div>
+        <h1>Projects</h1>
+        <div class="pm-mode">
+          <input type="radio" id="pm-mode-local" name="pm-mode" value="local">
+          <label for="pm-mode-local">Store locally</label>
+          <input type="radio" id="pm-mode-sync" name="pm-mode" value="sync">
+          <label for="pm-mode-sync">Sync to server</label>
+        </div>
+      </div>
+      <div class="pm-actions">
+        <button type="button" class="pm-btn" id="pm-export-btn">Export JSON</button>
+        <button type="button" class="pm-btn" id="pm-import-btn">Import JSON</button>
+        <input type="file" id="pm-import-file" accept=".json" style="display: none;">
+        <button type="button" class="pm-btn primary" id="pm-new-project">New project</button>
+        <span class="pm-logout" id="pm-logout">Sign out</span>
+      </div>
+    </header>
+    <main id="pm-main">
+      <div id="pm-list-view">
+        <div class="pm-projects" id="pm-project-list"></div>
+        <p id="pm-no-projects" class="pm-empty" style="display: none;">No projects yet. Create one to start.</p>
+      </div>
+      <div id="pm-detail-view" class="pm-detail" style="display: none;">
+        <button type="button" class="pm-btn" id="pm-back">← Back</button>
+        <h2 id="pm-detail-title"></h2>
+        <div class="pm-statuses" id="pm-status-columns"></div>
+      </div>
+    </main>
+  </div>
+  <script>
+    // Parcel dev (port 1234) has no API; point PM at Node server (3000)
+    if (window.location.port === "1234") window.API_ORIGIN = "http://localhost:3000";
+  </script>
+  <script src="pm.js"></script>
+</body>
+</html>

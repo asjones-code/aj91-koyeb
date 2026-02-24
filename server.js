@@ -53,6 +53,54 @@ async function initDatabase() {
 				last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 				is_active BOOLEAN NOT NULL DEFAULT TRUE
 			);
+			CREATE TABLE IF NOT EXISTS pm_projects (
+				id TEXT PRIMARY KEY,
+				name TEXT NOT NULL,
+				description TEXT,
+				cover TEXT,
+				icon TEXT,
+				is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+			CREATE TABLE IF NOT EXISTS pm_task_statuses (
+				id TEXT PRIMARY KEY,
+				project_id TEXT NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
+				name TEXT NOT NULL,
+				color TEXT,
+				"order" INTEGER NOT NULL DEFAULT 0,
+				type TEXT
+			);
+			CREATE TABLE IF NOT EXISTS pm_project_views (
+				id TEXT PRIMARY KEY,
+				project_id TEXT NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
+				type TEXT NOT NULL,
+				name TEXT,
+				data JSONB,
+				"order" INTEGER NOT NULL DEFAULT 0
+			);
+			CREATE TABLE IF NOT EXISTS pm_tasks (
+				id TEXT PRIMARY KEY,
+				project_id TEXT NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
+				task_status_id TEXT REFERENCES pm_task_statuses(id) ON DELETE SET NULL,
+				title TEXT NOT NULL,
+				description TEXT,
+				due_date DATE,
+				"order" INTEGER NOT NULL DEFAULT 0,
+				priority TEXT,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+			CREATE TABLE IF NOT EXISTS pm_tags (
+				id TEXT PRIMARY KEY,
+				project_id TEXT NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
+				name TEXT NOT NULL,
+				color TEXT
+			);
+			CREATE INDEX IF NOT EXISTS idx_pm_task_statuses_project ON pm_task_statuses(project_id);
+			CREATE INDEX IF NOT EXISTS idx_pm_project_views_project ON pm_project_views(project_id);
+			CREATE INDEX IF NOT EXISTS idx_pm_tasks_project ON pm_tasks(project_id);
+			CREATE INDEX IF NOT EXISTS idx_pm_tags_project ON pm_tags(project_id);
 		`);
 		console.log("[db] Database initialized");
 		return pool;
@@ -504,6 +552,174 @@ function collectBody(req) {
 	});
 }
 
+// ——— PM: password-protected project management (local or sync to DB) ———
+const PM_PASSWORD = (process.env.PM_PASSWORD || "").trim() || "test";
+const PM_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const pmSessions = new Map(); // token -> { createdAt }
+
+function getPmToken(req) {
+	const auth = req.headers["authorization"];
+	if (auth && auth.startsWith("Bearer ")) return auth.slice(7).trim();
+	return (req.headers["x-pm-token"] || "").trim();
+}
+
+function isPmTokenValid(token) {
+	if (!token) return false;
+	const s = pmSessions.get(token);
+	if (!s) return false;
+	if (Date.now() - s.createdAt > PM_SESSION_TTL_MS) {
+		pmSessions.delete(token);
+		return false;
+	}
+	return true;
+}
+
+async function handlePmLogin(body) {
+	let parsed;
+	try {
+		parsed = JSON.parse(body);
+	} catch {
+		return { error: "Invalid JSON." };
+	}
+	const password = typeof parsed.password === "string" ? parsed.password : "";
+	if (password !== PM_PASSWORD) return { error: "Invalid password.", status: 401 };
+	const token = crypto.randomBytes(32).toString("hex");
+	pmSessions.set(token, { createdAt: Date.now() });
+	return { token };
+}
+
+async function handlePmGetWorkspace() {
+	if (!dbPool) return { error: "Database not available. Set DATABASE_URL to use sync." };
+	try {
+		const [projectsRows, statusesRows, viewsRows, tasksRows, tagsRows] = await Promise.all([
+			dbPool.query("SELECT id, name, description, cover, icon, is_archived, created_at, updated_at FROM pm_projects ORDER BY updated_at DESC"),
+			dbPool.query("SELECT id, project_id, name, color, \"order\", type FROM pm_task_statuses ORDER BY project_id, \"order\""),
+			dbPool.query("SELECT id, project_id, type, name, data, \"order\" FROM pm_project_views ORDER BY project_id, \"order\""),
+			dbPool.query("SELECT id, project_id, task_status_id, title, description, due_date, \"order\", priority, created_at, updated_at FROM pm_tasks ORDER BY project_id, \"order\""),
+			dbPool.query("SELECT id, project_id, name, color FROM pm_tags ORDER BY project_id"),
+		]);
+		const projects = projectsRows.rows.map((r) => ({
+			id: r.id,
+			name: r.name,
+			description: r.description ?? "",
+			cover: r.cover ?? "",
+			icon: r.icon ?? "",
+			isArchived: !!r.is_archived,
+			createdAt: r.created_at,
+			updatedAt: r.updated_at,
+		}));
+		const taskStatuses = statusesRows.rows.map((r) => ({
+			id: r.id,
+			projectId: r.project_id,
+			name: r.name,
+			color: r.color ?? "",
+			order: r.order,
+			type: r.type ?? "TODO",
+		}));
+		const projectViews = viewsRows.rows.map((r) => ({
+			id: r.id,
+			projectId: r.project_id,
+			type: r.type,
+			name: r.name ?? "",
+			data: r.data ?? {},
+			order: r.order,
+		}));
+		const tasks = tasksRows.rows.map((r) => ({
+			id: r.id,
+			projectId: r.project_id,
+			taskStatusId: r.task_status_id,
+			title: r.title,
+			description: r.description ?? "",
+			dueDate: r.due_date,
+			order: r.order,
+			priority: r.priority ?? "",
+			createdAt: r.created_at,
+			updatedAt: r.updated_at,
+		}));
+		const tags = tagsRows.rows.map((r) => ({
+			id: r.id,
+			projectId: r.project_id,
+			name: r.name,
+			color: r.color ?? "",
+		}));
+		return {
+			version: 1,
+			lastModified: new Date().toISOString(),
+			projects,
+			taskStatuses,
+			projectViews,
+			tasks,
+			tags,
+		};
+	} catch (err) {
+		console.error("[pm] Get workspace error:", err.message);
+		return { error: "Failed to load workspace." };
+	}
+}
+
+async function handlePmSyncWorkspace(body) {
+	if (!dbPool) return { error: "Database not available. Set DATABASE_URL to use sync." };
+	let parsed;
+	try {
+		parsed = JSON.parse(body);
+	} catch {
+		return { error: "Invalid JSON." };
+	}
+	const projects = Array.isArray(parsed.projects) ? parsed.projects : [];
+	const taskStatuses = Array.isArray(parsed.taskStatuses) ? parsed.taskStatuses : [];
+	const projectViews = Array.isArray(parsed.projectViews) ? parsed.projectViews : [];
+	const tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
+	const tags = Array.isArray(parsed.tags) ? parsed.tags : [];
+	try {
+		await dbPool.query("BEGIN");
+		await dbPool.query("DELETE FROM pm_tags");
+		await dbPool.query("DELETE FROM pm_tasks");
+		await dbPool.query("DELETE FROM pm_project_views");
+		await dbPool.query("DELETE FROM pm_task_statuses");
+		await dbPool.query("DELETE FROM pm_projects");
+		for (const p of projects) {
+			await dbPool.query(
+				`INSERT INTO pm_projects (id, name, description, cover, icon, is_archived, created_at, updated_at)
+				 VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7::timestamptz, NOW()), COALESCE($8::timestamptz, NOW()))`,
+				[p.id, p.name || "", p.description ?? "", p.cover ?? "", p.icon ?? "", !!p.isArchived, p.createdAt ?? null, p.updatedAt ?? null]
+			);
+		}
+		for (const s of taskStatuses) {
+			await dbPool.query(
+				`INSERT INTO pm_task_statuses (id, project_id, name, color, "order", type)
+				 VALUES ($1, $2, $3, $4, $5, $6)`,
+				[s.id, s.projectId, s.name || "", s.color ?? "", Number(s.order) || 0, s.type ?? "TODO"]
+			);
+		}
+		for (const v of projectViews) {
+			await dbPool.query(
+				`INSERT INTO pm_project_views (id, project_id, type, name, data, "order")
+				 VALUES ($1, $2, $3, $4, $5, $6)`,
+				[v.id, v.projectId, v.type || "list", v.name ?? "", JSON.stringify(v.data || {}), Number(v.order) || 0]
+			);
+		}
+		for (const t of tasks) {
+			await dbPool.query(
+				`INSERT INTO pm_tasks (id, project_id, task_status_id, title, description, due_date, "order", priority, created_at, updated_at)
+				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9::timestamptz, NOW()), COALESCE($10::timestamptz, NOW()))`,
+				[t.id, t.projectId, t.taskStatusId ?? null, t.title || "", t.description ?? "", t.dueDate ?? null, Number(t.order) || 0, t.priority ?? "", t.createdAt ?? null, t.updatedAt ?? null]
+			);
+		}
+		for (const g of tags) {
+			await dbPool.query(
+				`INSERT INTO pm_tags (id, project_id, name, color) VALUES ($1, $2, $3, $4)`,
+				[g.id, g.projectId, g.name || "", g.color ?? ""]
+			);
+		}
+		await dbPool.query("COMMIT");
+		return { success: true, lastModified: new Date().toISOString() };
+	} catch (err) {
+		await dbPool.query("ROLLBACK").catch(() => {});
+		console.error("[pm] Sync workspace error:", err.message);
+		return { error: "Failed to sync workspace." };
+	}
+}
+
 // ——— Live: WebSocket for location sharing + ephemeral chat (5 min) ———
 const CHAT_TTL_MS = 5 * 60 * 1000;
 const CHAT_RATE_MS = 2000;
@@ -734,6 +950,65 @@ const server = http.createServer(async (req, res) => {
 			}
 			return;
 		}
+	}
+
+	// PM: password-protected project management API
+	if (pathname.startsWith("/api/pm/")) {
+		const origin = req.headers.origin;
+		const cors = { "Access-Control-Allow-Origin": origin || "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization, X-PM-Token" };
+		if (method === "OPTIONS") {
+			res.writeHead(204, { ...cors, "Access-Control-Max-Age": "86400" });
+			res.end();
+			return;
+		}
+		if (pathname === "/api/pm/login" && method === "POST") {
+			let body;
+			try {
+				body = await collectBody(req);
+			} catch {
+				jsonResponse(res, 500, { error: "Request failed." }, cors);
+				return;
+			}
+			const result = await handlePmLogin(body);
+			if (result.error) {
+				jsonResponse(res, result.status === 401 ? 401 : 400, { error: result.error }, cors);
+			} else {
+				jsonResponse(res, 200, { token: result.token }, cors);
+			}
+			return;
+		}
+		const token = getPmToken(req);
+		if (!isPmTokenValid(token)) {
+			jsonResponse(res, 401, { error: "Unauthorized or session expired." }, cors);
+			return;
+		}
+		if (pathname === "/api/pm/workspace" && method === "GET") {
+			const result = await handlePmGetWorkspace();
+			if (result.error) {
+				jsonResponse(res, 500, { error: result.error }, cors);
+			} else {
+				jsonResponse(res, 200, result, cors);
+			}
+			return;
+		}
+		if (pathname === "/api/pm/workspace" && method === "POST") {
+			let body;
+			try {
+				body = await collectBody(req);
+			} catch {
+				jsonResponse(res, 500, { error: "Request failed." }, cors);
+				return;
+			}
+			const result = await handlePmSyncWorkspace(body);
+			if (result.error) {
+				jsonResponse(res, 400, { error: result.error }, cors);
+			} else {
+				jsonResponse(res, 200, result, cors);
+			}
+			return;
+		}
+		jsonResponse(res, 404, { error: "Not found." }, cors);
+		return;
 	}
 
 	if (method !== "GET" && method !== "HEAD") {

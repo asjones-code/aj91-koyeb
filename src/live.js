@@ -80,33 +80,32 @@ function closeLiveSession() {
 }
 
 /**
- * Opt in to show your location on the globe (outside terminal).
- * Requests geolocation, opens WebSocket if needed, sends location.
+ * Connect to live session (chat + optional globe). Opens WebSocket first, then optionally
+ * requests location. Resolves when connected even if location is denied (so chat still works).
  */
 function optInGlobeLocation() {
 	return new Promise((resolve, reject) => {
-		if (!navigator.geolocation) {
-			reject(new Error("Geolocation not supported"));
-			return;
-		}
-		navigator.geolocation.getCurrentPosition(
-			(pos) => {
-				openLiveSession({
-					onOpen: () => {
-						sendMessage({
-							type: "location",
-							lat: pos.coords.latitude,
-							lng: pos.coords.longitude,
-							accuracy: pos.coords.accuracy != null ? pos.coords.accuracy : undefined
-						});
-						resolve();
-					},
-					onError: () => reject(new Error("Connection failed"))
-				});
+		openLiveSession({
+			onOpen: () => {
+				// Optionally send location if permitted; don't block on deny
+				if (navigator.geolocation) {
+					navigator.geolocation.getCurrentPosition(
+						(pos) => {
+							sendMessage({
+								type: "location",
+								lat: pos.coords.latitude,
+								lng: pos.coords.longitude,
+								accuracy: pos.coords.accuracy != null ? pos.coords.accuracy : undefined
+							});
+						},
+						() => { /* denied or unavailable – still connected for chat */ },
+						{ enableHighAccuracy: false, maximumAge: 60000, timeout: 10000 }
+					);
+				}
+				resolve();
 			},
-			() => reject(new Error("Location denied or unavailable")),
-			{ enableHighAccuracy: false, maximumAge: 60000, timeout: 10000 }
-		);
+			onError: () => reject(new Error("Connection failed"))
+		});
 	});
 }
 

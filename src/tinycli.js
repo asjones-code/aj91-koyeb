@@ -101,6 +101,17 @@ const event = {
 				controller.shareLocation((err, msg) => view.outputCommandResult(err || msg));
 				return;
 			}
+			if (result && typeof result === "object" && result.async === "chat_connect") {
+				view.outputCommandResult("Connecting…");
+				live.openLiveSession({
+					onOpen: () => {
+						controller.waitingForChatEmail = true;
+						view.outputCommandResult("Enter your email to send messages (anti-spam). Type it and press Enter:");
+					},
+					onError: () => view.outputCommandResult("Connection failed. Try again.")
+				});
+				return;
+			}
 			view.outputCommandResult(result);
 		},
 		onAsync(e, d) {
@@ -618,8 +629,7 @@ const event = {
 					{
 						const state = live.getState();
 						if (!state.connected) {
-							out = "Open the live session first: click <strong>Connect with the world</strong> above, or type <strong>location</strong> in the terminal.";
-							break;
+							return { async: "chat_connect" };
 						}
 						if (!state.emailOptedIn) {
 							this.waitingForChatEmail = true;
