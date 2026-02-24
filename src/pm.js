@@ -38,6 +38,9 @@
 			projectViews: [],
 			tasks: [],
 			tags: [],
+			comments: [],
+			activities: [],
+			taskChecklists: [],
 		};
 	}
 
@@ -112,8 +115,11 @@
 	let workspace = emptyWorkspace();
 	let mode = "local"; // "local" | "sync"
 	let currentProjectId = null;
-	let detailViewMode = "board"; // "board" | "list"
-	let lastSyncedAt = null; // timestamp when last sync succeeded
+	let detailViewMode = "board"; // "board" | "list" | "calendar"
+	let lastSyncedAt = null;
+	let selectedTaskId = null;
+	let filterState = { statusIds: [], assigneeIds: [], priority: "" };
+	let calendarMonth = new Date();
 
 	function isLocal() {
 		return mode === "local";
@@ -168,6 +174,33 @@
 			type: s.type,
 		}));
 		workspace.taskStatuses.push(...newStatuses);
+	}
+
+	function appendActivity(taskId, type, data) {
+		workspace.activities = workspace.activities || [];
+		workspace.activities.push({
+			id: id(),
+			objectId: taskId,
+			objectType: "TASK",
+			type,
+			createdBy: "",
+			data: data || {},
+			createdAt: new Date().toISOString(),
+		});
+	}
+
+	function getTaskAssigneeIds(task) {
+		if (Array.isArray(task.assigneeIds) && task.assigneeIds.length > 0) return task.assigneeIds;
+		if (task.assignee) return [task.assignee];
+		return [];
+	}
+
+	function getFilteredTasks(projectId) {
+		let list = (workspace.tasks || []).filter((t) => t.projectId === projectId);
+		if (filterState.statusIds.length > 0) list = list.filter((t) => filterState.statusIds.includes(t.taskStatusId));
+		if (filterState.priority) list = list.filter((t) => (t.priority || "").toLowerCase() === filterState.priority);
+		if (filterState.assigneeIds.length > 0) list = list.filter((t) => getTaskAssigneeIds(t).some((aid) => filterState.assigneeIds.includes(aid)));
+		return list;
 	}
 
 	// ——— UI ———
@@ -266,17 +299,33 @@
 		}
 		$("pm-detail-title").textContent = project.name || "Untitled";
 		const statuses = (workspace.taskStatuses || []).filter((s) => s.projectId === currentProjectId).sort((a, b) => (a.order || 0) - (b.order || 0));
-		const tasks = (workspace.tasks || []).filter((t) => t.projectId === currentProjectId);
+		const tasks = getFilteredTasks(currentProjectId);
 		const doneStatus = statuses.find((s) => (s.type || "").toUpperCase() === "DONE");
 
 		// View toggle
 		$("pm-view-list").classList.toggle("active", detailViewMode === "list");
 		$("pm-view-board").classList.toggle("active", detailViewMode === "board");
+		$("pm-view-calendar").classList.toggle("active", detailViewMode === "calendar");
 		$("pm-board-wrap").style.display = detailViewMode === "board" ? "block" : "none";
 		$("pm-list-wrap").style.display = detailViewMode === "list" ? "block" : "none";
+		$("pm-calendar-wrap").style.display = detailViewMode === "calendar" ? "block" : "none";
+		$("pm-filter-bar").style.display = detailViewMode === "calendar" ? "none" : "block";
+
+		// Filter bar (list/board)
+		if (detailViewMode !== "calendar") renderFilterBar(statuses, tasks);
+		// Saved views dropdown
+		const views = (workspace.projectViews || []).filter((v) => v.projectId === currentProjectId).sort((a, b) => (a.order || 0) - (b.order || 0));
+		const savedSelect = $("pm-saved-views");
+		if (savedSelect) {
+			savedSelect.innerHTML = "<option value=\"\">Saved views…</option>" + views.map((v) => `<option value="${v.id}">${escapeHtml(v.name || v.type || "View")}</option>`).join("");
+		}
 
 		if (detailViewMode === "list") {
 			renderListView(tasks, doneStatus);
+			return;
+		}
+		if (detailViewMode === "calendar") {
+			renderCalendarView(tasks);
 			return;
 		}
 
@@ -290,7 +339,12 @@
           <div class="pm-status" data-status-id="${s.id}">
             <h4 style="color:${s.color || "#888"}">${escapeHtml(s.name)}</h4>
             <div class="pm-task-list" data-status-id="${s.id}">
-              ${statusTasks.map((t) => `<div class="pm-task" data-task-id="${t.id}" draggable="true">${escapeHtml(t.title || "Untitled")}</div>`).join("")}
+              ${statusTasks.map((t) => {
+								const pri = (t.priority || "").toLowerCase();
+								const priClass = pri === "urgent" ? "priority-urgent" : pri === "high" ? "priority-high" : pri === "medium" ? "priority-medium" : pri === "low" ? "priority-low" : "";
+								const pointStr = t.point != null && t.point !== "" ? ` [${t.point}]` : "";
+								return `<div class="pm-task ${priClass}" data-task-id="${t.id}" draggable="true">${escapeHtml(t.title || "Untitled")}${pointStr}</div>`;
+							}).join("")}
             </div>
             <div class="pm-task-form">
               <input type="text" placeholder="+ Add task" data-status-id="${s.id}" data-add-task>
@@ -300,7 +354,7 @@
 			)
 			.join("");
 
-		// Drag and drop
+		// Drag and drop + click to open task panel
 		columns.querySelectorAll(".pm-task[data-task-id]").forEach((el) => {
 			el.addEventListener("dragstart", (e) => {
 				e.dataTransfer.setData("text/plain", el.dataset.taskId);
@@ -308,6 +362,7 @@
 				el.classList.add("dragging");
 			});
 			el.addEventListener("dragend", () => el.classList.remove("dragging"));
+			el.addEventListener("click", (e) => { if (!el.classList.contains("dragging")) openTaskPanel(el.dataset.taskId); });
 		});
 		columns.querySelectorAll(".pm-status").forEach((col) => {
 			const statusId = col.dataset.statusId;
@@ -324,11 +379,14 @@
 				if (!taskId) return;
 				const task = workspace.tasks.find((t) => t.id === taskId);
 				if (!task || task.taskStatusId === statusId) return;
+				const oldStatus = workspace.taskStatuses.find((s) => s.id === task.taskStatusId);
+				const newStatus = workspace.taskStatuses.find((s) => s.id === statusId);
 				const statusTasks = tasks.filter((t) => t.taskStatusId === statusId).map((t) => t.order || 0);
 				const maxOrder = statusTasks.length ? Math.max(...statusTasks) : 0;
 				task.taskStatusId = statusId;
 				task.order = maxOrder + 1;
 				task.updatedAt = new Date().toISOString();
+				appendActivity(taskId, "TASK_STATUS_CHANGED", { from: oldStatus?.name, to: newStatus?.name });
 				saveWorkspace(workspace);
 			});
 		});
@@ -347,15 +405,19 @@
 					title,
 					description: "",
 					dueDate: null,
+					startDate: null,
 					order: maxOrder + 1,
 					priority: "",
+					assigneeIds: [],
 					assignee: "",
 					type: "Task",
+					point: undefined,
 					createdAt: new Date().toISOString(),
 					updatedAt: new Date().toISOString(),
 				};
 				workspace.tasks = workspace.tasks || [];
 				workspace.tasks.push(newTask);
+				appendActivity(newTask.id, "TASK_CREATED", { title: newTask.title });
 				saveWorkspace(workspace).then(() => {
 					input.value = "";
 				});
@@ -373,22 +435,30 @@
 					const isDone = t.taskStatusId === doneId;
 					const pri = (t.priority || "").toLowerCase();
 					const priClass = pri === "urgent" ? "urgent" : pri === "high" ? "high" : pri === "medium" ? "medium" : pri === "low" ? "low" : "";
-					return `<tr data-task-id="${t.id}">
-            <td><input type="checkbox" ${isDone ? "checked" : ""} data-task-id="${t.id}" data-done> ${escapeHtml(t.title || "Untitled")}</td>
-            <td><span class="pm-list-edit" data-task-id="${t.id}" data-field="assignee" contenteditable="true">${escapeHtml(t.assignee || "—")}</span></td>
+					const assigneeDisplay = getTaskAssigneeIds(t).length ? getTaskAssigneeIds(t).join(", ") : "—";
+					const pointStr = t.point != null && t.point !== "" ? String(t.point) : "—";
+					return `<tr data-task-id="${t.id}" class="pm-list-task-row">
+            <td><input type="checkbox" ${isDone ? "checked" : ""} data-task-id="${t.id}" data-done> ${escapeHtml(t.title || "Untitled")}${pointStr !== "—" ? " [" + pointStr + "]" : ""}</td>
+            <td><span class="pm-list-edit pm-assignees" data-task-id="${t.id}" data-field="assigneeIds" contenteditable="true">${escapeHtml(assigneeDisplay)}</span></td>
             <td><span class="pm-list-edit" data-task-id="${t.id}" data-field="type" contenteditable="true">${escapeHtml(t.type || "Task")}</span></td>
             <td><span class="pm-list-edit pm-priority ${priClass}" data-task-id="${t.id}" data-field="priority" contenteditable="true">${escapeHtml(t.priority || "—")}</span></td>
           </tr>`;
 				}
 			)
 			.join("");
+		tbody.querySelectorAll("tr.pm-list-task-row").forEach((row) => {
+			row.addEventListener("click", (e) => { if (!e.target.closest("input, [contenteditable]")) openTaskPanel(row.dataset.taskId); });
+		});
 		tbody.querySelectorAll("input[data-done]").forEach((cb) => {
 			cb.addEventListener("change", () => {
 				const task = workspace.tasks.find((t) => t.id === cb.dataset.taskId);
 				if (!task || !doneStatus) return;
 				const firstTodo = (workspace.taskStatuses || []).find((s) => s.projectId === currentProjectId && (s.type || "").toUpperCase() !== "DONE");
+				const oldStatus = workspace.taskStatuses.find((s) => s.id === task.taskStatusId);
+				const newStatus = cb.checked ? doneStatus : firstTodo;
 				task.taskStatusId = cb.checked ? doneStatus.id : (firstTodo && firstTodo.id) || task.taskStatusId;
 				task.updatedAt = new Date().toISOString();
+				if (oldStatus && newStatus && oldStatus.id !== newStatus.id) appendActivity(task.id, "TASK_STATUS_CHANGED", { from: oldStatus.name, to: newStatus.name });
 				saveWorkspace(workspace);
 			});
 		});
@@ -397,10 +467,18 @@
 				const task = workspace.tasks.find((t) => t.id === span.dataset.taskId);
 				if (!task) return;
 				const field = span.dataset.field;
-				const value = span.textContent.trim() || (field === "priority" ? "" : field === "type" ? "Task" : "—");
-				if (field === "assignee") task.assignee = value === "—" ? "" : value;
-				else if (field === "type") task.type = value;
-				else if (field === "priority") task.priority = value;
+				const raw = span.textContent.trim();
+				if (field === "assigneeIds") {
+					const assigneeIds = raw === "—" || !raw ? [] : raw.split(",").map((s) => s.trim()).filter(Boolean);
+					task.assigneeIds = assigneeIds;
+					task.assignee = assigneeIds[0] || "";
+				} else if (field === "type") task.type = raw || "Task";
+				else if (field === "priority") {
+					const prev = (task.priority || "").toLowerCase();
+					task.priority = raw === "—" ? "" : raw;
+					const next = (task.priority || "").toLowerCase();
+					if (prev !== next) appendActivity(task.id, "TASK_PRIORITY_CHANGED", { from: prev || "none", to: next || "none" });
+				}
 				task.updatedAt = new Date().toISOString();
 				saveWorkspace(workspace);
 			});
@@ -422,15 +500,19 @@
 			title: (title || "").trim() || "New task",
 			description: "",
 			dueDate: null,
+			startDate: null,
 			order: maxOrder + 1,
 			priority: "",
+			assigneeIds: [],
 			assignee: "",
 			type: "Task",
+			point: undefined,
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 		};
 		workspace.tasks = workspace.tasks || [];
 		workspace.tasks.push(newTask);
+		appendActivity(newTask.id, "TASK_CREATED", { title: newTask.title });
 		saveWorkspace(workspace).then(() => render());
 	}
 
@@ -438,6 +520,214 @@
 		const div = document.createElement("div");
 		div.textContent = s;
 		return div.innerHTML;
+	}
+
+	function renderFilterBar(statuses, tasks) {
+		const statusEl = $("pm-filter-status");
+		const priorityEl = $("pm-filter-priority");
+		const assigneeEl = $("pm-filter-assignee");
+		if (!statusEl || !priorityEl || !assigneeEl) return;
+		statusEl.innerHTML = '<option value="">Any status</option>' + statuses.map((s) => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join("");
+		priorityEl.value = filterState.priority || "";
+		const allTasks = (workspace.tasks || []).filter((t) => t.projectId === currentProjectId);
+		const assigneeSet = new Set();
+		allTasks.forEach((t) => getTaskAssigneeIds(t).forEach((a) => assigneeSet.add(a)));
+		assigneeEl.innerHTML = '<option value="">Any assignee</option>' + [...assigneeSet].sort().map((a) => `<option value="${a}">${escapeHtml(a)}</option>`).join("");
+		assigneeEl.value = filterState.assigneeIds[0] || "";
+		;[].slice.call(statusEl.options).forEach((opt) => { opt.selected = filterState.statusIds.includes(opt.value); });
+	}
+
+	function renderCalendarView(tasks) {
+		const titleEl = $("pm-calendar-month-title");
+		const gridEl = $("pm-calendar-grid");
+		if (!titleEl || !gridEl) return;
+		const y = calendarMonth.getFullYear();
+		const m = calendarMonth.getMonth();
+		titleEl.textContent = new Date(y, m, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+		const first = new Date(y, m, 1);
+		const last = new Date(y, m + 1, 0);
+		const startPad = first.getDay();
+		const daysInMonth = last.getDate();
+		const totalCells = Math.ceil((startPad + daysInMonth) / 7) * 7;
+		const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+		let html = dayLabels.map((l) => `<div class="pm-calendar-day-header">${l}</div>`).join("");
+		for (let i = 0; i < totalCells; i++) {
+			const dayNum = i - startPad + 1;
+			const isCurrentMonth = dayNum >= 1 && dayNum <= daysInMonth;
+			const dateStr = isCurrentMonth ? `${y}-${String(m + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}` : "";
+			const dayTasks = isCurrentMonth ? tasks.filter((t) => t.dueDate && t.dueDate.slice(0, 10) === dateStr) : [];
+			html += `<div class="pm-calendar-day" data-date="${dateStr}" data-day-num="${dayNum}" data-current="${isCurrentMonth}">
+        <div class="pm-calendar-day-num">${isCurrentMonth ? dayNum : ""}</div>
+        ${dayTasks.map((t) => `<div class="pm-calendar-task" data-task-id="${t.id}">${escapeHtml(t.title || "Untitled")}</div>`).join("")}
+        ${isCurrentMonth ? `<button type="button" class="pm-btn pm-calendar-add" data-date="${dateStr}">+ Add task</button>` : ""}
+      </div>`;
+		}
+		gridEl.innerHTML = html;
+		gridEl.querySelectorAll(".pm-calendar-task").forEach((el) => el.addEventListener("click", () => openTaskPanel(el.dataset.taskId)));
+		gridEl.querySelectorAll(".pm-calendar-add").forEach((btn) => btn.addEventListener("click", () => addTaskWithDueDate(btn.dataset.date)));
+	}
+
+	function addTaskWithDueDate(dateStr) {
+		const statuses = (workspace.taskStatuses || []).filter((s) => s.projectId === currentProjectId).sort((a, b) => (a.order || 0) - (b.order || 0));
+		const firstStatus = statuses[0];
+		if (!firstStatus) return;
+		const tasks = (workspace.tasks || []).filter((t) => t.projectId === currentProjectId);
+		const maxOrder = Math.max(0, ...tasks.map((t) => t.order || 0));
+		const title = window.prompt("Task title", "");
+		if (title == null) return;
+		const newTask = {
+			id: id(),
+			projectId: currentProjectId,
+			taskStatusId: firstStatus.id,
+			title: (title || "").trim() || "New task",
+			description: "",
+			dueDate: dateStr,
+			startDate: null,
+			order: maxOrder + 1,
+			priority: "",
+			assigneeIds: [],
+			assignee: "",
+			type: "Task",
+			point: undefined,
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+		workspace.tasks = workspace.tasks || [];
+		workspace.tasks.push(newTask);
+		appendActivity(newTask.id, "TASK_CREATED", { title: newTask.title });
+		saveWorkspace(workspace).then(() => render());
+	}
+
+	function openTaskPanel(taskId) {
+		selectedTaskId = taskId;
+		$("pm-task-panel-wrap").style.display = "flex";
+		renderTaskPanel();
+	}
+
+	function closeTaskPanel() {
+		selectedTaskId = null;
+		$("pm-task-panel-wrap").style.display = "none";
+	}
+
+	function renderTaskPanel() {
+		if (!selectedTaskId) return;
+		const task = workspace.tasks.find((t) => t.id === selectedTaskId);
+		if (!task) {
+			closeTaskPanel();
+			return;
+		}
+		const statuses = workspace.taskStatuses || [];
+		const status = statuses.find((s) => s.id === task.taskStatusId);
+		$("pm-task-panel-title").textContent = task.title || "Untitled";
+		const metaParts = [];
+		if (status) metaParts.push("Status: " + status.name);
+		if (task.priority) metaParts.push("Priority: " + task.priority);
+		if (getTaskAssigneeIds(task).length) metaParts.push("Assignees: " + getTaskAssigneeIds(task).join(", "));
+		$("pm-task-meta").textContent = metaParts.join(" · ");
+		const descEl = $("pm-task-description");
+		const startEl = $("pm-task-start-date");
+		const dueEl = $("pm-task-due-date");
+		const pointEl = $("pm-task-point");
+		if (descEl) descEl.value = task.description || "";
+		if (startEl) startEl.value = task.startDate ? task.startDate.slice(0, 10) : "";
+		if (dueEl) dueEl.value = task.dueDate ? task.dueDate.slice(0, 10) : "";
+		if (pointEl) pointEl.value = task.point != null && task.point !== "" ? task.point : "";
+		// One-time bind save handlers if not already bound
+		if (!descEl._pmBound) {
+			descEl._pmBound = true;
+			descEl.addEventListener("blur", () => { if (selectedTaskId) { const t = workspace.tasks.find((x) => x.id === selectedTaskId); if (t) { t.description = descEl.value; t.updatedAt = new Date().toISOString(); saveWorkspace(workspace).then(() => renderTaskPanel()); } } });
+		}
+		if (!startEl._pmBound) {
+			startEl._pmBound = true;
+			startEl.addEventListener("change", () => { if (selectedTaskId) { const t = workspace.tasks.find((x) => x.id === selectedTaskId); if (t) { t.startDate = startEl.value || null; t.updatedAt = new Date().toISOString(); saveWorkspace(workspace).then(() => renderTaskPanel()); } } });
+		}
+		if (!dueEl._pmBound) {
+			dueEl._pmBound = true;
+			dueEl.addEventListener("change", () => {
+				if (!selectedTaskId) return;
+				const t = workspace.tasks.find((x) => x.id === selectedTaskId);
+				if (!t) return;
+				const prev = t.dueDate || "";
+				t.dueDate = dueEl.value || null;
+				t.updatedAt = new Date().toISOString();
+				if (prev !== (t.dueDate || "")) appendActivity(t.id, "TASK_DUEDATE_CHANGED", { from: prev || "none", to: t.dueDate || "none" });
+				saveWorkspace(workspace).then(() => renderTaskPanel());
+			});
+		}
+		if (!pointEl._pmBound) {
+			pointEl._pmBound = true;
+			pointEl.addEventListener("change", () => { if (selectedTaskId) { const t = workspace.tasks.find((x) => x.id === selectedTaskId); if (t) { const v = pointEl.value.trim(); t.point = v === "" ? undefined : Number(v); t.updatedAt = new Date().toISOString(); saveWorkspace(workspace).then(() => renderTaskPanel()); } } });
+		}
+
+		// Checklist
+		const checklists = (workspace.taskChecklists || []).filter((c) => c.taskId === task.id).sort((a, b) => (a.order || 0) - (b.order || 0));
+		const listEl = $("pm-task-checklist-list");
+		listEl.innerHTML = checklists.map((c) => `<li data-id="${c.id}"><input type="checkbox" ${c.done ? "checked" : ""} data-id="${c.id}"><span class="${c.done ? "pm-checklist-done" : ""}">${escapeHtml(c.title)}</span></li>`).join("");
+		listEl.querySelectorAll("input[type=checkbox]").forEach((cb) => {
+			cb.addEventListener("change", () => {
+				const item = workspace.taskChecklists.find((x) => x.id === cb.dataset.id);
+				if (!item) return;
+				item.done = cb.checked;
+				item.doneAt = cb.checked ? new Date().toISOString() : null;
+				saveWorkspace(workspace).then(() => renderTaskPanel());
+			});
+		});
+
+		// Activity
+		const activities = (workspace.activities || []).filter((a) => a.objectId === task.id && a.objectType === "TASK").sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+		$("pm-task-activity-list").innerHTML = activities.map((a) => {
+			let text = a.type.replace(/_/g, " ");
+			if (a.type === "TASK_STATUS_CHANGED" && a.data.to) text = `Status changed to ${a.data.to}`;
+			else if (a.type === "TASK_PRIORITY_CHANGED" && a.data.to) text = `Priority set to ${a.data.to}`;
+			else if (a.type === "TASK_DUEDATE_CHANGED" && a.data.to) text = `Due date set to ${a.data.to}`;
+			else if (a.type === "TASK_CREATED") text = "Task created";
+			return `<li class="pm-activity-item"><span class="pm-activity-meta">${new Date(a.createdAt).toLocaleString()}</span> ${escapeHtml(text)}</li>`;
+		}).join("") || "<li class=\"pm-activity-item\">No activity yet.</li>";
+
+		// Comments
+		const comments = (workspace.comments || []).filter((c) => c.taskId === task.id).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+		$("pm-task-comments-list").innerHTML = comments.map((c) => `<li class="pm-comment-item"><span class="pm-comment-meta">${escapeHtml(c.createdBy || "Someone")} · ${new Date(c.createdAt).toLocaleString()}</span><div>${escapeHtml(c.content)}</div></li>`).join("") || "";
+		$("pm-comment-input").value = "";
+	}
+
+	function onCommentSubmit() {
+		if (!selectedTaskId) return;
+		const task = workspace.tasks.find((t) => t.id === selectedTaskId);
+		if (!task) return;
+		const content = ($("pm-comment-input") && $("pm-comment-input").value || "").trim();
+		if (!content) return;
+		workspace.comments = workspace.comments || [];
+		workspace.comments.push({
+			id: id(),
+			taskId: selectedTaskId,
+			projectId: task.projectId,
+			content,
+			createdBy: "",
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		});
+		$("pm-comment-input").value = "";
+		saveWorkspace(workspace).then(() => renderTaskPanel());
+	}
+
+	function onChecklistAdd() {
+		if (!selectedTaskId) return;
+		const input = $("pm-task-checklist-input");
+		const title = (input && input.value || "").trim();
+		if (!title) return;
+		workspace.taskChecklists = workspace.taskChecklists || [];
+		const existing = workspace.taskChecklists.filter((c) => c.taskId === selectedTaskId).map((c) => c.order || 0);
+		const maxOrder = existing.length ? Math.max(...existing) : 0;
+		workspace.taskChecklists.push({
+			id: id(),
+			taskId: selectedTaskId,
+			title,
+			order: maxOrder + 1,
+			done: false,
+			doneAt: null,
+		});
+		if (input) input.value = "";
+		saveWorkspace(workspace).then(() => renderTaskPanel());
 	}
 
 	// ——— Login ———
@@ -506,7 +796,7 @@
 		render();
 	});
 
-	// ——— Detail view toggle (List / Board) ———
+	// ——— Detail view toggle (List / Board / Calendar) ———
 	$("pm-view-list").addEventListener("click", () => {
 		detailViewMode = "list";
 		render();
@@ -515,6 +805,76 @@
 		detailViewMode = "board";
 		render();
 	});
+	$("pm-view-calendar").addEventListener("click", () => {
+		detailViewMode = "calendar";
+		calendarMonth = new Date();
+		render();
+	});
+
+	// ——— Calendar nav ———
+	$("pm-calendar-prev").addEventListener("click", () => {
+		calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1);
+		render();
+	});
+	$("pm-calendar-next").addEventListener("click", () => {
+		calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1);
+		render();
+	});
+
+	// ——— Filter bar ———
+	function applyFilterFromBar() {
+		const statusEl = $("pm-filter-status");
+		const priorityEl = $("pm-filter-priority");
+		const assigneeEl = $("pm-filter-assignee");
+		if (statusEl) filterState.statusIds = Array.from(statusEl.selectedOptions).map((o) => o.value).filter(Boolean);
+		if (priorityEl) filterState.priority = (priorityEl.value || "").trim();
+		if (assigneeEl) filterState.assigneeIds = assigneeEl.value ? [assigneeEl.value] : [];
+		render();
+	}
+	if ($("pm-filter-status")) $("pm-filter-status").addEventListener("change", applyFilterFromBar);
+	if ($("pm-filter-priority")) $("pm-filter-priority").addEventListener("change", applyFilterFromBar);
+	if ($("pm-filter-assignee")) $("pm-filter-assignee").addEventListener("change", applyFilterFromBar);
+	$("pm-filter-clear").addEventListener("click", () => {
+		filterState = { statusIds: [], assigneeIds: [], priority: "" };
+		render();
+	});
+
+	// ——— Saved project views ———
+	$("pm-saved-views").addEventListener("change", () => {
+		const viewId = $("pm-saved-views").value;
+		if (!viewId) return;
+		const view = (workspace.projectViews || []).find((v) => v.id === viewId);
+		if (!view) return;
+		detailViewMode = view.data && view.data.viewType ? view.data.viewType : view.type || "board";
+		if (view.data && view.data.filter) filterState = { ...view.data.filter };
+		if (!filterState.statusIds) filterState.statusIds = [];
+		if (!filterState.assigneeIds) filterState.assigneeIds = [];
+		$("pm-saved-views").value = "";
+		render();
+	});
+	$("pm-save-view-btn").addEventListener("click", () => {
+		const name = window.prompt("View name", detailViewMode.charAt(0).toUpperCase() + detailViewMode.slice(1));
+		if (name == null || !name.trim()) return;
+		workspace.projectViews = workspace.projectViews || [];
+		const maxOrder = Math.max(0, ...workspace.projectViews.filter((v) => v.projectId === currentProjectId).map((v) => v.order || 0));
+		workspace.projectViews.push({
+			id: id(),
+			projectId: currentProjectId,
+			type: detailViewMode,
+			name: name.trim(),
+			data: { viewType: detailViewMode, filter: { ...filterState } },
+			order: maxOrder + 1,
+		});
+		saveWorkspace(workspace).then(() => render());
+	});
+
+	// ——— Task panel ———
+	$("pm-task-panel-close").addEventListener("click", closeTaskPanel);
+	$("pm-task-panel-wrap").addEventListener("click", (e) => { if (e.target === $("pm-task-panel-wrap")) closeTaskPanel(); });
+	$("pm-comment-submit").addEventListener("click", onCommentSubmit);
+	$("pm-task-checklist-add-btn").addEventListener("click", onChecklistAdd);
+	if ($("pm-comment-input")) $("pm-comment-input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onCommentSubmit(); } });
+	if ($("pm-task-checklist-input")) $("pm-task-checklist-input").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); onChecklistAdd(); } });
 
 	// ——— List view: Create new task ———
 	$("pm-list-add-task").addEventListener("click", onListAddTask);
@@ -545,6 +905,9 @@
 				const projectViews = Array.isArray(data.projectViews) ? data.projectViews : [];
 				const tasks = Array.isArray(data.tasks) ? data.tasks : [];
 				const tags = Array.isArray(data.tags) ? data.tags : [];
+				const comments = Array.isArray(data.comments) ? data.comments : [];
+				const activities = Array.isArray(data.activities) ? data.activities : [];
+				const taskChecklists = Array.isArray(data.taskChecklists) ? data.taskChecklists : [];
 				workspace = {
 					version: data.version || 1,
 					lastModified: new Date().toISOString(),
@@ -553,6 +916,9 @@
 					projectViews,
 					tasks,
 					tags,
+					comments,
+					activities,
+					taskChecklists,
 				};
 				saveWorkspace(workspace).then(() => {
 					currentProjectId = null;

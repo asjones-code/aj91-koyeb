@@ -95,16 +95,48 @@ async function initDatabase() {
 			);
 			ALTER TABLE pm_tasks ADD COLUMN IF NOT EXISTS assignee TEXT;
 			ALTER TABLE pm_tasks ADD COLUMN IF NOT EXISTS type TEXT;
+			ALTER TABLE pm_tasks ADD COLUMN IF NOT EXISTS start_date DATE;
+			ALTER TABLE pm_tasks ADD COLUMN IF NOT EXISTS assignee_ids JSONB;
+			ALTER TABLE pm_tasks ADD COLUMN IF NOT EXISTS point INTEGER;
 			CREATE TABLE IF NOT EXISTS pm_tags (
 				id TEXT PRIMARY KEY,
 				project_id TEXT NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
 				name TEXT NOT NULL,
 				color TEXT
 			);
+			CREATE TABLE IF NOT EXISTS pm_comments (
+				id TEXT PRIMARY KEY,
+				task_id TEXT NOT NULL REFERENCES pm_tasks(id) ON DELETE CASCADE,
+				project_id TEXT NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
+				content TEXT NOT NULL,
+				created_by TEXT,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+			CREATE TABLE IF NOT EXISTS pm_activities (
+				id TEXT PRIMARY KEY,
+				object_id TEXT NOT NULL,
+				object_type TEXT NOT NULL,
+				type TEXT NOT NULL,
+				created_by TEXT,
+				data JSONB,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+			CREATE TABLE IF NOT EXISTS pm_task_checklists (
+				id TEXT PRIMARY KEY,
+				task_id TEXT NOT NULL REFERENCES pm_tasks(id) ON DELETE CASCADE,
+				title TEXT NOT NULL,
+				"order" INTEGER NOT NULL DEFAULT 0,
+				done BOOLEAN NOT NULL DEFAULT FALSE,
+				done_at TIMESTAMPTZ
+			);
 			CREATE INDEX IF NOT EXISTS idx_pm_task_statuses_project ON pm_task_statuses(project_id);
 			CREATE INDEX IF NOT EXISTS idx_pm_project_views_project ON pm_project_views(project_id);
 			CREATE INDEX IF NOT EXISTS idx_pm_tasks_project ON pm_tasks(project_id);
 			CREATE INDEX IF NOT EXISTS idx_pm_tags_project ON pm_tags(project_id);
+			CREATE INDEX IF NOT EXISTS idx_pm_comments_task ON pm_comments(task_id);
+			CREATE INDEX IF NOT EXISTS idx_pm_activities_object ON pm_activities(object_id);
+			CREATE INDEX IF NOT EXISTS idx_pm_task_checklists_task ON pm_task_checklists(task_id);
 		`);
 		console.log("[db] Database initialized");
 		return pool;
@@ -594,13 +626,16 @@ async function handlePmLogin(body) {
 
 async function handlePmGetWorkspace() {
 	if (!dbPool) return { error: "Database not available. Set DATABASE_URL to use sync (or check server logs if it is set)." };
-		try {
-			const [projectsRows, statusesRows, viewsRows, tasksRows, tagsRows] = await Promise.all([
+	try {
+		const [projectsRows, statusesRows, viewsRows, tasksRows, tagsRows, commentsRows, activitiesRows, checklistsRows] = await Promise.all([
 			dbPool.query("SELECT id, name, description, cover, icon, is_archived, created_at, updated_at FROM pm_projects ORDER BY updated_at DESC"),
 			dbPool.query("SELECT id, project_id, name, color, \"order\", type FROM pm_task_statuses ORDER BY project_id, \"order\""),
 			dbPool.query("SELECT id, project_id, type, name, data, \"order\" FROM pm_project_views ORDER BY project_id, \"order\""),
-			dbPool.query("SELECT id, project_id, task_status_id, title, description, due_date, \"order\", priority, assignee, type, created_at, updated_at FROM pm_tasks ORDER BY project_id, \"order\""),
+			dbPool.query("SELECT id, project_id, task_status_id, title, description, due_date, start_date, \"order\", priority, assignee, assignee_ids, type, point, created_at, updated_at FROM pm_tasks ORDER BY project_id, \"order\""),
 			dbPool.query("SELECT id, project_id, name, color FROM pm_tags ORDER BY project_id"),
+			dbPool.query("SELECT id, task_id, project_id, content, created_by, created_at, updated_at FROM pm_comments ORDER BY created_at"),
+			dbPool.query("SELECT id, object_id, object_type, type, created_by, data, created_at FROM pm_activities ORDER BY created_at"),
+			dbPool.query("SELECT id, task_id, title, \"order\", done, done_at FROM pm_task_checklists ORDER BY task_id, \"order\""),
 		]);
 		const projects = projectsRows.rows.map((r) => ({
 			id: r.id,
@@ -635,10 +670,13 @@ async function handlePmGetWorkspace() {
 			title: r.title,
 			description: r.description ?? "",
 			dueDate: r.due_date,
+			startDate: r.start_date ?? null,
 			order: r.order,
 			priority: r.priority ?? "",
 			assignee: r.assignee ?? "",
+			assigneeIds: Array.isArray(r.assignee_ids) ? r.assignee_ids : (r.assignee_ids ? [r.assignee_ids] : []),
 			type: r.type ?? "Task",
+			point: r.point != null ? r.point : undefined,
 			createdAt: r.created_at,
 			updatedAt: r.updated_at,
 		}));
@@ -648,6 +686,32 @@ async function handlePmGetWorkspace() {
 			name: r.name,
 			color: r.color ?? "",
 		}));
+		const comments = (commentsRows?.rows || []).map((r) => ({
+			id: r.id,
+			taskId: r.task_id,
+			projectId: r.project_id,
+			content: r.content,
+			createdBy: r.created_by ?? "",
+			createdAt: r.created_at,
+			updatedAt: r.updated_at,
+		}));
+		const activities = (activitiesRows?.rows || []).map((r) => ({
+			id: r.id,
+			objectId: r.object_id,
+			objectType: r.object_type,
+			type: r.type,
+			createdBy: r.created_by ?? "",
+			data: r.data ?? {},
+			createdAt: r.created_at,
+		}));
+		const taskChecklists = (checklistsRows?.rows || []).map((r) => ({
+			id: r.id,
+			taskId: r.task_id,
+			title: r.title,
+			order: r.order,
+			done: !!r.done,
+			doneAt: r.done_at,
+		}));
 		return {
 			version: 1,
 			lastModified: new Date().toISOString(),
@@ -656,6 +720,9 @@ async function handlePmGetWorkspace() {
 			projectViews,
 			tasks,
 			tags,
+			comments,
+			activities,
+			taskChecklists,
 		};
 	} catch (err) {
 		console.error("[pm] Get workspace error:", err.message);
@@ -676,12 +743,18 @@ async function handlePmSyncWorkspace(body) {
 	const projectViews = Array.isArray(parsed.projectViews) ? parsed.projectViews : [];
 	const tasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
 	const tags = Array.isArray(parsed.tags) ? parsed.tags : [];
+	const comments = Array.isArray(parsed.comments) ? parsed.comments : [];
+	const activities = Array.isArray(parsed.activities) ? parsed.activities : [];
+	const taskChecklists = Array.isArray(parsed.taskChecklists) ? parsed.taskChecklists : [];
 	try {
 		await dbPool.query("BEGIN");
-		await dbPool.query("DELETE FROM pm_tags");
+		await dbPool.query("DELETE FROM pm_comments");
+		await dbPool.query("DELETE FROM pm_activities");
+		await dbPool.query("DELETE FROM pm_task_checklists");
 		await dbPool.query("DELETE FROM pm_tasks");
 		await dbPool.query("DELETE FROM pm_project_views");
 		await dbPool.query("DELETE FROM pm_task_statuses");
+		await dbPool.query("DELETE FROM pm_tags");
 		await dbPool.query("DELETE FROM pm_projects");
 		for (const p of projects) {
 			await dbPool.query(
@@ -705,10 +778,32 @@ async function handlePmSyncWorkspace(body) {
 			);
 		}
 		for (const t of tasks) {
+			const assigneeIdsJson = Array.isArray(t.assigneeIds) ? JSON.stringify(t.assigneeIds) : (t.assignee ? JSON.stringify([t.assignee]) : "[]");
 			await dbPool.query(
-				`INSERT INTO pm_tasks (id, project_id, task_status_id, title, description, due_date, "order", priority, assignee, type, created_at, updated_at)
-				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, COALESCE($11::timestamptz, NOW()), COALESCE($12::timestamptz, NOW()))`,
-				[t.id, t.projectId, t.taskStatusId ?? null, t.title || "", t.description ?? "", t.dueDate ?? null, Number(t.order) || 0, t.priority ?? "", t.assignee ?? "", t.type ?? "Task", t.createdAt ?? null, t.updatedAt ?? null]
+				`INSERT INTO pm_tasks (id, project_id, task_status_id, title, description, due_date, start_date, "order", priority, assignee, assignee_ids, type, point, created_at, updated_at)
+				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13, COALESCE($14::timestamptz, NOW()), COALESCE($15::timestamptz, NOW()))`,
+				[t.id, t.projectId, t.taskStatusId ?? null, t.title || "", t.description ?? "", t.dueDate ?? null, t.startDate ?? null, Number(t.order) || 0, t.priority ?? "", t.assignee ?? "", assigneeIdsJson, t.type ?? "Task", t.point != null ? t.point : null, t.createdAt ?? null, t.updatedAt ?? null]
+			);
+		}
+		for (const c of comments) {
+			await dbPool.query(
+				`INSERT INTO pm_comments (id, task_id, project_id, content, created_by, created_at, updated_at)
+				 VALUES ($1, $2, $3, $4, $5, COALESCE($6::timestamptz, NOW()), COALESCE($7::timestamptz, NOW()))`,
+				[c.id, c.taskId, c.projectId, c.content || "", c.createdBy ?? "", c.createdAt ?? null, c.updatedAt ?? null]
+			);
+		}
+		for (const a of activities) {
+			await dbPool.query(
+				`INSERT INTO pm_activities (id, object_id, object_type, type, created_by, data, created_at)
+				 VALUES ($1, $2, $3, $4, $5, $6::jsonb, COALESCE($7::timestamptz, NOW()))`,
+				[a.id, a.objectId, a.objectType || "TASK", a.type || "", a.createdBy ?? "", JSON.stringify(a.data || {}), a.createdAt ?? null]
+			);
+		}
+		for (const ch of taskChecklists) {
+			await dbPool.query(
+				`INSERT INTO pm_task_checklists (id, task_id, title, "order", done, done_at)
+				 VALUES ($1, $2, $3, $4, $5, $6)`,
+				[ch.id, ch.taskId, ch.title || "", Number(ch.order) || 0, !!ch.done, ch.doneAt ?? null]
 			);
 		}
 		for (const g of tags) {
