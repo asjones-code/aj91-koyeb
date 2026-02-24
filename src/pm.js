@@ -1020,6 +1020,57 @@
 		showLogin();
 	});
 
+	// ——— Design system (theme + mode) ———
+	const PM_DS_THEME_KEY = "pm-ds-theme";
+	const PM_DS_MODE_KEY = "pm-ds-mode";
+	function getDesignSystemTheme() {
+		try {
+			return localStorage.getItem(PM_DS_THEME_KEY) || "neuromorphic";
+		} catch {
+			return "neuromorphic";
+		}
+	}
+	function getDesignSystemMode() {
+		try {
+			return localStorage.getItem(PM_DS_MODE_KEY) || "light";
+		} catch {
+			return "light";
+		}
+	}
+	function applyDesignSystem() {
+		const theme = getDesignSystemTheme();
+		const mode = getDesignSystemMode();
+		const root = document.body;
+		if (root) {
+			root.setAttribute("data-theme", theme);
+			root.setAttribute("data-mode", mode);
+		}
+		const themeSelect = $("pm-ds-theme");
+		if (themeSelect) themeSelect.value = theme;
+	}
+	applyDesignSystem();
+	const themeSelect = $("pm-ds-theme");
+	if (themeSelect) {
+		themeSelect.addEventListener("change", () => {
+			const theme = themeSelect.value;
+			document.body.setAttribute("data-theme", theme);
+			try {
+				localStorage.setItem(PM_DS_THEME_KEY, theme);
+			} catch (_) {}
+		});
+	}
+	const modeToggle = $("pm-ds-mode-toggle");
+	if (modeToggle) {
+		modeToggle.addEventListener("click", () => {
+			const current = document.body.getAttribute("data-mode");
+			const next = current === "dark" ? "light" : "dark";
+			document.body.setAttribute("data-mode", next);
+			try {
+				localStorage.setItem(PM_DS_MODE_KEY, next);
+			} catch (_) {}
+		});
+	}
+
 	// ——— Boot ———
 	if (getToken()) {
 		showApp();

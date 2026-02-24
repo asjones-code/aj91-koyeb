@@ -5,9 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Projects · PM</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="pm-design-system.css">
   <style>
-    .pm-root { --pm-bg: #0f0f0f; --pm-surface: #1a1a1a; --pm-border: #2a2a2a; --pm-text: #e5e5e5; --pm-muted: #737373; --pm-accent: #3b82f6; }
-    .pm-root { min-height: 100vh; background: var(--pm-bg); color: var(--pm-text); font-family: ui-sans-serif, system-ui, sans-serif; padding: 1.5rem; }
     .pm-login { max-width: 20rem; margin: 4rem auto; }
     .pm-login h1 { font-size: 1.25rem; margin-bottom: 1rem; }
     .pm-login input[type="password"] { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--pm-border); border-radius: 6px; background: var(--pm-surface); color: var(--pm-text); font-size: 1rem; margin-bottom: 1rem; }
@@ -121,7 +120,21 @@
     .pm-saved-views-select { padding: 0.35rem 0.5rem; border: 1px solid var(--pm-border); border-radius: 4px; background: var(--pm-surface); color: var(--pm-text); font-size: 0.8125rem; }
   </style>
 </head>
-<body class="pm-root">
+<body class="pm-root" data-theme="neuromorphic" data-mode="light">
+  <div class="pm-ds-bar" role="group" aria-label="Theme">
+    <select id="pm-ds-theme" class="pm-ds-theme-select" title="Theme" aria-label="Theme">
+      <option value="neuromorphic">Neuromorphic</option>
+      <option value="glassmorphic">Glassmorphic</option>
+      <option value="flat">Flat</option>
+      <option value="material">Material</option>
+      <option value="claymorphic">Claymorphic</option>
+      <option value="dark-pro">Dark Pro</option>
+    </select>
+    <button type="button" class="pm-ds-mode-toggle" id="pm-ds-mode-toggle" aria-label="Toggle light/dark mode" style="margin-left: 0.5rem;">
+      <span class="pm-ds-mode-icon pm-ds-mode-icon--light">☀️</span>
+      <span class="pm-ds-mode-icon pm-ds-mode-icon--dark">🌙</span>
+    </button>
+  </div>
   <div id="pm-login" class="pm-login" style="display: none;">
     <h1>Sign in</h1>
     <form id="pm-login-form">
