@@ -42,14 +42,35 @@
     .pm-view-toggle { display: flex; gap: 0.25rem; margin-bottom: 1rem; }
     .pm-view-toggle button { padding: 0.35rem 0.6rem; font-size: 0.8125rem; border-radius: 4px; border: 1px solid var(--pm-border); background: var(--pm-surface); color: var(--pm-text); cursor: pointer; }
     .pm-view-toggle button.active { background: var(--pm-accent); border-color: var(--pm-accent); color: #fff; }
+    .pm-list-group { margin-bottom: 1.5rem; }
+    .pm-list-group-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--pm-muted); margin-bottom: 0.5rem; padding: 0 0.5rem; }
     .pm-list-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
-    .pm-list-table th, .pm-list-table td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--pm-border); }
-    .pm-list-table th { color: var(--pm-muted); font-weight: 500; }
-    .pm-list-table .pm-priority { font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px; }
+    .pm-list-table th, .pm-list-table td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--pm-border); vertical-align: middle; }
+    .pm-list-table th { color: var(--pm-muted); font-weight: 500; font-size: 0.75rem; }
+    .pm-list-table .pm-col-check { width: 2.25rem; }
+    .pm-list-table .pm-col-task { min-width: 12rem; }
+    .pm-list-table .pm-col-assignee { width: 8rem; }
+    .pm-list-table .pm-col-type { width: 5rem; }
+    .pm-list-table .pm-col-priority { width: 6rem; }
+    .pm-list-table .pm-col-point { width: 3.5rem; text-align: center; }
+    .pm-list-table .pm-col-due { width: 6rem; }
+    .pm-list-table .pm-col-actions { width: 2.5rem; }
+    .pm-list-table tbody tr { transition: background 0.15s; }
+    .pm-list-table tbody tr:hover { background: rgba(255,255,255,0.04); }
+    .pm-list-table .pm-priority { font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px; display: inline-block; }
     .pm-list-table .pm-priority.urgent { background: #7f1d1d; color: #fca5a5; }
     .pm-list-table .pm-priority.high { background: #78350f; color: #fcd34d; }
     .pm-list-table .pm-priority.medium { background: #1e3a5f; color: #93c5fd; }
     .pm-list-table .pm-priority.low { background: #14532d; color: #86efac; }
+    .pm-list-assignee-chips { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+    .pm-list-assignee-chip { font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 999px; background: var(--pm-border); color: var(--pm-text); }
+    .pm-list-point { font-size: 0.8125rem; color: var(--pm-muted); }
+    .pm-list-due { font-size: 0.8125rem; color: var(--pm-muted); }
+    .pm-list-due.overdue { color: #ef4444; }
+    .pm-list-create-link { display: block; padding: 0.5rem 0.75rem; font-size: 0.875rem; color: var(--pm-muted); cursor: pointer; border-radius: 4px; margin-top: 0.25rem; }
+    .pm-list-create-link:hover { background: rgba(255,255,255,0.04); color: var(--pm-accent); }
+    .pm-list-delete-btn { padding: 0.25rem; background: none; border: none; color: var(--pm-muted); cursor: pointer; border-radius: 4px; font-size: 1rem; line-height: 1; }
+    .pm-list-delete-btn:hover { color: #ef4444; background: rgba(239,68,68,0.15); }
     .pm-task-form input { width: 100%; padding: 0.4rem 0.5rem; border: 1px solid var(--pm-border); border-radius: 4px; background: var(--pm-bg); color: var(--pm-text); font-size: 0.875rem; }
     .pm-empty { color: var(--pm-muted); font-size: 0.875rem; padding: 0.5rem 0; }
     .pm-loading { color: var(--pm-muted); }
@@ -59,6 +80,9 @@
     .pm-task-panel { width: 100%; max-width: 28rem; background: var(--pm-surface); border-left: 1px solid var(--pm-border); display: flex; flex-direction: column; overflow: hidden; }
     .pm-task-panel-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 1rem; border-bottom: 1px solid var(--pm-border); }
     .pm-task-panel-header h3 { font-size: 1rem; margin: 0; flex: 1; }
+    .pm-task-panel-header-actions { display: flex; align-items: center; gap: 0.35rem; }
+    .pm-task-panel-delete { font-size: 0.8125rem; color: var(--pm-muted); }
+    .pm-task-panel-delete:hover { color: #ef4444; }
     .pm-task-panel-close { padding: 0.25rem 0.5rem; font-size: 1.25rem; line-height: 1; }
     .pm-task-panel-body { padding: 1rem; overflow-y: auto; flex: 1; }
     .pm-task-meta { font-size: 0.8125rem; color: var(--pm-muted); margin-bottom: 1rem; }
@@ -173,17 +197,16 @@
           <div id="pm-calendar-grid" class="pm-calendar-grid"></div>
         </div>
         <div id="pm-list-wrap" style="display: none;">
-          <table class="pm-list-table">
-            <thead><tr><th>TODO</th><th>ASSIGNEE</th><th>TYPE</th><th>PRIORITY</th></tr></thead>
-            <tbody id="pm-list-tbody"></tbody>
-          </table>
-          <button type="button" class="pm-btn" id="pm-list-add-task" style="margin-top: 0.5rem;">+ Create new task</button>
+          <div id="pm-list-groups"></div>
         </div>
         <div id="pm-task-panel-wrap" class="pm-task-panel-wrap" style="display: none;">
           <div class="pm-task-panel" id="pm-task-panel">
             <div class="pm-task-panel-header">
               <h3 id="pm-task-panel-title"></h3>
-              <button type="button" class="pm-btn pm-task-panel-close" id="pm-task-panel-close" aria-label="Close">×</button>
+              <div class="pm-task-panel-header-actions">
+                <button type="button" class="pm-btn pm-task-panel-delete" id="pm-task-panel-delete" title="Delete task">Delete</button>
+                <button type="button" class="pm-btn pm-task-panel-close" id="pm-task-panel-close" aria-label="Close">×</button>
+              </div>
             </div>
             <div class="pm-task-panel-body">
               <div class="pm-task-meta" id="pm-task-meta"></div>

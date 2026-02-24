@@ -203,6 +203,39 @@
 		return list;
 	}
 
+	function formatDueDateRelative(dueStr) {
+		if (!dueStr) return "—";
+		const d = new Date(dueStr);
+		if (Number.isNaN(d.getTime())) return dueStr;
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const due = new Date(d);
+		due.setHours(0, 0, 0, 0);
+		const diffDays = Math.round((due - today) / (24 * 60 * 60 * 1000));
+		if (diffDays < 0) return "Overdue";
+		if (diffDays === 0) return "Today";
+		if (diffDays === 1) return "Tomorrow";
+		if (diffDays < 7) return "in " + diffDays + " days";
+		if (diffDays < 14) return "in 1 week";
+		if (diffDays <= 31) return "in " + Math.floor(diffDays / 7) + " weeks";
+		return due.toLocaleDateString();
+	}
+
+	function deleteTask(taskId) {
+		const task = workspace.tasks.find((t) => t.id === taskId);
+		if (!task) return;
+		if (!window.confirm('Delete task "' + (task.title || "Untitled") + '"?')) return;
+		workspace.tasks = (workspace.tasks || []).filter((t) => t.id !== taskId);
+		workspace.comments = (workspace.comments || []).filter((c) => c.taskId !== taskId);
+		workspace.activities = (workspace.activities || []).filter((a) => a.objectId !== taskId || a.objectType !== "TASK");
+		workspace.taskChecklists = (workspace.taskChecklists || []).filter((c) => c.taskId !== taskId);
+		if (selectedTaskId === taskId) {
+			closeTaskPanel();
+			selectedTaskId = null;
+		}
+		saveWorkspace(workspace).then(() => render());
+	}
+
 	// ——— UI ———
 	const $ = (id) => document.getElementById(id);
 
@@ -426,43 +459,83 @@
 	}
 
 	function renderListView(tasks, doneStatus) {
-		const tbody = $("pm-list-tbody");
+		const container = $("pm-list-groups");
+		if (!container) return;
+		const statuses = (workspace.taskStatuses || []).filter((s) => s.projectId === currentProjectId).sort((a, b) => (a.order || 0) - (b.order || 0));
 		const doneId = doneStatus ? doneStatus.id : null;
-		const sorted = [...tasks].sort((a, b) => (a.order || 0) - (b.order || 0));
-		tbody.innerHTML = sorted
-			.map(
-				(t) => {
+		const firstTodo = statuses.find((s) => (s.type || "").toUpperCase() !== "DONE");
+
+		let html = "";
+		for (const status of statuses) {
+			const statusTasks = tasks.filter((t) => t.taskStatusId === status.id).sort((a, b) => (a.order || 0) - (b.order || 0));
+			const rows = statusTasks
+				.map((t) => {
 					const isDone = t.taskStatusId === doneId;
 					const pri = (t.priority || "").toLowerCase();
 					const priClass = pri === "urgent" ? "urgent" : pri === "high" ? "high" : pri === "medium" ? "medium" : pri === "low" ? "low" : "";
 					const assigneeDisplay = getTaskAssigneeIds(t).length ? getTaskAssigneeIds(t).join(", ") : "—";
 					const pointStr = t.point != null && t.point !== "" ? String(t.point) : "—";
+					const dueStr = formatDueDateRelative(t.dueDate);
+					let dueClass = "";
+					if (t.dueDate) {
+						const dueDate = new Date(t.dueDate);
+						dueDate.setHours(0, 0, 0, 0);
+						const today = new Date();
+						today.setHours(0, 0, 0, 0);
+						if (dueDate < today) dueClass = "overdue";
+					}
 					return `<tr data-task-id="${t.id}" class="pm-list-task-row">
-            <td><input type="checkbox" ${isDone ? "checked" : ""} data-task-id="${t.id}" data-done> ${escapeHtml(t.title || "Untitled")}${pointStr !== "—" ? " [" + pointStr + "]" : ""}</td>
-            <td><span class="pm-list-edit pm-assignees" data-task-id="${t.id}" data-field="assigneeIds" contenteditable="true">${escapeHtml(assigneeDisplay)}</span></td>
-            <td><span class="pm-list-edit" data-task-id="${t.id}" data-field="type" contenteditable="true">${escapeHtml(t.type || "Task")}</span></td>
-            <td><span class="pm-list-edit pm-priority ${priClass}" data-task-id="${t.id}" data-field="priority" contenteditable="true">${escapeHtml(t.priority || "—")}</span></td>
-          </tr>`;
-				}
-			)
-			.join("");
-		tbody.querySelectorAll("tr.pm-list-task-row").forEach((row) => {
-			row.addEventListener("click", (e) => { if (!e.target.closest("input, [contenteditable]")) openTaskPanel(row.dataset.taskId); });
+  <td class="pm-col-check"><input type="checkbox" ${isDone ? "checked" : ""} data-task-id="${t.id}" data-done></td>
+  <td class="pm-col-task"><span class="pm-list-task-title">${escapeHtml(t.title || "Untitled")}</span></td>
+  <td class="pm-col-assignee"><span class="pm-list-edit" data-task-id="${t.id}" data-field="assigneeIds" contenteditable="true">${escapeHtml(assigneeDisplay)}</span></td>
+  <td class="pm-col-type"><span class="pm-list-edit" data-task-id="${t.id}" data-field="type" contenteditable="true">${escapeHtml(t.type || "Task")}</span></td>
+  <td class="pm-col-priority"><span class="pm-list-edit pm-priority ${priClass}" data-task-id="${t.id}" data-field="priority" contenteditable="true">${escapeHtml(t.priority || "—")}</span></td>
+  <td class="pm-col-point pm-list-point"><span class="pm-list-edit" data-task-id="${t.id}" data-field="point" contenteditable="true">${escapeHtml(pointStr)}</span></td>
+  <td class="pm-col-due pm-list-due ${dueClass}">${escapeHtml(dueStr)}</td>
+  <td class="pm-col-actions"><button type="button" class="pm-list-delete-btn" data-task-id="${t.id}" title="Delete task" aria-label="Delete">⌫</button></td>
+</tr>`;
+				})
+				.join("");
+			html += `
+<div class="pm-list-group" data-status-id="${status.id}">
+  <div class="pm-list-group-title" style="color:${status.color || "#888"}">${escapeHtml(status.name)}</div>
+  <table class="pm-list-table">
+    <thead><tr>
+      <th class="pm-col-check"></th>
+      <th class="pm-col-task">Task</th>
+      <th class="pm-col-assignee">Assignee</th>
+      <th class="pm-col-type">Type</th>
+      <th class="pm-col-priority">Priority</th>
+      <th class="pm-col-point">Point</th>
+      <th class="pm-col-due">Due date</th>
+      <th class="pm-col-actions"></th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <button type="button" class="pm-list-create-link" data-status-id="${status.id}">+ Create new task</button>
+</div>`;
+		}
+		container.innerHTML = html;
+
+		container.querySelectorAll("tr.pm-list-task-row").forEach((row) => {
+			row.addEventListener("click", (e) => {
+				if (e.target.closest("input, [contenteditable], .pm-list-delete-btn")) return;
+				openTaskPanel(row.dataset.taskId);
+			});
 		});
-		tbody.querySelectorAll("input[data-done]").forEach((cb) => {
+		container.querySelectorAll("input[data-done]").forEach((cb) => {
 			cb.addEventListener("change", () => {
 				const task = workspace.tasks.find((t) => t.id === cb.dataset.taskId);
 				if (!task || !doneStatus) return;
-				const firstTodo = (workspace.taskStatuses || []).find((s) => s.projectId === currentProjectId && (s.type || "").toUpperCase() !== "DONE");
 				const oldStatus = workspace.taskStatuses.find((s) => s.id === task.taskStatusId);
 				const newStatus = cb.checked ? doneStatus : firstTodo;
 				task.taskStatusId = cb.checked ? doneStatus.id : (firstTodo && firstTodo.id) || task.taskStatusId;
 				task.updatedAt = new Date().toISOString();
 				if (oldStatus && newStatus && oldStatus.id !== newStatus.id) appendActivity(task.id, "TASK_STATUS_CHANGED", { from: oldStatus.name, to: newStatus.name });
-				saveWorkspace(workspace);
+				saveWorkspace(workspace).then(() => render());
 			});
 		});
-		tbody.querySelectorAll(".pm-list-edit").forEach((span) => {
+		container.querySelectorAll(".pm-list-edit").forEach((span) => {
 			span.addEventListener("blur", () => {
 				const task = workspace.tasks.find((t) => t.id === span.dataset.taskId);
 				if (!task) return;
@@ -473,30 +546,39 @@
 					task.assigneeIds = assigneeIds;
 					task.assignee = assigneeIds[0] || "";
 				} else if (field === "type") task.type = raw || "Task";
-				else if (field === "priority") {
+				else if (field === "point") {
+					const num = raw === "—" || raw === "" ? undefined : parseInt(raw, 10);
+					task.point = Number.isNaN(num) ? undefined : num;
+				} else if (field === "priority") {
 					const prev = (task.priority || "").toLowerCase();
 					task.priority = raw === "—" ? "" : raw;
 					const next = (task.priority || "").toLowerCase();
 					if (prev !== next) appendActivity(task.id, "TASK_PRIORITY_CHANGED", { from: prev || "none", to: next || "none" });
 				}
 				task.updatedAt = new Date().toISOString();
-				saveWorkspace(workspace);
+				saveWorkspace(workspace).then(() => render());
 			});
+		});
+		container.querySelectorAll(".pm-list-delete-btn").forEach((btn) => {
+			btn.addEventListener("click", (e) => { e.stopPropagation(); deleteTask(btn.dataset.taskId); });
+		});
+		container.querySelectorAll(".pm-list-create-link").forEach((link) => {
+			link.addEventListener("click", () => addTaskInListForStatus(link.dataset.statusId));
 		});
 	}
 
-	function onListAddTask() {
+	function addTaskInListForStatus(statusId) {
 		const statuses = (workspace.taskStatuses || []).filter((s) => s.projectId === currentProjectId).sort((a, b) => (a.order || 0) - (b.order || 0));
-		const firstStatus = statuses[0];
-		if (!firstStatus) return;
-		const tasks = (workspace.tasks || []).filter((t) => t.projectId === currentProjectId);
+		const status = statuses.find((s) => s.id === statusId);
+		if (!status) return;
+		const tasks = (workspace.tasks || []).filter((t) => t.projectId === currentProjectId && t.taskStatusId === statusId);
 		const maxOrder = Math.max(0, ...tasks.map((t) => t.order || 0));
 		const title = window.prompt("Task title", "");
 		if (title == null) return;
 		const newTask = {
 			id: id(),
 			projectId: currentProjectId,
-			taskStatusId: firstStatus.id,
+			taskStatusId: statusId,
 			title: (title || "").trim() || "New task",
 			description: "",
 			dueDate: null,
@@ -870,14 +952,14 @@
 
 	// ——— Task panel ———
 	$("pm-task-panel-close").addEventListener("click", closeTaskPanel);
+	$("pm-task-panel-delete").addEventListener("click", () => { if (selectedTaskId) deleteTask(selectedTaskId); });
 	$("pm-task-panel-wrap").addEventListener("click", (e) => { if (e.target === $("pm-task-panel-wrap")) closeTaskPanel(); });
 	$("pm-comment-submit").addEventListener("click", onCommentSubmit);
 	$("pm-task-checklist-add-btn").addEventListener("click", onChecklistAdd);
 	if ($("pm-comment-input")) $("pm-comment-input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onCommentSubmit(); } });
 	if ($("pm-task-checklist-input")) $("pm-task-checklist-input").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); onChecklistAdd(); } });
 
-	// ——— List view: Create new task ———
-	$("pm-list-add-task").addEventListener("click", onListAddTask);
+	// ——— List view: Create new task is per-status via .pm-list-create-link in renderListView ———
 
 	// ——— Export / Import ———
 	$("pm-export-btn").addEventListener("click", () => {
