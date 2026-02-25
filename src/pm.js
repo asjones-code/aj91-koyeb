@@ -481,7 +481,7 @@
 		for (const status of statuses) {
 			const statusTasks = tasks.filter((t) => t.taskStatusId === status.id).sort((a, b) => (a.order || 0) - (b.order || 0));
 			const rows = statusTasks
-				.map((t) => {
+				.map((t, i) => {
 					const isDone = t.taskStatusId === doneId;
 					const pri = (t.priority || "").toLowerCase();
 					const priClass = pri === "urgent" ? "urgent" : pri === "high" ? "high" : pri === "medium" ? "medium" : pri === "low" ? "low" : "";
@@ -506,7 +506,9 @@
 						{ value: "low", label: "🟢 Low" },
 					];
 					const prioritySelectHtml = `<select class="pm-list-priority-select pm-priority ${priClass}" data-task-id="${t.id}" data-field="priority">${priorityOptions.map((o) => `<option value="${o.value}" ${o.value === priVal ? "selected" : ""}>${o.label}</option>`).join("")}</select>`;
+					const num = String(i + 1).padStart(2, "0");
 					return `<tr data-task-id="${t.id}" class="pm-list-task-row">
+  <td class="pm-col-num">${num}</td>
   <td class="pm-col-check"><input type="checkbox" ${isDone ? "checked" : ""} data-task-id="${t.id}" data-done></td>
   <td class="pm-col-task"><span class="pm-list-edit pm-list-task-title" data-task-id="${t.id}" data-field="title" contenteditable="true">${escapeHtml(t.title || "Untitled")}</span></td>
   <td class="pm-col-assignee"><span class="pm-list-edit" data-task-id="${t.id}" data-field="assigneeIds" contenteditable="true">${escapeHtml(assigneeDisplay)}</span></td>
@@ -523,6 +525,7 @@
   <div class="pm-list-group-title" style="color:${status.color || "#888"}">${escapeHtml(status.name)}</div>
   <table class="pm-list-table">
     <thead><tr>
+      <th class="pm-col-num"></th>
       <th class="pm-col-check"></th>
       <th class="pm-col-task">Task</th>
       <th class="pm-col-assignee">Assignee</th>
