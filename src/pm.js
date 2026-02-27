@@ -718,6 +718,7 @@
 		const titleEl = $("pm-calendar-month-title");
 		const gridEl = $("pm-calendar-grid");
 		if (!titleEl || !gridEl) return;
+		const statuses = (workspace.taskStatuses || []).filter((s) => s.projectId === currentProjectId);
 		const y = calendarMonth.getFullYear();
 		const m = calendarMonth.getMonth();
 		titleEl.textContent = new Date(y, m, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
@@ -727,21 +728,71 @@
 		const daysInMonth = last.getDate();
 		const totalCells = Math.ceil((startPad + daysInMonth) / 7) * 7;
 		const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+		const monthStart = new Date(y, m, 1).getTime();
+		const monthEnd = new Date(y, m + 1, 0).getTime();
+
+		const tasksWithDates = tasks.filter((t) => t.startDate || t.dueDate).map((t) => {
+			const start = t.startDate ? new Date(t.startDate) : new Date(t.dueDate);
+			const end = t.dueDate ? new Date(t.dueDate) : new Date(t.startDate);
+			const status = statuses.find((s) => s.id === t.taskStatusId);
+			const color = status ? (status.color || "var(--pm-accent)") : "var(--pm-accent)";
+			return { ...t, _start: start, _end: end, _color: color };
+		});
+
 		let html = dayLabels.map((l) => `<div class="pm-calendar-day-header">${l}</div>`).join("");
 		for (let i = 0; i < totalCells; i++) {
 			const dayNum = i - startPad + 1;
 			const isCurrentMonth = dayNum >= 1 && dayNum <= daysInMonth;
 			const dateStr = isCurrentMonth ? `${y}-${String(m + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}` : "";
-			const dayTasks = isCurrentMonth ? tasks.filter((t) => t.dueDate && t.dueDate.slice(0, 10) === dateStr) : [];
+			const cellDate = isCurrentMonth ? new Date(y, m, dayNum) : null;
+			const cellStart = cellDate ? new Date(cellDate).setHours(0, 0, 0, 0) : 0;
+			const cellEnd = cellDate ? new Date(cellDate).setHours(23, 59, 59, 999) : 0;
+
+			const singleDayTasks = tasksWithDates.filter((t) => {
+				const start = t._start.getTime();
+				const end = t._end.getTime();
+				return start <= cellStart && end >= cellEnd && start === end;
+			});
+			const multiDayTasks = tasksWithDates.filter((t) => {
+				const start = t._start.getTime();
+				const end = t._end.getTime();
+				return start <= cellEnd && end >= cellStart && start !== end;
+			});
+
+			let tasksHtml = "";
+			singleDayTasks.forEach((t) => {
+				tasksHtml += `<div class="pm-calendar-task pm-calendar-task-single" data-task-id="${t.id}" style="background:${t._color};border:1px solid ${t._color}">${escapeHtml(t.title || "Untitled")}</div>`;
+			});
+			multiDayTasks.forEach((t) => {
+				const start = t._start.getTime();
+				const end = t._end.getTime();
+				const isFirst = cellStart <= start;
+				const isLast = cellEnd >= end;
+				const radius = isFirst && isLast ? "4px" : isFirst ? "4px 0 0 4px" : isLast ? "0 4px 4px 0" : "0";
+				tasksHtml += `<div class="pm-calendar-task pm-calendar-task-multiday" data-task-id="${t.id}" style="background:${t._color};border-radius:${radius}">${escapeHtml(t.title || "Untitled")}</div>`;
+			});
+
 			html += `<div class="pm-calendar-day" data-date="${dateStr}" data-day-num="${dayNum}" data-current="${isCurrentMonth}">
         <div class="pm-calendar-day-num">${isCurrentMonth ? dayNum : ""}</div>
-        ${dayTasks.map((t) => `<div class="pm-calendar-task" data-task-id="${t.id}">${escapeHtml(t.title || "Untitled")}</div>`).join("")}
+        ${tasksHtml}
         ${isCurrentMonth ? `<button type="button" class="pm-btn pm-calendar-add" data-date="${dateStr}">+ Add task</button>` : ""}
       </div>`;
 		}
 		gridEl.innerHTML = html;
 		gridEl.querySelectorAll(".pm-calendar-task").forEach((el) => el.addEventListener("click", () => openTaskPanel(el.dataset.taskId)));
 		gridEl.querySelectorAll(".pm-calendar-add").forEach((btn) => btn.addEventListener("click", () => addTaskWithDueDate(btn.dataset.date)));
+	}
+
+	function scrollGanttToToday() {
+		const chartEl = $("pm-gantt-chart");
+		const todayWrap = chartEl?.querySelector(".pm-gantt-today-line-wrap");
+		const todayLine = chartEl?.querySelector(".pm-gantt-today-line");
+		if (!chartEl || !todayWrap || !todayLine) return;
+		const wrapRect = todayWrap.getBoundingClientRect();
+		const chartRect = chartEl.getBoundingClientRect();
+		const lineLeft = chartEl.scrollLeft + (wrapRect.left - chartRect.left) + (wrapRect.width * parseFloat(todayLine.style.left || "0") / 100);
+		const targetScroll = Math.max(0, lineLeft - chartEl.clientWidth / 2 + 20);
+		chartEl.scrollLeft = targetScroll;
 	}
 
 	function renderGanttView(tasks, statuses) {
@@ -756,7 +807,12 @@
 		const rangeEnd = new Date(y, m + 1, 0);
 		const rangeStartMs = rangeStart.getTime();
 		const rangeEndMs = rangeEnd.getTime();
-		const rangeDays = Math.ceil((rangeEndMs - rangeStartMs) / (24 * 60 * 60 * 1000)) + 1;
+		const rangeTotalMs = rangeEndMs - rangeStartMs + 86400000;
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const todayMs = today.getTime();
+		const todayInRange = todayMs >= rangeStartMs && todayMs <= rangeEndMs;
+		const todayLeftPct = todayInRange ? ((todayMs - rangeStartMs) / rangeTotalMs) * 100 : -1;
 
 		titleEl.textContent = rangeStart.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 
@@ -781,24 +837,28 @@
 			});
 		}
 
+		const barPositions = [];
+		const taskIdToRowIndex = {};
+
 		let html = "<div class=\"pm-gantt-inner\">";
 		html += "<div class=\"pm-gantt-header\">";
 		html += "<div class=\"pm-gantt-labels-col\">Task</div>";
-		html += "<div class=\"pm-gantt-timeline-col\">";
+		html += "<div class=\"pm-gantt-timeline-col pm-gantt-timeline-header\">";
 		dayLabels.forEach((day) => {
 			html += `<div class="pm-gantt-day ${day.isWeekend ? "weekend" : ""}" title="${day.date.toLocaleDateString()}">${day.label}</div>`;
 		});
 		html += "</div></div>";
 
-		tasksWithDates.forEach((t) => {
+		tasksWithDates.forEach((t, rowIdx) => {
+			taskIdToRowIndex[t.id] = rowIdx;
 			const start = t.startDate ? new Date(t.startDate) : new Date(t.dueDate);
 			const end = t.dueDate ? new Date(t.dueDate) : new Date(t.startDate);
 			const startMs = Math.max(start.getTime(), rangeStartMs);
 			const endMs = Math.min(end.getTime(), rangeEndMs);
 			const spanMs = Math.max(endMs - startMs, 86400000);
-			const rangeTotalMs = rangeEndMs - rangeStartMs + 86400000;
 			const leftPct = ((startMs - rangeStartMs) / rangeTotalMs) * 100;
 			const widthPct = (spanMs / rangeTotalMs) * 100;
+			barPositions.push({ taskId: t.id, leftPct, widthPct, endPct: leftPct + widthPct, rowIdx });
 			const status = statuses.find((s) => s.id === t.taskStatusId);
 			const barColor = status ? (status.color || "var(--pm-accent)") : "var(--pm-accent)";
 			const startStr = (t.startDate || "").slice(0, 10);
@@ -814,6 +874,11 @@
       </div>`;
 		});
 
+		html += `<div class="pm-gantt-add-row">
+        <div class="pm-gantt-row-label">+ Add task</div>
+        <div class="pm-gantt-timeline-col pm-gantt-add-timeline" data-add-task-on-timeline></div>
+      </div>`;
+
 		if (tasksNoDates.length > 0) {
 			html += `<div class="pm-gantt-no-dates">${tasksNoDates.length} task(s) without dates — open task panel to set start/due dates</div>`;
 		}
@@ -821,14 +886,75 @@
 		html += "</div>";
 		chartEl.innerHTML = html;
 
-		chartEl.querySelectorAll(".pm-gantt-row").forEach((row) => {
+		if (todayInRange) {
+			requestAnimationFrame(() => scrollGanttToToday());
+		}
+
+		if (todayInRange) {
+			const todayWrap = document.createElement("div");
+			todayWrap.className = "pm-gantt-today-line-wrap";
+			const todayLine = document.createElement("div");
+			todayLine.className = "pm-gantt-today-line";
+			todayLine.style.left = todayLeftPct + "%";
+			todayWrap.appendChild(todayLine);
+			chartEl.querySelector(".pm-gantt-inner").appendChild(todayWrap);
+		}
+
+		const depLines = [];
+		tasksWithDates.forEach((t) => {
+			(t.blockedByIds || []).forEach((blockerId) => {
+				const blockerPos = barPositions.find((p) => p.taskId === blockerId);
+				const blockedPos = barPositions.find((p) => p.taskId === t.id);
+				if (blockerPos && blockedPos) {
+					depLines.push({
+						fromX: blockerPos.endPct,
+						fromRow: blockerPos.rowIdx,
+						toX: blockedPos.leftPct,
+						toRow: blockedPos.rowIdx,
+					});
+				}
+			});
+		});
+
+		if (depLines.length > 0) {
+			const nRows = tasksWithDates.length;
+			const rowH = 100 / Math.max(1, nRows);
+			const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+			svg.setAttribute("class", "pm-gantt-deps-svg");
+			svg.setAttribute("viewBox", "0 0 100 100");
+			svg.setAttribute("preserveAspectRatio", "none");
+			depLines.forEach((line) => {
+				const fromY = (line.fromRow + 0.5) * rowH;
+				const toY = (line.toRow + 0.5) * rowH;
+				const midX = (line.fromX + line.toX) / 2;
+				const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+				path.setAttribute("d", `M ${line.fromX} ${fromY} L ${midX} ${fromY} L ${midX} ${toY} L ${line.toX} ${toY}`);
+				path.setAttribute("fill", "none");
+				path.setAttribute("stroke", "var(--pm-accent)");
+				path.setAttribute("stroke-width", "0.5");
+				path.setAttribute("stroke-dasharray", "2 2");
+				path.setAttribute("stroke-opacity", "0.8");
+				svg.appendChild(path);
+			});
+			const depsWrap = document.createElement("div");
+			depsWrap.className = "pm-gantt-deps-wrap";
+			depsWrap.appendChild(svg);
+			svg.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%";
+			chartEl.querySelector(".pm-gantt-inner").appendChild(depsWrap);
+		}
+
+		chartEl.querySelectorAll(".pm-gantt-row[data-task-id]").forEach((row) => {
 			row.addEventListener("click", (e) => {
 				if (!e.target.closest(".pm-gantt-bar")) return;
 				openTaskPanel(row.dataset.taskId);
 			});
 		});
 		chartEl.querySelectorAll(".pm-gantt-row-label").forEach((label) => {
-			label.addEventListener("click", () => openTaskPanel(label.closest(".pm-gantt-row").dataset.taskId));
+			if (label.textContent === "+ Add task") return;
+			label.addEventListener("click", () => {
+				const row = label.closest(".pm-gantt-row");
+				if (row?.dataset.taskId) openTaskPanel(row.dataset.taskId);
+			});
 		});
 		chartEl.querySelectorAll(".pm-gantt-bar").forEach((bar) => {
 			bar.addEventListener("mouseenter", () => {
@@ -849,6 +975,53 @@
 				if (tooltipEl) tooltipEl.setAttribute("aria-hidden", "true");
 			});
 		});
+
+		chartEl.querySelectorAll("[data-add-task-on-timeline]").forEach((el) => {
+			el.addEventListener("click", (e) => {
+				const rect = el.getBoundingClientRect();
+				const dayWidth = rect.width / dayLabels.length;
+				const clickX = e.clientX - rect.left;
+				const dayIndex = Math.min(Math.floor(clickX / dayWidth), dayLabels.length - 1);
+				const targetDate = dayLabels[dayIndex]?.date;
+				if (targetDate) {
+					const dateStr = targetDate.getFullYear() + "-" + String(targetDate.getMonth() + 1).padStart(2, "0") + "-" + String(targetDate.getDate()).padStart(2, "0");
+					addTaskWithStartAndDue(dateStr, dateStr);
+				}
+			});
+		});
+	}
+
+	function addTaskWithStartAndDue(startStr, dueStr) {
+		const statuses = (workspace.taskStatuses || []).filter((s) => s.projectId === currentProjectId).sort((a, b) => (a.order || 0) - (b.order || 0));
+		const firstStatus = statuses[0];
+		if (!firstStatus) return;
+		const tasks = (workspace.tasks || []).filter((t) => t.projectId === currentProjectId);
+		const maxOrder = Math.max(0, ...tasks.map((t) => t.order || 0));
+		const title = window.prompt("Task title", "");
+		if (title == null) return;
+		const newTask = {
+			id: id(),
+			projectId: currentProjectId,
+			taskStatusId: firstStatus.id,
+			title: (title || "").trim() || "New task",
+			description: "",
+			dueDate: dueStr,
+			startDate: startStr,
+			order: maxOrder + 1,
+			priority: "",
+			assigneeIds: [],
+			assignee: "",
+			type: "Task",
+			point: undefined,
+			blockedByIds: [],
+			blockingIds: [],
+			createdAt: new Date().toISOString(),
+			updatedAt: new Date().toISOString(),
+		};
+		workspace.tasks = workspace.tasks || [];
+		workspace.tasks.push(newTask);
+		appendActivity(newTask.id, "TASK_CREATED", { title: newTask.title });
+		saveWorkspace(workspace).then(() => render());
 	}
 
 	function addTaskWithDueDate(dateStr) {
@@ -1219,6 +1392,7 @@
 		detailViewMode = "gantt";
 		ganttMonth = new Date();
 		render();
+		requestAnimationFrame(() => scrollGanttToToday());
 	});
 
 	// ——— Calendar nav ———
@@ -1235,10 +1409,12 @@
 	$("pm-gantt-prev").addEventListener("click", () => {
 		ganttMonth = new Date(ganttMonth.getFullYear(), ganttMonth.getMonth() - 1);
 		render();
+		requestAnimationFrame(() => scrollGanttToToday());
 	});
 	$("pm-gantt-next").addEventListener("click", () => {
 		ganttMonth = new Date(ganttMonth.getFullYear(), ganttMonth.getMonth() + 1);
 		render();
+		requestAnimationFrame(() => scrollGanttToToday());
 	});
 
 	// ——— Filter bar ———
