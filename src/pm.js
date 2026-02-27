@@ -115,11 +115,12 @@
 	let workspace = emptyWorkspace();
 	let mode = "local"; // "local" | "sync"
 	let currentProjectId = null;
-	let detailViewMode = "board"; // "board" | "list" | "calendar"
+	let detailViewMode = "board"; // "board" | "list" | "calendar" | "gantt"
 	let lastSyncedAt = null;
 	let selectedTaskId = null;
 	let filterState = { statusId: "", assigneeIds: [], priority: "" };
 	let calendarMonth = new Date();
+	let ganttMonth = new Date();
 
 	function isLocal() {
 		return mode === "local";
@@ -354,13 +355,16 @@
 		$("pm-view-list").classList.toggle("active", detailViewMode === "list");
 		$("pm-view-board").classList.toggle("active", detailViewMode === "board");
 		$("pm-view-calendar").classList.toggle("active", detailViewMode === "calendar");
+		$("pm-view-gantt").classList.toggle("active", detailViewMode === "gantt");
 		$("pm-board-wrap").style.display = detailViewMode === "board" ? "block" : "none";
 		$("pm-list-wrap").style.display = detailViewMode === "list" ? "block" : "none";
 		$("pm-calendar-wrap").style.display = detailViewMode === "calendar" ? "block" : "none";
-		$("pm-filter-bar").style.display = detailViewMode === "calendar" ? "none" : "block";
+		$("pm-gantt-wrap").style.display = detailViewMode === "gantt" ? "block" : "none";
+		$("pm-detail-view").classList.toggle("pm-gantt-active", detailViewMode === "gantt");
+		$("pm-filter-bar").style.display = detailViewMode === "calendar" || detailViewMode === "gantt" ? "none" : "block";
 
 		// Filter bar (list/board)
-		if (detailViewMode !== "calendar") renderFilterBar(statuses, tasks);
+		if (detailViewMode !== "calendar" && detailViewMode !== "gantt") renderFilterBar(statuses, tasks);
 		// Saved views dropdown
 		const views = (workspace.projectViews || []).filter((v) => v.projectId === currentProjectId).sort((a, b) => (a.order || 0) - (b.order || 0));
 		const savedSelect = $("pm-saved-views");
@@ -374,6 +378,10 @@
 		}
 		if (detailViewMode === "calendar") {
 			renderCalendarView(tasks);
+			return;
+		}
+		if (detailViewMode === "gantt") {
+			renderGanttView(tasks, statuses);
 			return;
 		}
 
@@ -734,6 +742,113 @@
 		gridEl.innerHTML = html;
 		gridEl.querySelectorAll(".pm-calendar-task").forEach((el) => el.addEventListener("click", () => openTaskPanel(el.dataset.taskId)));
 		gridEl.querySelectorAll(".pm-calendar-add").forEach((btn) => btn.addEventListener("click", () => addTaskWithDueDate(btn.dataset.date)));
+	}
+
+	function renderGanttView(tasks, statuses) {
+		const chartEl = $("pm-gantt-chart");
+		const titleEl = $("pm-gantt-range-title");
+		const tooltipEl = $("pm-gantt-tooltip");
+		if (!chartEl || !titleEl) return;
+
+		const y = ganttMonth.getFullYear();
+		const m = ganttMonth.getMonth();
+		const rangeStart = new Date(y, m, 1);
+		const rangeEnd = new Date(y, m + 1, 0);
+		const rangeStartMs = rangeStart.getTime();
+		const rangeEndMs = rangeEnd.getTime();
+		const rangeDays = Math.ceil((rangeEndMs - rangeStartMs) / (24 * 60 * 60 * 1000)) + 1;
+
+		titleEl.textContent = rangeStart.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+
+		const tasksWithDates = tasks.filter((t) => {
+			const start = t.startDate ? new Date(t.startDate) : (t.dueDate ? new Date(t.dueDate) : null);
+			const end = t.dueDate ? new Date(t.dueDate) : (t.startDate ? new Date(t.startDate) : null);
+			return start && end && !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime());
+		});
+		const tasksNoDates = tasks.filter((t) => !t.startDate && !t.dueDate);
+
+		if (tasksWithDates.length === 0 && tasksNoDates.length === 0) {
+			chartEl.innerHTML = "<div class=\"pm-gantt-empty\">No tasks. Add tasks and set start/due dates in the task panel to see them here.</div>";
+			return;
+		}
+
+		const dayLabels = [];
+		for (let d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
+			dayLabels.push({
+				date: new Date(d),
+				label: d.toLocaleDateString("en-US", { day: "numeric", month: "short" }),
+				isWeekend: d.getDay() === 0 || d.getDay() === 6,
+			});
+		}
+
+		let html = "<div class=\"pm-gantt-inner\">";
+		html += "<div class=\"pm-gantt-header\">";
+		html += "<div class=\"pm-gantt-labels-col\">Task</div>";
+		html += "<div class=\"pm-gantt-timeline-col\">";
+		dayLabels.forEach((day) => {
+			html += `<div class="pm-gantt-day ${day.isWeekend ? "weekend" : ""}" title="${day.date.toLocaleDateString()}">${day.label}</div>`;
+		});
+		html += "</div></div>";
+
+		tasksWithDates.forEach((t) => {
+			const start = t.startDate ? new Date(t.startDate) : new Date(t.dueDate);
+			const end = t.dueDate ? new Date(t.dueDate) : new Date(t.startDate);
+			const startMs = Math.max(start.getTime(), rangeStartMs);
+			const endMs = Math.min(end.getTime(), rangeEndMs);
+			const spanMs = Math.max(endMs - startMs, 86400000);
+			const rangeTotalMs = rangeEndMs - rangeStartMs + 86400000;
+			const leftPct = ((startMs - rangeStartMs) / rangeTotalMs) * 100;
+			const widthPct = (spanMs / rangeTotalMs) * 100;
+			const status = statuses.find((s) => s.id === t.taskStatusId);
+			const barColor = status ? (status.color || "var(--pm-accent)") : "var(--pm-accent)";
+			const startStr = (t.startDate || "").slice(0, 10);
+			const dueStr = (t.dueDate || "").slice(0, 10);
+			const tooltipText = `Task: ${escapeHtml(t.title || "Untitled")}<br/>Type: ${escapeHtml(t.type || "Task")}<br/>Starts: ${startStr}<br/>Ends: ${dueStr}${t.description ? "<br/>" + escapeHtml(t.description.slice(0, 80)) + (t.description.length > 80 ? "…" : "") : ""}`;
+			html += `<div class="pm-gantt-row" data-task-id="${t.id}">
+        <div class="pm-gantt-row-label">${escapeHtml(t.title || "Untitled")}</div>
+        <div class="pm-gantt-row-bars">
+          <div class="pm-gantt-bar-wrap">
+            <div class="pm-gantt-bar" style="left:${Math.max(0, leftPct)}%;width:${Math.max(2, widthPct)}%;background:${barColor}" data-tooltip="${escapeHtml(tooltipText).replace(/"/g, "&quot;")}"></div>
+          </div>
+        </div>
+      </div>`;
+		});
+
+		if (tasksNoDates.length > 0) {
+			html += `<div class="pm-gantt-no-dates">${tasksNoDates.length} task(s) without dates — open task panel to set start/due dates</div>`;
+		}
+
+		html += "</div>";
+		chartEl.innerHTML = html;
+
+		chartEl.querySelectorAll(".pm-gantt-row").forEach((row) => {
+			row.addEventListener("click", (e) => {
+				if (!e.target.closest(".pm-gantt-bar")) return;
+				openTaskPanel(row.dataset.taskId);
+			});
+		});
+		chartEl.querySelectorAll(".pm-gantt-row-label").forEach((label) => {
+			label.addEventListener("click", () => openTaskPanel(label.closest(".pm-gantt-row").dataset.taskId));
+		});
+		chartEl.querySelectorAll(".pm-gantt-bar").forEach((bar) => {
+			bar.addEventListener("mouseenter", () => {
+				const tt = bar.getAttribute("data-tooltip");
+				if (tt && tooltipEl) {
+					tooltipEl.innerHTML = tt.replace(/&lt;br\/?&gt;/gi, "<br>");
+					tooltipEl.setAttribute("aria-hidden", "false");
+					const rect = bar.getBoundingClientRect();
+					const tw = 140;
+					let left = rect.left + rect.width / 2 - tw / 2;
+					left = Math.max(8, Math.min(left, window.innerWidth - tw - 8));
+					tooltipEl.style.left = left + "px";
+					tooltipEl.style.top = (rect.top - 8) + "px";
+					tooltipEl.style.transform = "translateY(-100%)";
+				}
+			});
+			bar.addEventListener("mouseleave", () => {
+				if (tooltipEl) tooltipEl.setAttribute("aria-hidden", "true");
+			});
+		});
 	}
 
 	function addTaskWithDueDate(dateStr) {
@@ -1100,6 +1215,11 @@
 		calendarMonth = new Date();
 		render();
 	});
+	$("pm-view-gantt").addEventListener("click", () => {
+		detailViewMode = "gantt";
+		ganttMonth = new Date();
+		render();
+	});
 
 	// ——— Calendar nav ———
 	$("pm-calendar-prev").addEventListener("click", () => {
@@ -1108,6 +1228,16 @@
 	});
 	$("pm-calendar-next").addEventListener("click", () => {
 		calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1);
+		render();
+	});
+
+	// ——— Gantt nav ———
+	$("pm-gantt-prev").addEventListener("click", () => {
+		ganttMonth = new Date(ganttMonth.getFullYear(), ganttMonth.getMonth() - 1);
+		render();
+	});
+	$("pm-gantt-next").addEventListener("click", () => {
+		ganttMonth = new Date(ganttMonth.getFullYear(), ganttMonth.getMonth() + 1);
 		render();
 	});
 

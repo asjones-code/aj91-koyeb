@@ -27,6 +27,7 @@
     .pm-project-card h3 { font-size: 1rem; margin-bottom: 0.25rem; }
     .pm-project-card p { font-size: 0.875rem; color: var(--pm-muted); }
     .pm-detail { max-width: 42rem; }
+    .pm-detail.pm-gantt-active { max-width: 64rem; }
     .pm-detail h2 { font-size: 1.125rem; margin-bottom: 1rem; }
     .pm-statuses { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
     .pm-status { min-width: 12rem; flex: 1; background: var(--pm-surface); border-radius: 8px; padding: 0.75rem; border: 1px solid var(--pm-border); }
@@ -186,6 +187,29 @@
     .pm-list-progress { font-size: 0.75rem; color: var(--pm-muted); }
     .pm-list-progress-bar { display: inline-block; width: 2.5rem; height: 4px; background: var(--pm-border); border-radius: 2px; overflow: hidden; vertical-align: middle; margin-right: 0.25rem; }
     .pm-list-progress-bar-fill { height: 100%; background: var(--pm-accent); border-radius: 2px; }
+    /* Gantt view */
+    .pm-gantt-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+    .pm-gantt-chart { overflow-x: auto; overflow-y: auto; max-height: 32rem; border: 1px solid var(--pm-border); border-radius: 8px; background: var(--pm-surface); }
+    .pm-gantt-inner { min-width: max-content; padding: 0.5rem 0; }
+    .pm-gantt-header { display: flex; border-bottom: 1px solid var(--pm-border); position: sticky; top: 0; background: var(--pm-surface); z-index: 2; }
+    .pm-gantt-labels-col { width: 10rem; min-width: 10rem; flex-shrink: 0; padding: 0.5rem 0.75rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--pm-muted); }
+    .pm-gantt-timeline-col { flex: 1; min-width: 24rem; display: flex; }
+    .pm-gantt-day { flex: 1; min-width: 2rem; text-align: center; font-size: 0.7rem; color: var(--pm-muted); padding: 0.35rem 0; border-left: 1px solid var(--pm-border); }
+    .pm-gantt-day:first-child { border-left: none; }
+    .pm-gantt-day.weekend { background: rgba(0,0,0,0.03); }
+    .pm-root[data-mode="dark"] .pm-gantt-day.weekend { background: rgba(255,255,255,0.03); }
+    .pm-gantt-row { display: flex; align-items: center; min-height: 2rem; border-bottom: 1px solid var(--pm-border); transition: background 0.15s; }
+    .pm-gantt-row:hover { background: rgba(255,255,255,0.04); }
+    .pm-gantt-row-label { width: 10rem; min-width: 10rem; flex-shrink: 0; padding: 0.35rem 0.75rem; font-size: 0.8125rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+    .pm-gantt-row-label:hover { color: var(--pm-accent); }
+    .pm-gantt-row-bars { flex: 1; min-width: 24rem; position: relative; height: 1.5rem; }
+    .pm-gantt-bar-wrap { position: absolute; top: 0; bottom: 0; left: 0; right: 0; }
+    .pm-gantt-bar { position: absolute; top: 2px; bottom: 2px; border-radius: 4px; cursor: pointer; transition: opacity 0.15s, transform 0.15s; }
+    .pm-gantt-bar:hover { opacity: 0.9; transform: scaleY(1.1); }
+    .pm-gantt-tooltip { position: fixed; display: none; padding: 0.5rem 0.75rem; font-size: 0.75rem; background: var(--pm-bg); border: 1px solid var(--pm-border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; pointer-events: none; max-width: 14rem; }
+    .pm-gantt-tooltip[aria-hidden="false"] { display: block; }
+    .pm-gantt-empty { padding: 2rem; text-align: center; color: var(--pm-muted); font-size: 0.875rem; }
+    .pm-gantt-no-dates { padding: 1rem 0.75rem; font-size: 0.8125rem; color: var(--pm-muted); }
   </style>
 </head>
 <body class="pm-root" data-theme="neuromorphic" data-mode="light">
@@ -244,6 +268,7 @@
           <button type="button" id="pm-view-list" class="pm-view-btn">List</button>
           <button type="button" id="pm-view-board" class="pm-view-btn active">Board</button>
           <button type="button" id="pm-view-calendar" class="pm-view-btn">Calendar</button>
+          <button type="button" id="pm-view-gantt" class="pm-view-btn">Gantt</button>
           <select id="pm-saved-views" class="pm-saved-views-select" title="Saved views">
             <option value="">Saved views…</option>
           </select>
@@ -279,6 +304,15 @@
         </div>
         <div id="pm-list-wrap" style="display: none;">
           <div id="pm-list-groups"></div>
+        </div>
+        <div id="pm-gantt-wrap" style="display: none;">
+          <div class="pm-gantt-nav">
+            <button type="button" class="pm-btn" id="pm-gantt-prev">←</button>
+            <h3 id="pm-gantt-range-title" style="margin: 0; font-size: 1rem;"></h3>
+            <button type="button" class="pm-btn" id="pm-gantt-next">→</button>
+          </div>
+          <div id="pm-gantt-chart" class="pm-gantt-chart"></div>
+          <div id="pm-gantt-tooltip" class="pm-gantt-tooltip" role="tooltip" aria-hidden="true"></div>
         </div>
         <div id="pm-task-panel-wrap" class="pm-task-panel-wrap" aria-hidden="true">
           <div class="pm-task-panel" id="pm-task-panel">
