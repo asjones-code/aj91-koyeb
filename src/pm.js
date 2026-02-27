@@ -507,7 +507,7 @@
 					];
 					const prioritySelectHtml = `<select class="pm-list-priority-select pm-priority ${priClass}" data-task-id="${t.id}" data-field="priority">${priorityOptions.map((o) => `<option value="${o.value}" ${o.value === priVal ? "selected" : ""}>${o.label}</option>`).join("")}</select>`;
 					const num = String(i + 1).padStart(2, "0");
-					return `<tr data-task-id="${t.id}" class="pm-list-task-row">
+					return `<tr data-task-id="${t.id}" class="pm-list-task-row" draggable="true">
   <td class="pm-col-num">${num}</td>
   <td class="pm-col-check"><input type="checkbox" ${isDone ? "checked" : ""} data-task-id="${t.id}" data-done></td>
   <td class="pm-col-task"><span class="pm-list-edit pm-list-task-title" data-task-id="${t.id}" data-field="title" contenteditable="true">${escapeHtml(t.title || "Untitled")}</span></td>
@@ -543,9 +543,43 @@
 		container.innerHTML = html;
 
 		container.querySelectorAll("tr.pm-list-task-row").forEach((row) => {
+			row.setAttribute("tabindex", "0");
 			row.addEventListener("click", (e) => {
 				if (e.target.closest("input, select, [contenteditable], .pm-list-delete-btn, .pm-point-star")) return;
+				row.focus();
 				openTaskPanel(row.dataset.taskId);
+			});
+			row.addEventListener("dragstart", (e) => {
+				e.dataTransfer.setData("text/plain", row.dataset.taskId);
+				e.dataTransfer.effectAllowed = "move";
+				row.classList.add("dragging");
+			});
+			row.addEventListener("dragend", () => row.classList.remove("dragging"));
+		});
+		container.querySelectorAll(".pm-list-group").forEach((group) => {
+			group.addEventListener("dragover", (e) => {
+				e.preventDefault();
+				e.dataTransfer.dropEffect = "move";
+				group.classList.add("drag-over");
+			});
+			group.addEventListener("dragleave", () => group.classList.remove("drag-over"));
+			group.addEventListener("drop", (e) => {
+				e.preventDefault();
+				group.classList.remove("drag-over");
+				const taskId = e.dataTransfer.getData("text/plain");
+				if (!taskId) return;
+				const task = workspace.tasks.find((t) => t.id === taskId);
+				const statusId = group.dataset.statusId;
+				if (!task || !statusId || task.taskStatusId === statusId) return;
+				const oldStatus = workspace.taskStatuses.find((s) => s.id === task.taskStatusId);
+				const newStatus = workspace.taskStatuses.find((s) => s.id === statusId);
+				const statusTasks = tasks.filter((t) => t.taskStatusId === statusId).map((t) => t.order || 0);
+				const maxOrder = statusTasks.length ? Math.max(...statusTasks) : 0;
+				task.taskStatusId = statusId;
+				task.order = maxOrder + 1;
+				task.updatedAt = new Date().toISOString();
+				if (oldStatus && newStatus) appendActivity(taskId, "TASK_STATUS_CHANGED", { from: oldStatus.name, to: newStatus.name });
+				saveWorkspace(workspace);
 			});
 		});
 		container.querySelectorAll("input[data-done]").forEach((cb) => {
@@ -730,6 +764,7 @@
 	function closeTaskPanel() {
 		selectedTaskId = null;
 		$("pm-task-panel-wrap").setAttribute("aria-hidden", "true");
+		document.querySelector(".pm-list-task-row:focus")?.blur();
 	}
 
 	function renderTaskPanel() {
@@ -764,6 +799,23 @@
 		if (task.priority) metaParts.push("Priority: " + task.priority);
 		if (getTaskAssigneeIds(task).length) metaParts.push("Assignees: " + getTaskAssigneeIds(task).join(", "));
 		$("pm-task-meta").textContent = metaParts.join(" · ");
+
+		// Progress from checklist (subtasks)
+		const checklists = (workspace.taskChecklists || []).filter((c) => c.taskId === task.id);
+		const progressWrap = $("pm-task-progress-wrap");
+		const progressFill = $("pm-task-progress-fill");
+		const progressText = $("pm-task-progress-text");
+		if (progressWrap && progressFill && progressText) {
+			if (checklists.length > 0) {
+				const done = checklists.filter((c) => c.done).length;
+				const pct = Math.round((done / checklists.length) * 100);
+				progressWrap.style.display = "block";
+				progressFill.style.width = pct + "%";
+				progressText.textContent = `${done}/${checklists.length} (${pct}%)`;
+			} else {
+				progressWrap.style.display = "none";
+			}
+		}
 		const descEl = $("pm-task-description");
 		const startEl = $("pm-task-start-date");
 		const dueEl = $("pm-task-due-date");

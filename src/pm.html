@@ -41,7 +41,8 @@
     .pm-view-toggle { display: flex; gap: 0.25rem; margin-bottom: 1rem; }
     .pm-view-toggle button { padding: 0.35rem 0.6rem; font-size: 0.8125rem; border-radius: 4px; border: 1px solid var(--pm-border); background: var(--pm-surface); color: var(--pm-text); cursor: pointer; }
     .pm-view-toggle button.active { background: var(--pm-accent); border-color: var(--pm-accent); color: #fff; }
-    .pm-list-group { margin-bottom: 1.5rem; }
+    .pm-list-group { margin-bottom: 1.5rem; transition: background 0.15s, border-color 0.15s; border-radius: 8px; border: 1px solid transparent; }
+    .pm-list-group.drag-over { background: rgba(59, 130, 246, 0.12); border-color: var(--pm-accent); }
     .pm-list-group-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--pm-muted); margin-bottom: 0.5rem; padding: 0 0.5rem; }
     .pm-list-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
     .pm-list-table th, .pm-list-table td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--pm-border); vertical-align: middle; }
@@ -54,8 +55,11 @@
     .pm-list-table .pm-col-point { width: 3.5rem; text-align: center; }
     .pm-list-table .pm-col-due { width: 6rem; }
     .pm-list-table .pm-col-actions { width: 2.5rem; }
-    .pm-list-table tbody tr { transition: background 0.15s; }
+    .pm-list-table tbody tr { transition: background 0.15s, filter 0.2s ease-out, opacity 0.2s ease-out; }
     .pm-list-table tbody tr:hover { background: rgba(255,255,255,0.04); }
+    .pm-list-table tbody tr.dragging { opacity: 0.5; cursor: grabbing; }
+    .pm-list-table:focus-within tbody tr:not(:focus-within) { filter: blur(2px) saturate(0.3); pointer-events: none; opacity: 0.5; }
+    .pm-list-table tbody tr:focus-within { background: rgba(59, 130, 246, 0.15); outline: none; }
     .pm-list-table .pm-priority { font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px; display: inline-block; }
     .pm-list-table .pm-priority.urgent { background: #7f1d1d; color: #fca5a5; }
     .pm-list-table .pm-priority.high { background: #78350f; color: #fcd34d; }
@@ -147,6 +151,21 @@
     .pm-list-task-title:focus { outline: 1px solid var(--pm-accent); outline-offset: 1px; }
     #pm-task-panel-title { cursor: text; }
     #pm-task-panel-title:focus { outline: 1px solid var(--pm-accent); outline-offset: 2px; }
+    .pm-task-progress-wrap { margin-bottom: 1rem; }
+    .pm-task-progress-label { display: block; font-size: 0.75rem; color: var(--pm-muted); margin-bottom: 0.25rem; }
+    .pm-task-progress-bar { height: 6px; background: var(--pm-border); border-radius: 999px; overflow: hidden; }
+    .pm-task-progress-fill { height: 100%; background: var(--pm-accent); border-radius: 999px; transition: width 0.3s ease; }
+    .pm-task-progress-text { font-size: 0.75rem; color: var(--pm-muted); margin-left: 0.5rem; }
+    .pm-morphing-disclosure { --border-width: 1px; --border-color: var(--pm-border); --duration: 0.26s; --ease: cubic-bezier(0.215, 0.61, 0.355, 1); margin-bottom: 1rem; }
+    .pm-morphing-disclosure details { border: var(--border-width) solid var(--border-color); border-radius: 8px; margin-bottom: 0.5rem; overflow: hidden; transition: border-color var(--duration) var(--ease), background var(--duration) var(--ease); }
+    .pm-morphing-disclosure details[open] { margin-bottom: 0.75rem; }
+    .pm-morphing-disclosure summary { padding: 0.75rem 1rem; cursor: pointer; font-size: 0.875rem; font-weight: 500; list-style: none; display: flex; align-items: center; gap: 0.5rem; transition: background var(--duration) var(--ease); }
+    .pm-morphing-disclosure summary::-webkit-details-marker { display: none; }
+    .pm-morphing-disclosure summary::after { content: '▶'; font-size: 0.7em; opacity: 0.7; transition: transform var(--duration) var(--ease); }
+    .pm-morphing-disclosure details[open] summary::after { transform: rotate(90deg); }
+    .pm-morphing-disclosure summary:hover { background: rgba(255,255,255,0.04); }
+    .pm-morphing-disclosure .pm-panel-content { padding: 0 1rem 1rem; }
+    .pm-morphing-disclosure .pm-panel-content .pm-task-meta { margin-bottom: 0; }
   </style>
 </head>
 <body class="pm-root" data-theme="neuromorphic" data-mode="light">
@@ -251,7 +270,19 @@
               </div>
             </div>
             <div class="pm-task-panel-body">
-              <div class="pm-task-meta" id="pm-task-meta"></div>
+              <div class="pm-task-progress-wrap" id="pm-task-progress-wrap" style="display: none;">
+                <label class="pm-task-progress-label">Progress</label>
+                <div class="pm-task-progress-bar"><div class="pm-task-progress-fill" id="pm-task-progress-fill"></div></div>
+                <span class="pm-task-progress-text" id="pm-task-progress-text"></span>
+              </div>
+              <div class="pm-morphing-disclosure pm-task-panel-disclosure" data-style="border" data-bordered="true">
+                <details class="pm-panel-details" id="pm-panel-details-status" open>
+                  <summary class="pm-panel-summary">Status & meta</summary>
+                  <div class="pm-panel-content">
+                    <div class="pm-task-meta" id="pm-task-meta"></div>
+                  </div>
+                </details>
+              </div>
               <div class="pm-task-description-wrap">
                 <label>Description</label>
                 <textarea id="pm-task-description" class="pm-task-description-edit" rows="3"></textarea>
@@ -266,26 +297,36 @@
                 <label>Points (1–5)</label>
                 <div id="pm-task-point-stars" class="pm-panel-point-stars" role="group" aria-label="Points"></div>
               </div>
-              <section class="pm-task-section" id="pm-task-checklist-section">
-                <h4>Checklist</h4>
-                <ul id="pm-task-checklist-list"></ul>
-                <div class="pm-task-checklist-add">
-                  <input type="text" id="pm-task-checklist-input" placeholder="Add item">
-                  <button type="button" class="pm-btn" id="pm-task-checklist-add-btn">Add</button>
-                </div>
-              </section>
-              <section class="pm-task-section">
-                <h4>Activity</h4>
-                <ul id="pm-task-activity-list" class="pm-activity-list"></ul>
-              </section>
-              <section class="pm-task-section">
-                <h4>Comments</h4>
-                <ul id="pm-task-comments-list" class="pm-comments-list"></ul>
-                <div class="pm-comment-add">
-                  <textarea id="pm-comment-input" placeholder="Add a comment…" rows="2"></textarea>
-                  <button type="button" class="pm-btn primary" id="pm-comment-submit">Comment</button>
-                </div>
-              </section>
+              <div class="pm-morphing-disclosure pm-task-panel-disclosure" data-style="border" data-bordered="true">
+                <details class="pm-panel-details" id="pm-panel-details-checklist">
+                  <summary class="pm-panel-summary">Checklist</summary>
+                  <div class="pm-panel-content">
+                    <ul id="pm-task-checklist-list"></ul>
+                    <div class="pm-task-checklist-add">
+                      <input type="text" id="pm-task-checklist-input" placeholder="Add item">
+                      <button type="button" class="pm-btn" id="pm-task-checklist-add-btn">Add</button>
+                    </div>
+                  </div>
+                </details>
+              </div>
+              <div class="pm-morphing-disclosure pm-task-panel-disclosure" data-style="border" data-bordered="true">
+                <details class="pm-panel-details" id="pm-panel-details-activity">
+                  <summary class="pm-panel-summary">Activity</summary>
+                  <div class="pm-panel-content">
+                    <ul id="pm-task-activity-list" class="pm-activity-list"></ul>
+                  </div>
+                </details>
+                <details class="pm-panel-details" id="pm-panel-details-comments">
+                  <summary class="pm-panel-summary">Comments</summary>
+                  <div class="pm-panel-content">
+                    <ul id="pm-task-comments-list" class="pm-comments-list"></ul>
+                    <div class="pm-comment-add">
+                      <textarea id="pm-comment-input" placeholder="Add a comment…" rows="2"></textarea>
+                      <button type="button" class="pm-btn primary" id="pm-comment-submit">Comment</button>
+                    </div>
+                  </div>
+                </details>
+              </div>
             </div>
           </div>
         </div>
