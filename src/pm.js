@@ -120,7 +120,7 @@
 	let selectedTaskId = null;
 	let filterState = { statusId: "", assigneeIds: [], priority: "" };
 	let calendarMonth = new Date();
-	let ganttMonth = new Date();
+	let ganttWeekOffset = 0;
 
 	function isLocal() {
 		return mode === "local";
@@ -727,60 +727,116 @@
 		const startPad = first.getDay();
 		const daysInMonth = last.getDate();
 		const totalCells = Math.ceil((startPad + daysInMonth) / 7) * 7;
+		const numWeeks = totalCells / 7;
 		const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-		const monthStart = new Date(y, m, 1).getTime();
-		const monthEnd = new Date(y, m + 1, 0).getTime();
 
 		const tasksWithDates = tasks.filter((t) => t.startDate || t.dueDate).map((t) => {
 			const start = t.startDate ? new Date(t.startDate) : new Date(t.dueDate);
 			const end = t.dueDate ? new Date(t.dueDate) : new Date(t.startDate);
 			const status = statuses.find((s) => s.id === t.taskStatusId);
 			const color = status ? (status.color || "var(--pm-accent)") : "var(--pm-accent)";
-			return { ...t, _start: start, _end: end, _color: color };
+			const days = Math.ceil((end.getTime() - start.getTime()) / 86400000) + 1;
+			return { ...t, _start: start, _end: end, _color: color, _days: days };
 		});
 
+		const multiDayTasks = tasksWithDates.filter((t) => t._days > 1).sort((a, b) => b._days - a._days);
+		const singleDayTasks = tasksWithDates.filter((t) => t._days === 1);
+
 		let html = dayLabels.map((l) => `<div class="pm-calendar-day-header">${l}</div>`).join("");
-		for (let i = 0; i < totalCells; i++) {
-			const dayNum = i - startPad + 1;
-			const isCurrentMonth = dayNum >= 1 && dayNum <= daysInMonth;
-			const dateStr = isCurrentMonth ? `${y}-${String(m + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}` : "";
-			const cellDate = isCurrentMonth ? new Date(y, m, dayNum) : null;
-			const cellStart = cellDate ? new Date(cellDate).setHours(0, 0, 0, 0) : 0;
-			const cellEnd = cellDate ? new Date(cellDate).setHours(23, 59, 59, 999) : 0;
 
-			const singleDayTasks = tasksWithDates.filter((t) => {
-				const start = t._start.getTime();
-				const end = t._end.getTime();
-				return start <= cellStart && end >= cellEnd && start === end;
-			});
-			const multiDayTasks = tasksWithDates.filter((t) => {
-				const start = t._start.getTime();
-				const end = t._end.getTime();
-				return start <= cellEnd && end >= cellStart && start !== end;
+		for (let week = 0; week < numWeeks; week++) {
+			const weekStartCell = week * 7;
+			const weekEndCell = weekStartCell + 6;
+
+			const weekMultiDay = multiDayTasks.filter((t) => {
+				const startCell = Math.max(0, (t._start.getDate() - 1 + startPad));
+				const endCell = Math.min(totalCells - 1, (t._end.getDate() - 1 + startPad));
+				return startCell <= weekEndCell && endCell >= weekStartCell;
 			});
 
-			let tasksHtml = "";
-			singleDayTasks.forEach((t) => {
-				tasksHtml += `<div class="pm-calendar-task pm-calendar-task-single" data-task-id="${t.id}" style="background:${t._color};border:1px solid ${t._color}">${escapeHtml(t.title || "Untitled")}</div>`;
+			html += `<div class="pm-calendar-allday-cell" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(7,1fr);gap:2px;min-height:1.75rem;align-content:start;background:var(--pm-surface);padding:2px;">`;
+			weekMultiDay.forEach((t) => {
+				const startCell = Math.max(0, (t._start.getDate() - 1 + startPad));
+				const endCell = Math.min(totalCells - 1, (t._end.getDate() - 1 + startPad));
+				const segStart = Math.max(startCell, weekStartCell);
+				const segEnd = Math.min(endCell, weekEndCell);
+				const colStart = (segStart - weekStartCell) + 1;
+				const colEnd = (segEnd - weekStartCell) + 2;
+				html += `<div class="pm-calendar-multiday-bar" data-task-id="${t.id}" style="background:${t._color};grid-column:${colStart}/${colEnd}">${escapeHtml(t.title || "Untitled")}</div>`;
 			});
-			multiDayTasks.forEach((t) => {
-				const start = t._start.getTime();
-				const end = t._end.getTime();
-				const isFirst = cellStart <= start;
-				const isLast = cellEnd >= end;
-				const radius = isFirst && isLast ? "4px" : isFirst ? "4px 0 0 4px" : isLast ? "0 4px 4px 0" : "0";
-				tasksHtml += `<div class="pm-calendar-task pm-calendar-task-multiday" data-task-id="${t.id}" style="background:${t._color};border-radius:${radius}">${escapeHtml(t.title || "Untitled")}</div>`;
-			});
+			html += "</div>";
 
-			html += `<div class="pm-calendar-day" data-date="${dateStr}" data-day-num="${dayNum}" data-current="${isCurrentMonth}">
-        <div class="pm-calendar-day-num">${isCurrentMonth ? dayNum : ""}</div>
-        ${tasksHtml}
-        ${isCurrentMonth ? `<button type="button" class="pm-btn pm-calendar-add" data-date="${dateStr}">+ Add task</button>` : ""}
-      </div>`;
+			for (let i = weekStartCell; i <= weekEndCell; i++) {
+				const dayNum = i - startPad + 1;
+				const isCurrentMonth = dayNum >= 1 && dayNum <= daysInMonth;
+				const dateStr = isCurrentMonth ? `${y}-${String(m + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}` : "";
+				const cellDate = isCurrentMonth ? new Date(y, m, dayNum) : null;
+				const cellStart = cellDate ? new Date(cellDate).setHours(0, 0, 0, 0) : 0;
+				const cellEnd = cellDate ? new Date(cellDate).setHours(23, 59, 59, 999) : 0;
+
+				const dayTasks = singleDayTasks.filter((t) => {
+					const start = t._start.getTime();
+					const end = t._end.getTime();
+					return start <= cellStart && end >= cellEnd;
+				});
+
+				const maxVisible = 2;
+				const visible = dayTasks.slice(0, maxVisible);
+				const moreCount = dayTasks.length - maxVisible;
+
+				let tasksHtml = "";
+				visible.forEach((t) => {
+					tasksHtml += `<div class="pm-calendar-task" data-task-id="${t.id}" style="background:${t._color}">${escapeHtml(t.title || "Untitled")}</div>`;
+				});
+				if (moreCount > 0) {
+					const moreIds = dayTasks.slice(maxVisible).map((x) => x.id).join(",");
+					tasksHtml += `<button type="button" class="pm-calendar-more-link" data-date="${dateStr}" data-more-ids="${moreIds}" data-all-tasks="${dayTasks.map((x) => x.id).join(",")}">+${moreCount} more</button>`;
+				}
+
+				html += `<div class="pm-calendar-day" data-date="${dateStr}" data-day-num="${dayNum}" data-current="${isCurrentMonth}">
+          <div class="pm-calendar-day-num">${isCurrentMonth ? dayNum : ""}</div>
+          ${tasksHtml}
+          ${isCurrentMonth ? `<button type="button" class="pm-btn pm-calendar-add" data-date="${dateStr}">+ Add task</button>` : ""}
+        </div>`;
+			}
 		}
+
 		gridEl.innerHTML = html;
-		gridEl.querySelectorAll(".pm-calendar-task").forEach((el) => el.addEventListener("click", () => openTaskPanel(el.dataset.taskId)));
+		gridEl.querySelectorAll(".pm-calendar-task, .pm-calendar-multiday-bar").forEach((el) => {
+			el.addEventListener("click", (e) => { e.stopPropagation(); openTaskPanel(el.dataset.taskId); });
+		});
 		gridEl.querySelectorAll(".pm-calendar-add").forEach((btn) => btn.addEventListener("click", () => addTaskWithDueDate(btn.dataset.date)));
+
+		gridEl.querySelectorAll(".pm-calendar-more-link").forEach((btn) => {
+			btn.addEventListener("click", (e) => {
+				e.stopPropagation();
+				const allIds = (btn.dataset.allTasks || "").split(",").filter(Boolean);
+				const rect = btn.getBoundingClientRect();
+				let popover = document.getElementById("pm-calendar-more-popover");
+				if (popover) popover.remove();
+				popover = document.createElement("div");
+				popover.id = "pm-calendar-more-popover";
+				popover.className = "pm-calendar-more-popover";
+				const dayTasks = allIds.map((id) => workspace.tasks.find((t) => t.id === id)).filter(Boolean);
+				dayTasks.forEach((t) => {
+					const status = statuses.find((s) => s.id === t.taskStatusId);
+					const color = status ? (status.color || "var(--pm-accent)") : "var(--pm-accent)";
+					const item = document.createElement("div");
+					item.className = "pm-calendar-more-item";
+					item.style.background = color;
+					item.textContent = t.title || "Untitled";
+					item.dataset.taskId = t.id;
+					item.addEventListener("click", (ev) => { ev.stopPropagation(); openTaskPanel(t.id); popover.remove(); });
+					popover.appendChild(item);
+				});
+				popover.addEventListener("click", (e) => e.stopPropagation());
+				document.body.appendChild(popover);
+				popover.style.left = Math.min(rect.left, window.innerWidth - 220) + "px";
+				popover.style.top = (rect.bottom + 4) + "px";
+				const close = () => { popover.remove(); document.removeEventListener("click", close); };
+				setTimeout(() => document.addEventListener("click", close), 0);
+			});
+		});
 	}
 
 	function scrollGanttToToday() {
@@ -801,20 +857,20 @@
 		const tooltipEl = $("pm-gantt-tooltip");
 		if (!chartEl || !titleEl) return;
 
-		const y = ganttMonth.getFullYear();
-		const m = ganttMonth.getMonth();
-		const rangeStart = new Date(y, m, 1);
-		const rangeEnd = new Date(y, m + 1, 0);
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const rangeStart = new Date(today);
+		rangeStart.setDate(rangeStart.getDate() - 7 + ganttWeekOffset * 14);
+		const rangeEnd = new Date(today);
+		rangeEnd.setDate(rangeEnd.getDate() + 7 + ganttWeekOffset * 14);
 		const rangeStartMs = rangeStart.getTime();
 		const rangeEndMs = rangeEnd.getTime();
 		const rangeTotalMs = rangeEndMs - rangeStartMs + 86400000;
-		const today = new Date();
-		today.setHours(0, 0, 0, 0);
 		const todayMs = today.getTime();
 		const todayInRange = todayMs >= rangeStartMs && todayMs <= rangeEndMs;
 		const todayLeftPct = todayInRange ? ((todayMs - rangeStartMs) / rangeTotalMs) * 100 : -1;
 
-		titleEl.textContent = rangeStart.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+		titleEl.textContent = rangeStart.toLocaleDateString("en-US", { month: "short" }) + " – " + rangeEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 		const tasksWithDates = tasks.filter((t) => {
 			const start = t.startDate ? new Date(t.startDate) : (t.dueDate ? new Date(t.dueDate) : null);
@@ -1390,7 +1446,7 @@
 	});
 	$("pm-view-gantt").addEventListener("click", () => {
 		detailViewMode = "gantt";
-		ganttMonth = new Date();
+		ganttWeekOffset = 0;
 		render();
 		requestAnimationFrame(() => scrollGanttToToday());
 	});
@@ -1407,12 +1463,12 @@
 
 	// ——— Gantt nav ———
 	$("pm-gantt-prev").addEventListener("click", () => {
-		ganttMonth = new Date(ganttMonth.getFullYear(), ganttMonth.getMonth() - 1);
+		ganttWeekOffset -= 1;
 		render();
 		requestAnimationFrame(() => scrollGanttToToday());
 	});
 	$("pm-gantt-next").addEventListener("click", () => {
-		ganttMonth = new Date(ganttMonth.getFullYear(), ganttMonth.getMonth() + 1);
+		ganttWeekOffset += 1;
 		render();
 		requestAnimationFrame(() => scrollGanttToToday());
 	});
