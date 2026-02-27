@@ -800,18 +800,18 @@
 		if (getTaskAssigneeIds(task).length) metaParts.push("Assignees: " + getTaskAssigneeIds(task).join(", "));
 		$("pm-task-meta").textContent = metaParts.join(" · ");
 
-		// Progress from checklist (subtasks)
-		const checklists = (workspace.taskChecklists || []).filter((c) => c.taskId === task.id);
+		// Checklist items (for progress bar and list)
+		const taskChecklists = (workspace.taskChecklists || []).filter((c) => c.taskId === task.id).sort((a, b) => (a.order || 0) - (b.order || 0));
 		const progressWrap = $("pm-task-progress-wrap");
 		const progressFill = $("pm-task-progress-fill");
 		const progressText = $("pm-task-progress-text");
 		if (progressWrap && progressFill && progressText) {
-			if (checklists.length > 0) {
-				const done = checklists.filter((c) => c.done).length;
-				const pct = Math.round((done / checklists.length) * 100);
+			if (taskChecklists.length > 0) {
+				const done = taskChecklists.filter((c) => c.done).length;
+				const pct = Math.round((done / taskChecklists.length) * 100);
 				progressWrap.style.display = "block";
 				progressFill.style.width = pct + "%";
-				progressText.textContent = `${done}/${checklists.length} (${pct}%)`;
+				progressText.textContent = `${done}/${taskChecklists.length} (${pct}%)`;
 			} else {
 				progressWrap.style.display = "none";
 			}
@@ -861,9 +861,8 @@
 			});
 		}
 		// Checklist
-		const checklists = (workspace.taskChecklists || []).filter((c) => c.taskId === task.id).sort((a, b) => (a.order || 0) - (b.order || 0));
 		const listEl = $("pm-task-checklist-list");
-		listEl.innerHTML = checklists.map((c) => `<li data-id="${c.id}"><input type="checkbox" ${c.done ? "checked" : ""} data-id="${c.id}"><span class="${c.done ? "pm-checklist-done" : ""}">${escapeHtml(c.title)}</span></li>`).join("");
+		listEl.innerHTML = taskChecklists.map((c) => `<li data-id="${c.id}"><input type="checkbox" ${c.done ? "checked" : ""} data-id="${c.id}"><span class="${c.done ? "pm-checklist-done" : ""}">${escapeHtml(c.title)}</span></li>`).join("");
 		listEl.querySelectorAll("input[type=checkbox]").forEach((cb) => {
 			cb.addEventListener("change", () => {
 				const item = workspace.taskChecklists.find((x) => x.id === cb.dataset.id);
