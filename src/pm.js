@@ -216,11 +216,11 @@
 
 	function formatDueDateRelative(dueStr) {
 		if (!dueStr) return "—";
-		const d = new Date(dueStr);
-		if (Number.isNaN(d.getTime())) return dueStr;
+		const dueDate = new Date(dueStr);
+		if (Number.isNaN(dueDate.getTime())) return dueStr;
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
-		const due = new Date(d);
+		const due = new Date(dueDate);
 		due.setHours(0, 0, 0, 0);
 		const diffDays = Math.round((due - today) / (24 * 60 * 60 * 1000));
 		if (diffDays < 0) return "Overdue";
