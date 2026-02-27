@@ -723,13 +723,13 @@
 
 	function openTaskPanel(taskId) {
 		selectedTaskId = taskId;
-		$("pm-task-panel-wrap").style.display = "flex";
+		$("pm-task-panel-wrap").setAttribute("aria-hidden", "false");
 		renderTaskPanel();
 	}
 
 	function closeTaskPanel() {
 		selectedTaskId = null;
-		$("pm-task-panel-wrap").style.display = "none";
+		$("pm-task-panel-wrap").setAttribute("aria-hidden", "true");
 	}
 
 	function renderTaskPanel() {

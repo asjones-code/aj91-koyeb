@@ -75,8 +75,24 @@
     .pm-loading { color: var(--pm-muted); }
     .pm-logout { font-size: 0.875rem; color: var(--pm-muted); cursor: pointer; }
     .pm-logout:hover { color: var(--pm-text); }
-    .pm-task-panel-wrap { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; display: flex; align-items: stretch; justify-content: flex-end; }
-    .pm-task-panel { width: 100%; max-width: 28rem; background: var(--pm-surface); border-left: 1px solid var(--pm-border); display: flex; flex-direction: column; overflow: hidden; }
+    .pm-task-panel-wrap {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100;
+      display: flex; align-items: stretch; justify-content: flex-end;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.4s ease-out;
+    }
+    .pm-task-panel-wrap[aria-hidden="false"] {
+      opacity: 1; pointer-events: auto;
+    }
+    .pm-task-panel {
+      width: 100%; max-width: 28rem; background: var(--pm-surface); border-left: 1px solid var(--pm-border);
+      display: flex; flex-direction: column; overflow: hidden;
+      transform: translateX(100%);
+      transition: transform 0.5s cubic-bezier(0.86, 0, 0.672, 1.003);
+    }
+    .pm-task-panel-wrap[aria-hidden="false"] .pm-task-panel {
+      transform: translateX(0);
+    }
     .pm-task-panel-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 1rem; border-bottom: 1px solid var(--pm-border); }
     .pm-task-panel-header h3 { font-size: 1rem; margin: 0; flex: 1; }
     .pm-task-panel-header-actions { display: flex; align-items: center; gap: 0.35rem; }
@@ -225,7 +241,7 @@
         <div id="pm-list-wrap" style="display: none;">
           <div id="pm-list-groups"></div>
         </div>
-        <div id="pm-task-panel-wrap" class="pm-task-panel-wrap" style="display: none;">
+        <div id="pm-task-panel-wrap" class="pm-task-panel-wrap" aria-hidden="true">
           <div class="pm-task-panel" id="pm-task-panel">
             <div class="pm-task-panel-header">
               <h3 id="pm-task-panel-title"></h3>
