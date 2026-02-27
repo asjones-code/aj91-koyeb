@@ -54,6 +54,7 @@
     .pm-list-table .pm-col-priority { width: 6rem; }
     .pm-list-table .pm-col-point { width: 3.5rem; text-align: center; }
     .pm-list-table .pm-col-due { width: 6rem; }
+    .pm-list-table .pm-col-progress { width: 4.5rem; text-align: center; }
     .pm-list-table .pm-col-actions { width: 2.5rem; }
     .pm-list-table tbody tr { transition: background 0.15s, filter 0.2s ease-out, opacity 0.2s ease-out; }
     .pm-list-table tbody tr:hover { background: rgba(255,255,255,0.04); }
@@ -152,6 +153,7 @@
     #pm-task-panel-title { cursor: text; }
     #pm-task-panel-title:focus { outline: 1px solid var(--pm-accent); outline-offset: 2px; }
     .pm-task-progress-wrap { margin-bottom: 1rem; }
+    .pm-panel-content .pm-task-progress-wrap { margin-bottom: 1rem; }
     .pm-task-progress-label { display: block; font-size: 0.75rem; color: var(--pm-muted); margin-bottom: 0.25rem; }
     .pm-task-progress-bar { height: 6px; background: var(--pm-border); border-radius: 999px; overflow: hidden; }
     .pm-task-progress-fill { height: 100%; background: var(--pm-accent); border-radius: 999px; transition: width 0.3s ease; }
@@ -166,6 +168,24 @@
     .pm-morphing-disclosure summary:hover { background: rgba(255,255,255,0.04); }
     .pm-morphing-disclosure .pm-panel-content { padding: 0 1rem 1rem; }
     .pm-morphing-disclosure .pm-panel-content .pm-task-meta { margin-bottom: 0; }
+    .pm-panel-subsection { margin-bottom: 1rem; }
+    .pm-panel-subsection:last-child { margin-bottom: 0; }
+    .pm-panel-subtitle { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--pm-muted); margin: 0 0 0.5rem 0; }
+    .pm-deps-blocked-by, .pm-deps-blocking { margin-bottom: 0.5rem; }
+    .pm-deps-label { font-size: 0.8125rem; color: var(--pm-muted); display: block; margin-bottom: 0.25rem; }
+    .pm-deps-list { list-style: none; padding: 0; margin: 0; }
+    .pm-deps-list li { display: flex; align-items: center; justify-content: space-between; padding: 0.35rem 0; font-size: 0.875rem; }
+    .pm-deps-list li a { color: var(--pm-accent); text-decoration: none; }
+    .pm-deps-list li a:hover { text-decoration: underline; }
+    .pm-deps-list .pm-deps-remove { padding: 0.15rem 0.4rem; font-size: 0.75rem; }
+    .pm-deps-add { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 0.75rem; }
+    .pm-deps-select { flex: 1; min-width: 120px; padding: 0.4rem 0.5rem; border: 1px solid var(--pm-border); border-radius: 4px; background: var(--pm-bg); color: var(--pm-text); font-size: 0.875rem; }
+    .pm-deps-type-select { padding: 0.4rem 0.5rem; border: 1px solid var(--pm-border); border-radius: 4px; background: var(--pm-bg); color: var(--pm-text); font-size: 0.875rem; }
+    .pm-deps-empty { color: var(--pm-muted); font-style: italic; }
+    .pm-list-table .pm-col-progress { width: 4.5rem; text-align: center; }
+    .pm-list-progress { font-size: 0.75rem; color: var(--pm-muted); }
+    .pm-list-progress-bar { display: inline-block; width: 2.5rem; height: 4px; background: var(--pm-border); border-radius: 2px; overflow: hidden; vertical-align: middle; margin-right: 0.25rem; }
+    .pm-list-progress-bar-fill { height: 100%; background: var(--pm-accent); border-radius: 2px; }
   </style>
 </head>
 <body class="pm-root" data-theme="neuromorphic" data-mode="light">
@@ -270,11 +290,6 @@
               </div>
             </div>
             <div class="pm-task-panel-body">
-              <div class="pm-task-progress-wrap" id="pm-task-progress-wrap" style="display: none;">
-                <label class="pm-task-progress-label">Progress</label>
-                <div class="pm-task-progress-bar"><div class="pm-task-progress-fill" id="pm-task-progress-fill"></div></div>
-                <span class="pm-task-progress-text" id="pm-task-progress-text"></span>
-              </div>
               <div class="pm-morphing-disclosure pm-task-panel-disclosure" data-style="border" data-bordered="true">
                 <details class="pm-panel-details" id="pm-panel-details-status" open>
                   <summary class="pm-panel-summary">Status & meta</summary>
@@ -298,13 +313,42 @@
                 <div id="pm-task-point-stars" class="pm-panel-point-stars" role="group" aria-label="Points"></div>
               </div>
               <div class="pm-morphing-disclosure pm-task-panel-disclosure" data-style="border" data-bordered="true">
-                <details class="pm-panel-details" id="pm-panel-details-checklist">
-                  <summary class="pm-panel-summary">Checklist</summary>
+                <details class="pm-panel-details" id="pm-panel-details-subtasks" open>
+                  <summary class="pm-panel-summary">Subtasks and Dependencies</summary>
                   <div class="pm-panel-content">
-                    <ul id="pm-task-checklist-list"></ul>
-                    <div class="pm-task-checklist-add">
-                      <input type="text" id="pm-task-checklist-input" placeholder="Add item">
-                      <button type="button" class="pm-btn" id="pm-task-checklist-add-btn">Add</button>
+                    <div class="pm-task-progress-wrap" id="pm-task-progress-wrap" style="display: none;">
+                      <label class="pm-task-progress-label">Progress</label>
+                      <div class="pm-task-progress-bar"><div class="pm-task-progress-fill" id="pm-task-progress-fill"></div></div>
+                      <span class="pm-task-progress-text" id="pm-task-progress-text"></span>
+                    </div>
+                    <div class="pm-panel-subsection">
+                      <h5 class="pm-panel-subtitle">Subtasks</h5>
+                      <ul id="pm-task-checklist-list"></ul>
+                      <div class="pm-task-checklist-add">
+                        <input type="text" id="pm-task-checklist-input" placeholder="Add subtask">
+                        <button type="button" class="pm-btn" id="pm-task-checklist-add-btn">Add</button>
+                      </div>
+                    </div>
+                    <div class="pm-panel-subsection">
+                      <h5 class="pm-panel-subtitle">Dependencies</h5>
+                      <div class="pm-deps-blocked-by">
+                        <span class="pm-deps-label">Blocked by:</span>
+                        <ul id="pm-task-blocked-by-list" class="pm-deps-list"></ul>
+                      </div>
+                      <div class="pm-deps-blocking">
+                        <span class="pm-deps-label">Blocking:</span>
+                        <ul id="pm-task-blocking-list" class="pm-deps-list"></ul>
+                      </div>
+                      <div class="pm-deps-add">
+                        <select id="pm-deps-task-select" class="pm-deps-select">
+                          <option value="">Select task…</option>
+                        </select>
+                        <select id="pm-deps-type-select" class="pm-deps-type-select">
+                          <option value="blockedBy">This task is blocked by</option>
+                          <option value="blocking">This task blocks</option>
+                        </select>
+                        <button type="button" class="pm-btn" id="pm-deps-add-btn">Add link</button>
+                      </div>
                     </div>
                   </div>
                 </details>

@@ -236,6 +236,10 @@
 		const task = workspace.tasks.find((t) => t.id === taskId);
 		if (!task) return;
 		if (!window.confirm('Delete task "' + (task.title || "Untitled") + '"?')) return;
+		(workspace.tasks || []).forEach((t) => {
+			if (t.blockedByIds) t.blockedByIds = t.blockedByIds.filter((id) => id !== taskId);
+			if (t.blockingIds) t.blockingIds = t.blockingIds.filter((id) => id !== taskId);
+		});
 		workspace.tasks = (workspace.tasks || []).filter((t) => t.id !== taskId);
 		workspace.comments = (workspace.comments || []).filter((c) => c.taskId !== taskId);
 		workspace.activities = (workspace.activities || []).filter((a) => a.objectId !== taskId || a.objectType !== "TASK");
@@ -457,6 +461,8 @@
 					assignee: "",
 					type: "Task",
 					point: undefined,
+					blockedByIds: [],
+					blockingIds: [],
 					createdAt: new Date().toISOString(),
 					updatedAt: new Date().toISOString(),
 				};
@@ -507,6 +513,8 @@
 					];
 					const prioritySelectHtml = `<select class="pm-list-priority-select pm-priority ${priClass}" data-task-id="${t.id}" data-field="priority">${priorityOptions.map((o) => `<option value="${o.value}" ${o.value === priVal ? "selected" : ""}>${o.label}</option>`).join("")}</select>`;
 					const num = String(i + 1).padStart(2, "0");
+					const subTasks = (workspace.taskChecklists || []).filter((c) => c.taskId === t.id);
+					const progressHtml = subTasks.length > 0 ? (() => { const done = subTasks.filter((c) => c.done).length; const pct = Math.round((done / subTasks.length) * 100); return `<span class="pm-list-progress"><span class="pm-list-progress-bar"><span class="pm-list-progress-bar-fill" style="width:${pct}%"></span></span>${done}/${subTasks.length}</span>`; })() : "—";
 					return `<tr data-task-id="${t.id}" class="pm-list-task-row" draggable="true">
   <td class="pm-col-num">${num}</td>
   <td class="pm-col-check"><input type="checkbox" ${isDone ? "checked" : ""} data-task-id="${t.id}" data-done></td>
@@ -516,6 +524,7 @@
   <td class="pm-col-priority">${prioritySelectHtml}</td>
   <td class="pm-col-point pm-list-point pm-point-stars-wrap">${pointStarsHtml}</td>
   <td class="pm-col-due pm-list-due ${dueClass}">${escapeHtml(dueStr)}</td>
+  <td class="pm-col-progress pm-list-progress-cell">${progressHtml}</td>
   <td class="pm-col-actions"><button type="button" class="pm-list-delete-btn" data-task-id="${t.id}" title="Delete task" aria-label="Delete">⌫</button></td>
 </tr>`;
 				})
@@ -533,6 +542,7 @@
       <th class="pm-col-priority">Priority</th>
       <th class="pm-col-point">Point</th>
       <th class="pm-col-due">Due date</th>
+      <th class="pm-col-progress">Progress</th>
       <th class="pm-col-actions"></th>
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -664,6 +674,8 @@
 			assignee: "",
 			type: "Task",
 			point: undefined,
+			blockedByIds: [],
+			blockingIds: [],
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 		};
@@ -746,6 +758,8 @@
 			assignee: "",
 			type: "Task",
 			point: undefined,
+			blockedByIds: [],
+			blockingIds: [],
 			createdAt: new Date().toISOString(),
 			updatedAt: new Date().toISOString(),
 		};
@@ -860,7 +874,7 @@
 				saveWorkspace(workspace).then(() => renderTaskPanel());
 			});
 		}
-		// Checklist
+		// Subtasks (checklist)
 		const listEl = $("pm-task-checklist-list");
 		listEl.innerHTML = taskChecklists.map((c) => `<li data-id="${c.id}"><input type="checkbox" ${c.done ? "checked" : ""} data-id="${c.id}"><span class="${c.done ? "pm-checklist-done" : ""}">${escapeHtml(c.title)}</span></li>`).join("");
 		listEl.querySelectorAll("input[type=checkbox]").forEach((cb) => {
@@ -872,6 +886,45 @@
 				saveWorkspace(workspace).then(() => renderTaskPanel());
 			});
 		});
+
+		// Dependencies: blocked by / blocking
+		const blockedByIds = task.blockedByIds || [];
+		const blockingIds = task.blockingIds || [];
+		const projectTasks = (workspace.tasks || []).filter((x) => x.projectId === task.projectId && x.id !== task.id);
+		const blockedByEl = $("pm-task-blocked-by-list");
+		const blockingEl = $("pm-task-blocking-list");
+		const depsSelect = $("pm-deps-task-select");
+		if (blockedByEl) {
+			blockedByEl.innerHTML = blockedByIds.length === 0
+				? "<li class=\"pm-deps-empty\">None</li>"
+				: blockedByIds.map((tid) => {
+					const other = workspace.tasks.find((x) => x.id === tid);
+					return other ? `<li><a href="#" data-task-id="${tid}" class="pm-deps-link">${escapeHtml(other.title || "Untitled")}</a><button type="button" class="pm-btn pm-deps-remove" data-task-id="${tid}" data-type="blockedBy" title="Remove">×</button></li>` : "";
+				}).filter(Boolean).join("") || "<li class=\"pm-deps-empty\">None</li>";
+			blockedByEl.querySelectorAll(".pm-deps-link").forEach((a) => {
+				a.addEventListener("click", (e) => { e.preventDefault(); openTaskPanel(a.dataset.taskId); });
+			});
+			blockedByEl.querySelectorAll(".pm-deps-remove[data-type=blockedBy]").forEach((btn) => {
+				btn.addEventListener("click", () => removeDependency(task.id, btn.dataset.taskId, "blockedBy"));
+			});
+		}
+		if (blockingEl) {
+			blockingEl.innerHTML = blockingIds.length === 0
+				? "<li class=\"pm-deps-empty\">None</li>"
+				: blockingIds.map((tid) => {
+					const other = workspace.tasks.find((x) => x.id === tid);
+					return other ? `<li><a href="#" data-task-id="${tid}" class="pm-deps-link">${escapeHtml(other.title || "Untitled")}</a><button type="button" class="pm-btn pm-deps-remove" data-task-id="${tid}" data-type="blocking" title="Remove">×</button></li>` : "";
+				}).filter(Boolean).join("") || "<li class=\"pm-deps-empty\">None</li>";
+			blockingEl.querySelectorAll(".pm-deps-link").forEach((a) => {
+				a.addEventListener("click", (e) => { e.preventDefault(); openTaskPanel(a.dataset.taskId); });
+			});
+			blockingEl.querySelectorAll(".pm-deps-remove[data-type=blocking]").forEach((btn) => {
+				btn.addEventListener("click", () => removeDependency(task.id, btn.dataset.taskId, "blocking"));
+			});
+		}
+		if (depsSelect) {
+			depsSelect.innerHTML = "<option value=\"\">Select task…</option>" + projectTasks.map((x) => `<option value="${x.id}">${escapeHtml(x.title || "Untitled")}</option>`).join("");
+		}
 
 		// Activity
 		const activities = (workspace.activities || []).filter((a) => a.objectId === task.id && a.objectType === "TASK").sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -927,6 +980,43 @@
 			doneAt: null,
 		});
 		if (input) input.value = "";
+		saveWorkspace(workspace).then(() => renderTaskPanel());
+	}
+
+	function addDependency(taskId, otherTaskId, type) {
+		const task = workspace.tasks.find((t) => t.id === taskId);
+		const other = workspace.tasks.find((t) => t.id === otherTaskId);
+		if (!task || !other || taskId === otherTaskId) return;
+		task.blockedByIds = task.blockedByIds || [];
+		task.blockingIds = task.blockingIds || [];
+		other.blockedByIds = other.blockedByIds || [];
+		other.blockingIds = other.blockingIds || [];
+		if (type === "blockedBy") {
+			if (task.blockedByIds.includes(otherTaskId)) return;
+			task.blockedByIds.push(otherTaskId);
+			if (!other.blockingIds.includes(taskId)) other.blockingIds.push(taskId);
+		} else {
+			if (task.blockingIds.includes(otherTaskId)) return;
+			task.blockingIds.push(otherTaskId);
+			if (!other.blockedByIds.includes(taskId)) other.blockedByIds.push(taskId);
+		}
+		task.updatedAt = new Date().toISOString();
+		other.updatedAt = new Date().toISOString();
+		saveWorkspace(workspace).then(() => renderTaskPanel());
+	}
+
+	function removeDependency(taskId, otherTaskId, type) {
+		const task = workspace.tasks.find((t) => t.id === taskId);
+		const other = workspace.tasks.find((t) => t.id === otherTaskId);
+		if (!task) return;
+		task.blockedByIds = (task.blockedByIds || []).filter((id) => id !== otherTaskId);
+		task.blockingIds = (task.blockingIds || []).filter((id) => id !== otherTaskId);
+		if (other) {
+			other.blockedByIds = (other.blockedByIds || []).filter((id) => id !== taskId);
+			other.blockingIds = (other.blockingIds || []).filter((id) => id !== taskId);
+			other.updatedAt = new Date().toISOString();
+		}
+		task.updatedAt = new Date().toISOString();
 		saveWorkspace(workspace).then(() => renderTaskPanel());
 	}
 
@@ -1074,6 +1164,14 @@
 	$("pm-task-panel-wrap").addEventListener("click", (e) => { if (e.target === $("pm-task-panel-wrap")) closeTaskPanel(); });
 	$("pm-comment-submit").addEventListener("click", onCommentSubmit);
 	$("pm-task-checklist-add-btn").addEventListener("click", onChecklistAdd);
+	const depsAddBtn = $("pm-deps-add-btn");
+	if (depsAddBtn) depsAddBtn.addEventListener("click", () => {
+		const taskSelect = $("pm-deps-task-select");
+		const typeSelect = $("pm-deps-type-select");
+		if (!selectedTaskId || !taskSelect || !taskSelect.value || !typeSelect) return;
+		addDependency(selectedTaskId, taskSelect.value, typeSelect.value);
+		taskSelect.value = "";
+	});
 	if ($("pm-comment-input")) $("pm-comment-input").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onCommentSubmit(); } });
 	if ($("pm-task-checklist-input")) $("pm-task-checklist-input").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); onChecklistAdd(); } });
 
