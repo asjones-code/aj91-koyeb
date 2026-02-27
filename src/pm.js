@@ -754,7 +754,7 @@
 				return startCell <= weekEndCell && endCell >= weekStartCell;
 			});
 
-			html += `<div class="pm-calendar-allday-cell" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(7,1fr);gap:2px;min-height:1.75rem;align-content:start;background:var(--pm-surface);padding:2px;">`;
+			html += `<div class="pm-calendar-allday-cell" style="grid-column:1/-1;display:grid;grid-template-columns:repeat(7,1fr);gap:2px;min-height:1.75rem;align-content:start;background:var(--pm-surface);padding:2px;overflow:hidden;">`;
 			weekMultiDay.forEach((t) => {
 				const startCell = Math.max(0, (t._start.getDate() - 1 + startPad));
 				const endCell = Math.min(totalCells - 1, (t._end.getDate() - 1 + startPad));
@@ -796,7 +796,6 @@
 				html += `<div class="pm-calendar-day" data-date="${dateStr}" data-day-num="${dayNum}" data-current="${isCurrentMonth}">
           <div class="pm-calendar-day-num">${isCurrentMonth ? dayNum : ""}</div>
           ${tasksHtml}
-          ${isCurrentMonth ? `<button type="button" class="pm-btn pm-calendar-add" data-date="${dateStr}">+ Add task</button>` : ""}
         </div>`;
 			}
 		}
@@ -805,8 +804,6 @@
 		gridEl.querySelectorAll(".pm-calendar-task, .pm-calendar-multiday-bar").forEach((el) => {
 			el.addEventListener("click", (e) => { e.stopPropagation(); openTaskPanel(el.dataset.taskId); });
 		});
-		gridEl.querySelectorAll(".pm-calendar-add").forEach((btn) => btn.addEventListener("click", () => addTaskWithDueDate(btn.dataset.date)));
-
 		gridEl.querySelectorAll(".pm-calendar-more-link").forEach((btn) => {
 			btn.addEventListener("click", (e) => {
 				e.stopPropagation();
@@ -982,13 +979,12 @@
 			depLines.forEach((line) => {
 				const fromY = (line.fromRow + 0.5) * rowH;
 				const toY = (line.toRow + 0.5) * rowH;
-				const midX = (line.fromX + line.toX) / 2;
 				const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-				path.setAttribute("d", `M ${line.fromX} ${fromY} L ${midX} ${fromY} L ${midX} ${toY} L ${line.toX} ${toY}`);
+				path.setAttribute("d", `M ${line.fromX} ${fromY} L ${line.toX} ${toY}`);
 				path.setAttribute("fill", "none");
 				path.setAttribute("stroke", "var(--pm-accent)");
 				path.setAttribute("stroke-width", "0.5");
-				path.setAttribute("stroke-dasharray", "2 2");
+				path.setAttribute("stroke-dasharray", "4 2");
 				path.setAttribute("stroke-opacity", "0.8");
 				svg.appendChild(path);
 			});
