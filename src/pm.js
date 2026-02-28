@@ -5,8 +5,8 @@
 	const STORAGE_KEY = "pm_token";
 	const IDB_NAME = "pm_workspace";
 	const IDB_STORE = "workspace";
-	const BLOCKING_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="5" y="6.5" font-size="4" fill="currentColor" text-anchor="middle">!</text></svg>';
-	const BLOCKED_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 10 10"><path d="M 5 1 L 9 9 L 1 9 Z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+	const BLOCKING_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="#f97316" stroke="#000" stroke-width="1.5"/><text x="5" y="6.5" font-size="4" fill="#000" text-anchor="middle">!</text></svg>';
+	const BLOCKED_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 10 10"><path d="M 5 1 L 9 9 L 1 9 Z" fill="#eab308" stroke="#000" stroke-width="1.5"/></svg>';
 	const DEFAULT_STATUSES = [
 		{ name: "To do", color: "#94a3b8", type: "TODO" },
 		{ name: "In progress", color: "#3b82f6", type: "INPROCESS" },
@@ -197,6 +197,11 @@
 		if (Array.isArray(task.assigneeIds) && task.assigneeIds.length > 0) return task.assigneeIds;
 		if (task.assignee) return [task.assignee];
 		return [];
+	}
+
+	function parseLocalDateStr(str) {
+		if (!str) return null;
+		return new Date(str.length === 10 ? str + "T00:00:00" : str);
 	}
 
 	function getTaskProgress(task) {
@@ -537,8 +542,8 @@
 					const subTasks = (workspace.taskChecklists || []).filter((c) => c.taskId === t.id);
 					const pct = getTaskProgress(t);
 					const progressHtml = subTasks.length > 0
-						? `<span class="pm-list-progress"><span class="pm-list-progress-bar"><span class="pm-list-progress-bar-fill" style="width:${pct}%"></span></span>${subTasks.filter((c) => c.done).length}/${subTasks.length}</span>`
-						: (pct > 0 ? `<span class="pm-list-progress"><span class="pm-list-progress-bar"><span class="pm-list-progress-bar-fill" style="width:${pct}%"></span></span>${pct}%</span>` : "—");
+						? `<span class="pm-list-progress"><span class="pm-list-progress-bar"><span class="pm-list-progress-bar-fill" style="width:${pct}%"></span></span><span class="pm-list-progress-pct">${pct}%</span></span>`
+						: (pct > 0 ? `<span class="pm-list-progress"><span class="pm-list-progress-bar"><span class="pm-list-progress-bar-fill" style="width:${pct}%"></span></span><span class="pm-list-progress-pct">${pct}%</span></span>` : "—");
 					return `<tr data-task-id="${t.id}" class="pm-list-task-row" draggable="true">
   <td class="pm-col-num">${num}</td>
   <td class="pm-col-check"><input type="checkbox" ${isDone ? "checked" : ""} data-task-id="${t.id}" data-done></td>
@@ -560,13 +565,13 @@
     <thead><tr>
       <th class="pm-col-num">#</th>
       <th class="pm-col-check">Done</th>
-      <th class="pm-col-task">Task</th>
+      <th class="pm-col-task">Title</th>
       <th class="pm-col-assignee">Assignee</th>
       <th class="pm-col-type">Type</th>
       <th class="pm-col-priority">Priority</th>
       <th class="pm-col-point">Point</th>
       <th class="pm-col-due">Due date</th>
-      <th class="pm-col-progress">Progress</th>
+      <th class="pm-col-progress">Status %</th>
       <th class="pm-col-actions">Actions</th>
     </tr></thead>
     <tbody>${rows}</tbody>
@@ -744,12 +749,14 @@
 		const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 		const numDays = 28;
 
+		const endOfDay = (d) => { const x = new Date(d); x.setHours(23, 59, 59, 999); return x; };
 		const tasksWithDates = tasks.filter((t) => t.startDate || t.dueDate).map((t) => {
-			const start = t.startDate ? new Date(t.startDate) : new Date(t.dueDate);
-			const end = t.dueDate ? new Date(t.dueDate) : new Date(t.startDate);
+			const start = t.startDate ? parseLocalDateStr(t.startDate) : parseLocalDateStr(t.dueDate);
+			let end = t.dueDate ? parseLocalDateStr(t.dueDate) : parseLocalDateStr(t.startDate);
+			if (start && end && start.getTime() === end.getTime()) end = endOfDay(end);
 			const status = statuses.find((s) => s.id === t.taskStatusId);
 			const color = status ? (status.color || "var(--pm-accent)") : "var(--pm-accent)";
-			const days = Math.ceil((end.getTime() - start.getTime()) / 86400000) + 1;
+			const days = start && end ? Math.ceil((end.getTime() - start.getTime()) / 86400000) + 1 : 1;
 			return { ...t, _start: start, _end: end, _color: color, _days: days };
 		});
 
@@ -907,9 +914,6 @@
 			});
 		}
 
-		const barPositions = [];
-		const taskIdToRowIndex = {};
-
 		let html = "<div class=\"pm-gantt-inner\">";
 		html += "<div class=\"pm-gantt-header\">";
 		html += "<div class=\"pm-gantt-labels-col\">Task</div>";
@@ -919,16 +923,14 @@
 		});
 		html += "</div></div>";
 
-		tasksWithDates.forEach((t, rowIdx) => {
-			taskIdToRowIndex[t.id] = rowIdx;
-			const start = t.startDate ? new Date(t.startDate) : new Date(t.dueDate);
-			const end = t.dueDate ? new Date(t.dueDate) : new Date(t.startDate);
+		tasksWithDates.forEach((t) => {
+			const start = t.startDate ? parseLocalDateStr(t.startDate) : parseLocalDateStr(t.dueDate);
+			const end = t.dueDate ? parseLocalDateStr(t.dueDate) : parseLocalDateStr(t.startDate);
 			const startMs = Math.max(start.getTime(), rangeStartMs);
 			const endMs = Math.min(end.getTime(), rangeEndMs);
 			const spanMs = Math.max(endMs - startMs, 86400000);
 			const leftPct = ((startMs - rangeStartMs) / rangeTotalMs) * 100;
 			const widthPct = (spanMs / rangeTotalMs) * 100;
-			barPositions.push({ taskId: t.id, leftPct, widthPct, endPct: leftPct + widthPct, rowIdx });
 			const status = statuses.find((s) => s.id === t.taskStatusId);
 			const barColor = status ? (status.color || "var(--pm-accent)") : "var(--pm-accent)";
 			const progressPct = getTaskProgress(t);
@@ -975,51 +977,6 @@
 			todayLine.style.left = todayLeftPct + "%";
 			todayWrap.appendChild(todayLine);
 			chartEl.querySelector(".pm-gantt-inner").appendChild(todayWrap);
-		}
-
-		const depLines = [];
-		tasksWithDates.forEach((t) => {
-			(t.blockedByIds || []).forEach((blockerId) => {
-				const blockerPos = barPositions.find((p) => p.taskId === blockerId);
-				const blockedPos = barPositions.find((p) => p.taskId === t.id);
-				if (blockerPos && blockedPos) {
-					depLines.push({
-						fromX: blockerPos.endPct,
-						fromRow: blockerPos.rowIdx,
-						toX: blockedPos.leftPct,
-						toRow: blockedPos.rowIdx,
-					});
-				}
-			});
-		});
-
-		if (depLines.length > 0) {
-			const root = document.querySelector(".pm-root") || document.documentElement;
-			const depColor = getComputedStyle(root).getPropertyValue("--pm-dep-line-color")?.trim() || "dodgerblue";
-			const nRows = tasksWithDates.length;
-			const rowH = 100 / Math.max(1, nRows);
-			const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-			svg.setAttribute("class", "pm-gantt-deps-svg");
-			svg.setAttribute("viewBox", "0 0 100 100");
-			svg.setAttribute("preserveAspectRatio", "none");
-			depLines.forEach((line) => {
-				const fromY = (line.fromRow + 0.5) * rowH;
-				const toY = (line.toRow + 0.5) * rowH;
-				const midX = (line.fromX + line.toX) / 2;
-				const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-				path.setAttribute("d", `M ${line.fromX} ${fromY} L ${midX} ${fromY} L ${midX} ${toY} L ${line.toX} ${toY}`);
-				path.setAttribute("fill", "none");
-				path.setAttribute("stroke", depColor);
-				path.setAttribute("stroke-width", "1");
-				path.setAttribute("stroke-linecap", "round");
-				path.setAttribute("stroke-linejoin", "round");
-				svg.appendChild(path);
-			});
-			const depsWrap = document.createElement("div");
-			depsWrap.className = "pm-gantt-deps-wrap";
-			depsWrap.appendChild(svg);
-			svg.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%";
-			chartEl.querySelector(".pm-gantt-inner").appendChild(depsWrap);
 		}
 
 		chartEl.querySelectorAll(".pm-gantt-row[data-task-id]").forEach((row) => {
@@ -1184,23 +1141,25 @@
 		// Checklist items (for progress bar and list)
 		const taskChecklists = (workspace.taskChecklists || []).filter((c) => c.taskId === task.id).sort((a, b) => (a.order || 0) - (b.order || 0));
 		const progressWrap = $("pm-task-progress-wrap");
+		const progressBarWrap = $("pm-task-progress-bar-wrap");
 		const progressFill = $("pm-task-progress-fill");
 		const progressText = $("pm-task-progress-text");
 		const progressSliderWrap = $("pm-task-progress-slider-wrap");
 		const progressSlider = $("pm-task-progress-slider");
-		if (progressWrap && progressFill && progressText) {
+		if (progressWrap && progressText) {
 			if (taskChecklists.length > 0) {
 				const done = taskChecklists.filter((c) => c.done).length;
 				const pct = Math.round((done / taskChecklists.length) * 100);
 				progressWrap.style.display = "block";
+				if (progressBarWrap) progressBarWrap.style.display = "block";
 				if (progressSliderWrap) progressSliderWrap.style.display = "none";
-				progressFill.style.width = pct + "%";
+				if (progressFill) progressFill.style.width = pct + "%";
 				progressText.textContent = `${done}/${taskChecklists.length} (${pct}%)`;
 			} else {
 				progressWrap.style.display = "block";
+				if (progressBarWrap) progressBarWrap.style.display = "none";
 				if (progressSliderWrap) progressSliderWrap.style.display = "block";
 				const pct = getTaskProgress(task);
-				progressFill.style.width = pct + "%";
 				progressText.textContent = pct + "%";
 				if (progressSlider) {
 					progressSlider.value = pct;
@@ -1213,7 +1172,6 @@
 							const val = Math.min(100, Math.max(0, parseInt(progressSlider.value, 10)));
 							t.progress = val;
 							t.updatedAt = new Date().toISOString();
-							progressFill.style.width = val + "%";
 							progressText.textContent = val + "%";
 							saveWorkspace(workspace).then(() => render());
 						});

@@ -48,6 +48,7 @@
     .pm-list-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
     .pm-list-table th, .pm-list-table td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--pm-border); vertical-align: middle; }
     .pm-list-table th { color: var(--pm-muted); font-weight: 500; font-size: 0.75rem; }
+    .pm-list-table thead { position: sticky; top: 0; background: var(--pm-surface); z-index: 1; }
     .pm-list-table .pm-col-check { width: 2.25rem; }
     .pm-list-table .pm-col-task { min-width: 12rem; }
     .pm-list-table .pm-col-assignee { width: 8rem; }
@@ -194,6 +195,7 @@
     .pm-list-progress { font-size: 0.75rem; color: var(--pm-muted); }
     .pm-list-progress-bar { display: inline-block; width: 2.5rem; height: 4px; background: var(--pm-border); border-radius: 2px; overflow: hidden; vertical-align: middle; margin-right: 0.25rem; }
     .pm-list-progress-bar-fill { height: 100%; background: var(--pm-accent); border-radius: 2px; }
+    .pm-list-progress-pct { font-weight: 600; margin-left: 0.25rem; }
     /* Gantt view */
     .pm-gantt-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
     .pm-gantt-chart { overflow-x: auto; overflow-y: auto; max-height: 32rem; border: 1px solid var(--pm-border); border-radius: 8px; background: var(--pm-surface); scroll-behavior: smooth; }
@@ -213,7 +215,7 @@
     .pm-gantt-bar-wrap { position: absolute; top: 0; bottom: 0; left: 0; right: 0; }
     .pm-gantt-bar { position: absolute; top: 2px; bottom: 2px; border-radius: 4px; cursor: pointer; transition: opacity 0.15s, transform 0.15s; overflow: hidden; }
     .pm-gantt-bar-progress-wrap { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(0,0,0,0.2); border-radius: 0 0 4px 4px; overflow: hidden; }
-    .pm-gantt-bar-icon { position: absolute; top: 2px; display: flex; align-items: center; justify-content: center; color: var(--pm-dep-line-color, dodgerblue); pointer-events: none; }
+    .pm-gantt-bar-icon { position: absolute; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center; pointer-events: none; }
     .pm-gantt-bar-icon svg { flex-shrink: 0; }
     .pm-gantt-bar-icon-blocking { left: 2px; }
     .pm-gantt-bar-icon-blocked { right: 2px; }
@@ -380,7 +382,9 @@
                   <div class="pm-panel-content">
                     <div class="pm-task-progress-wrap" id="pm-task-progress-wrap" style="display: none;">
                       <label class="pm-task-progress-label">Progress</label>
-                      <div class="pm-task-progress-bar"><div class="pm-task-progress-fill" id="pm-task-progress-fill"></div></div>
+                      <div class="pm-task-progress-bar-wrap" id="pm-task-progress-bar-wrap">
+                        <div class="pm-task-progress-bar"><div class="pm-task-progress-fill" id="pm-task-progress-fill"></div></div>
+                      </div>
                       <div class="pm-task-progress-slider-wrap" id="pm-task-progress-slider-wrap" style="display: none;">
                         <input type="range" id="pm-task-progress-slider" min="0" max="100" value="0" class="pm-task-progress-slider">
                       </div>
