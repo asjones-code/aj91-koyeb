@@ -914,14 +914,17 @@
 			barPositions.push({ taskId: t.id, leftPct, widthPct, endPct: leftPct + widthPct, rowIdx });
 			const status = statuses.find((s) => s.id === t.taskStatusId);
 			const barColor = status ? (status.color || "var(--pm-accent)") : "var(--pm-accent)";
+			const taskChecklists = (workspace.taskChecklists || []).filter((c) => c.taskId === t.id);
+			const progressPct = taskChecklists.length > 0 ? Math.round((taskChecklists.filter((c) => c.done).length / taskChecklists.length) * 100) : 0;
 			const startStr = (t.startDate || "").slice(0, 10);
 			const dueStr = (t.dueDate || "").slice(0, 10);
-			const tooltipText = `Task: ${escapeHtml(t.title || "Untitled")}<br/>Type: ${escapeHtml(t.type || "Task")}<br/>Starts: ${startStr}<br/>Ends: ${dueStr}${t.description ? "<br/>" + escapeHtml(t.description.slice(0, 80)) + (t.description.length > 80 ? "…" : "") : ""}`;
+			const tooltipText = `Task: ${escapeHtml(t.title || "Untitled")}<br/>Type: ${escapeHtml(t.type || "Task")}<br/>Starts: ${startStr}<br/>Ends: ${dueStr}${taskChecklists.length ? `<br/>Progress: ${progressPct}%` : ""}${t.description ? "<br/>" + escapeHtml(t.description.slice(0, 80)) + (t.description.length > 80 ? "…" : "") : ""}`;
+			const progressHtml = taskChecklists.length > 0 ? `<div class="pm-gantt-bar-progress" style="width:${progressPct}%"></div>` : "";
 			html += `<div class="pm-gantt-row" data-task-id="${t.id}">
         <div class="pm-gantt-row-label">${escapeHtml(t.title || "Untitled")}</div>
         <div class="pm-gantt-row-bars">
           <div class="pm-gantt-bar-wrap">
-            <div class="pm-gantt-bar" style="left:${Math.max(0, leftPct)}%;width:${Math.max(2, widthPct)}%;background:${barColor}" data-tooltip="${escapeHtml(tooltipText).replace(/"/g, "&quot;")}"></div>
+            <div class="pm-gantt-bar" style="left:${Math.max(0, leftPct)}%;width:${Math.max(2, widthPct)}%;background:${barColor}" data-tooltip="${escapeHtml(tooltipText).replace(/"/g, "&quot;")}">${progressHtml}</div>
           </div>
         </div>
       </div>`;
@@ -976,16 +979,36 @@
 			svg.setAttribute("class", "pm-gantt-deps-svg");
 			svg.setAttribute("viewBox", "0 0 100 100");
 			svg.setAttribute("preserveAspectRatio", "none");
+			const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+			const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+			marker.setAttribute("id", "pm-gantt-arrow");
+			marker.setAttribute("markerWidth", "6");
+			marker.setAttribute("markerHeight", "6");
+			marker.setAttribute("refX", "5");
+			marker.setAttribute("refY", "3");
+			marker.setAttribute("orient", "auto");
+			const arrow = document.createElementNS("http://www.w3.org/2000/svg", "path");
+			arrow.setAttribute("d", "M 0 0 L 6 3 L 0 6 Z");
+			arrow.setAttribute("fill", "var(--pm-gantt-dep-line, #c4b8a8)");
+			marker.appendChild(arrow);
+			defs.appendChild(marker);
+			svg.appendChild(defs);
 			depLines.forEach((line) => {
 				const fromY = (line.fromRow + 0.5) * rowH;
 				const toY = (line.toRow + 0.5) * rowH;
+				const dx = line.toX - line.fromX;
+				const cpx1 = line.fromX + dx * 0.5;
+				const cpy1 = fromY;
+				const cpx2 = line.toX - dx * 0.5;
+				const cpy2 = toY;
 				const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-				path.setAttribute("d", `M ${line.fromX} ${fromY} L ${line.toX} ${toY}`);
+				path.setAttribute("d", `M ${line.fromX} ${fromY} C ${cpx1} ${cpy1}, ${cpx2} ${cpy2}, ${line.toX} ${toY}`);
 				path.setAttribute("fill", "none");
-				path.setAttribute("stroke", "var(--pm-accent)");
-				path.setAttribute("stroke-width", "0.5");
-				path.setAttribute("stroke-dasharray", "4 2");
-				path.setAttribute("stroke-opacity", "0.8");
+				path.setAttribute("stroke", "var(--pm-gantt-dep-line, #c4b8a8)");
+				path.setAttribute("stroke-width", "0.8");
+				path.setAttribute("stroke-linecap", "round");
+				path.setAttribute("stroke-linejoin", "round");
+				path.setAttribute("marker-end", "url(#pm-gantt-arrow)");
 				svg.appendChild(path);
 			});
 			const depsWrap = document.createElement("div");
