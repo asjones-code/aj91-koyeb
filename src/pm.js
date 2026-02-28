@@ -760,37 +760,9 @@
 			return { ...t, _start: start, _end: end, _color: color, _days: days };
 		});
 
-		const multiDayTasks = tasksWithDates.filter((t) => t._days > 1).sort((a, b) => b._days - a._days);
-		const singleDayTasks = tasksWithDates.filter((t) => t._days === 1);
-
 		titleEl.textContent = rangeStart.toLocaleDateString("en-US", { month: "short" }) + " – " + rangeEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 		let html = dayLabels.map((l, i) => `<div class="pm-calendar-day-header" style="grid-row:1;grid-column:${i + 1}">${l}</div>`).join("");
-
-		const rangeStartMs = new Date(rangeStart).setHours(0, 0, 0, 0);
-		const multiDaySpans = [];
-		for (let week = 0; week < 4; week++) {
-			const weekStart = new Date(rangeStart);
-			weekStart.setDate(weekStart.getDate() + week * 7);
-			const weekEnd = new Date(weekStart);
-			weekEnd.setDate(weekEnd.getDate() + 6);
-			const weekStartMs = new Date(weekStart).setHours(0, 0, 0, 0);
-			const weekEndMs = new Date(weekEnd).setHours(23, 59, 59, 999);
-			multiDayTasks.forEach((t) => {
-				const start = t._start.getTime();
-				const end = t._end.getTime();
-				if (start <= weekEndMs && end >= weekStartMs) {
-					const segStart = Math.max(start, weekStartMs);
-					const segEnd = Math.min(end, weekEndMs);
-					const startDay = Math.round((segStart - rangeStartMs) / 86400000);
-					const endDay = Math.round((segEnd - rangeStartMs) / 86400000);
-					const colStart = Math.max(1, (startDay % 7) + 1);
-					const colEnd = Math.min(8, (endDay % 7) + 2);
-					const row = week + 2;
-					multiDaySpans.push({ t, row, colStart, colEnd });
-				}
-			});
-		}
 
 		for (let i = 0; i < numDays; i++) {
 			const d = new Date(rangeStart);
@@ -802,14 +774,14 @@
 			const row = Math.floor(i / 7) + 2;
 			const col = (i % 7) + 1;
 
-			const daySingleTasks = singleDayTasks.filter((t) => {
+			const dayTasks = tasksWithDates.filter((t) => {
 				const start = t._start.getTime();
 				const end = t._end.getTime();
-				return start <= cellStart && end >= cellEnd;
+				return start <= cellEnd && end >= cellStart;
 			});
 
 			let tasksHtml = "";
-			daySingleTasks.forEach((t) => {
+			dayTasks.forEach((t) => {
 				tasksHtml += `<div class="pm-calendar-task" data-task-id="${t.id}" style="background:${t._color}">${escapeHtml(t.title || "Untitled")}</div>`;
 			});
 
@@ -820,12 +792,8 @@
         </div>`;
 		}
 
-		multiDaySpans.forEach(({ t, row, colStart, colEnd }) => {
-			html += `<div class="pm-calendar-multiday-span" data-task-id="${t.id}" style="grid-row:${row};grid-column:${colStart}/${colEnd};background:${t._color}">${escapeHtml(t.title || "Untitled")}</div>`;
-		});
-
 		gridEl.innerHTML = html;
-		gridEl.querySelectorAll(".pm-calendar-task, .pm-calendar-multiday-span").forEach((el) => {
+		gridEl.querySelectorAll(".pm-calendar-task").forEach((el) => {
 			el.addEventListener("click", (e) => { e.stopPropagation(); openTaskPanel(el.dataset.taskId); });
 		});
 		gridEl.querySelectorAll(".pm-calendar-more-link").forEach((btn) => {
