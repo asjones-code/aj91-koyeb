@@ -723,10 +723,11 @@
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
 		const rangeStart = new Date(today);
-		rangeStart.setDate(rangeStart.getDate() - 7 + calendarWeekOffset * 14);
+		rangeStart.setDate(rangeStart.getDate() - 14 + calendarWeekOffset * 28);
 		const rangeEnd = new Date(today);
-		rangeEnd.setDate(rangeEnd.getDate() + 6 + calendarWeekOffset * 14);
+		rangeEnd.setDate(rangeEnd.getDate() + 13 + calendarWeekOffset * 28);
 		const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+		const numDays = 28;
 
 		const tasksWithDates = tasks.filter((t) => t.startDate || t.dueDate).map((t) => {
 			const start = t.startDate ? new Date(t.startDate) : new Date(t.dueDate);
@@ -742,15 +743,42 @@
 
 		titleEl.textContent = rangeStart.toLocaleDateString("en-US", { month: "short" }) + " – " + rangeEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
-		let html = dayLabels.map((l) => `<div class="pm-calendar-day-header">${l}</div>`).join("");
+		let html = dayLabels.map((l, i) => `<div class="pm-calendar-day-header" style="grid-row:1;grid-column:${i + 1}">${l}</div>`).join("");
 
-		for (let i = 0; i < 14; i++) {
+		const rangeStartMs = new Date(rangeStart).setHours(0, 0, 0, 0);
+		const multiDaySpans = [];
+		for (let week = 0; week < 4; week++) {
+			const weekStart = new Date(rangeStart);
+			weekStart.setDate(weekStart.getDate() + week * 7);
+			const weekEnd = new Date(weekStart);
+			weekEnd.setDate(weekEnd.getDate() + 6);
+			const weekStartMs = new Date(weekStart).setHours(0, 0, 0, 0);
+			const weekEndMs = new Date(weekEnd).setHours(23, 59, 59, 999);
+			multiDayTasks.forEach((t) => {
+				const start = t._start.getTime();
+				const end = t._end.getTime();
+				if (start <= weekEndMs && end >= weekStartMs) {
+					const segStart = Math.max(start, weekStartMs);
+					const segEnd = Math.min(end, weekEndMs);
+					const startDay = Math.round((segStart - rangeStartMs) / 86400000);
+					const endDay = Math.round((segEnd - rangeStartMs) / 86400000);
+					const colStart = Math.max(1, (startDay % 7) + 1);
+					const colEnd = Math.min(8, (endDay % 7) + 2);
+					const row = week + 2;
+					multiDaySpans.push({ t, row, colStart, colEnd });
+				}
+			});
+		}
+
+		for (let i = 0; i < numDays; i++) {
 			const d = new Date(rangeStart);
 			d.setDate(d.getDate() + i);
 			const dateStr = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 			const cellStart = new Date(d).setHours(0, 0, 0, 0);
 			const cellEnd = new Date(d).setHours(23, 59, 59, 999);
 			const isToday = d.getTime() === today.getTime();
+			const row = Math.floor(i / 7) + 2;
+			const col = (i % 7) + 1;
 
 			const daySingleTasks = singleDayTasks.filter((t) => {
 				const start = t._start.getTime();
@@ -758,43 +786,31 @@
 				return start <= cellStart && end >= cellEnd;
 			});
 
-			const dayMultiTasks = multiDayTasks.filter((t) => {
-				const start = t._start.getTime();
-				const end = t._end.getTime();
-				return start <= cellEnd && end >= cellStart;
-			});
-
 			const maxVisible = 2;
-			const allDayTasks = [...dayMultiTasks, ...daySingleTasks];
-			const visible = allDayTasks.slice(0, maxVisible);
-			const moreCount = allDayTasks.length - maxVisible;
+			const visible = daySingleTasks.slice(0, maxVisible);
+			const moreCount = daySingleTasks.length - maxVisible;
 
 			let tasksHtml = "";
 			visible.forEach((t) => {
-				if (t._days > 1) {
-					const start = t._start.getTime();
-					const end = t._end.getTime();
-					const isFirst = cellStart <= start;
-					const isLast = cellEnd >= end;
-					const radius = isFirst && isLast ? "4px" : isFirst ? "4px 0 0 4px" : isLast ? "0 4px 4px 0" : "0";
-					tasksHtml += `<div class="pm-calendar-task pm-calendar-task-multiday" data-task-id="${t.id}" style="background:${t._color};border-radius:${radius}">${escapeHtml(t.title || "Untitled")}</div>`;
-				} else {
-					tasksHtml += `<div class="pm-calendar-task" data-task-id="${t.id}" style="background:${t._color}">${escapeHtml(t.title || "Untitled")}</div>`;
-				}
+				tasksHtml += `<div class="pm-calendar-task" data-task-id="${t.id}" style="background:${t._color}">${escapeHtml(t.title || "Untitled")}</div>`;
 			});
 			if (moreCount > 0) {
-				tasksHtml += `<button type="button" class="pm-calendar-more-link" data-date="${dateStr}" data-all-tasks="${allDayTasks.map((x) => x.id).join(",")}">+${moreCount} more</button>`;
+				tasksHtml += `<button type="button" class="pm-calendar-more-link" data-date="${dateStr}" data-all-tasks="${daySingleTasks.map((x) => x.id).join(",")}">+${moreCount} more</button>`;
 			}
 
 			const monthLabel = (d.getMonth() !== today.getMonth() || d.getFullYear() !== today.getFullYear()) ? " " + d.toLocaleDateString("en-US", { month: "short" }).slice(0, 1) : "";
-			html += `<div class="pm-calendar-day ${isToday ? "pm-calendar-day-today" : ""}" data-date="${dateStr}" data-current="true">
+			html += `<div class="pm-calendar-day ${isToday ? "pm-calendar-day-today" : ""}" data-date="${dateStr}" style="grid-row:${row};grid-column:${col}">
           <div class="pm-calendar-day-num">${d.getDate()}${monthLabel}</div>
           ${tasksHtml}
         </div>`;
 		}
 
+		multiDaySpans.forEach(({ t, row, colStart, colEnd }) => {
+			html += `<div class="pm-calendar-multiday-span" data-task-id="${t.id}" style="grid-row:${row};grid-column:${colStart}/${colEnd};background:${t._color}">${escapeHtml(t.title || "Untitled")}</div>`;
+		});
+
 		gridEl.innerHTML = html;
-		gridEl.querySelectorAll(".pm-calendar-task, .pm-calendar-task-multiday").forEach((el) => {
+		gridEl.querySelectorAll(".pm-calendar-task, .pm-calendar-multiday-span").forEach((el) => {
 			el.addEventListener("click", (e) => { e.stopPropagation(); openTaskPanel(el.dataset.taskId); });
 		});
 		gridEl.querySelectorAll(".pm-calendar-more-link").forEach((btn) => {
@@ -966,6 +982,8 @@
 		});
 
 		if (depLines.length > 0) {
+			const root = document.querySelector(".pm-root") || document.documentElement;
+			const depColor = getComputedStyle(root).getPropertyValue("--pm-dep-line-color")?.trim() || "dodgerblue";
 			const nRows = tasksWithDates.length;
 			const rowH = 100 / Math.max(1, nRows);
 			const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -973,19 +991,45 @@
 			svg.setAttribute("viewBox", "0 0 100 100");
 			svg.setAttribute("preserveAspectRatio", "none");
 			const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-			const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
-			marker.setAttribute("id", "pm-gantt-arrow");
-			marker.setAttribute("markerWidth", "8");
-			marker.setAttribute("markerHeight", "8");
-			marker.setAttribute("refX", "7");
-			marker.setAttribute("refY", "4");
-			marker.setAttribute("orient", "auto");
-			const arrow = document.createElementNS("http://www.w3.org/2000/svg", "path");
-			arrow.setAttribute("d", "M 0 0 L 8 4 L 0 8 Z");
-			arrow.setAttribute("fill", "var(--pm-accent, #6366f1)");
-			arrow.setAttribute("stroke", "none");
-			marker.appendChild(arrow);
-			defs.appendChild(marker);
+			const markerBlocking = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+			markerBlocking.setAttribute("id", "pm-gantt-marker-blocking");
+			markerBlocking.setAttribute("markerWidth", "10");
+			markerBlocking.setAttribute("markerHeight", "10");
+			markerBlocking.setAttribute("refX", "5");
+			markerBlocking.setAttribute("refY", "5");
+			markerBlocking.setAttribute("orient", "auto");
+			const warnRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+			warnRect.setAttribute("x", "1");
+			warnRect.setAttribute("y", "1");
+			warnRect.setAttribute("width", "8");
+			warnRect.setAttribute("height", "8");
+			warnRect.setAttribute("fill", "none");
+			warnRect.setAttribute("stroke", depColor);
+			warnRect.setAttribute("stroke-width", "1.5");
+			const warnText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+			warnText.setAttribute("x", "5");
+			warnText.setAttribute("y", "6.5");
+			warnText.setAttribute("font-size", "4");
+			warnText.setAttribute("fill", depColor);
+			warnText.setAttribute("text-anchor", "middle");
+			warnText.textContent = "!";
+			markerBlocking.appendChild(warnRect);
+			markerBlocking.appendChild(warnText);
+			defs.appendChild(markerBlocking);
+			const markerBlocked = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+			markerBlocked.setAttribute("id", "pm-gantt-marker-blocked");
+			markerBlocked.setAttribute("markerWidth", "10");
+			markerBlocked.setAttribute("markerHeight", "10");
+			markerBlocked.setAttribute("refX", "5");
+			markerBlocked.setAttribute("refY", "5");
+			markerBlocked.setAttribute("orient", "auto");
+			const alertTri = document.createElementNS("http://www.w3.org/2000/svg", "path");
+			alertTri.setAttribute("d", "M 5 1 L 9 9 L 1 9 Z");
+			alertTri.setAttribute("fill", "none");
+			alertTri.setAttribute("stroke", depColor);
+			alertTri.setAttribute("stroke-width", "1.5");
+			markerBlocked.appendChild(alertTri);
+			defs.appendChild(markerBlocked);
 			svg.appendChild(defs);
 			depLines.forEach((line) => {
 				const fromY = (line.fromRow + 0.5) * rowH;
@@ -994,12 +1038,12 @@
 				const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
 				path.setAttribute("d", `M ${line.fromX} ${fromY} L ${midX} ${fromY} L ${midX} ${toY} L ${line.toX} ${toY}`);
 				path.setAttribute("fill", "none");
-				path.setAttribute("stroke", "var(--pm-accent, #6366f1)");
-				path.setAttribute("stroke-width", "1.2");
+				path.setAttribute("stroke", depColor);
+				path.setAttribute("stroke-width", "1");
 				path.setAttribute("stroke-linecap", "round");
 				path.setAttribute("stroke-linejoin", "round");
-				path.setAttribute("marker-end", "url(#pm-gantt-arrow)");
-				path.setAttribute("opacity", "0.85");
+				path.setAttribute("marker-start", "url(#pm-gantt-marker-blocking)");
+				path.setAttribute("marker-end", "url(#pm-gantt-marker-blocked)");
 				svg.appendChild(path);
 			});
 			const depsWrap = document.createElement("div");
@@ -1473,6 +1517,7 @@
 	});
 	$("pm-calendar-today").addEventListener("click", () => {
 		calendarWeekOffset = 0;
+		calendarMonth = new Date();
 		render();
 	});
 
