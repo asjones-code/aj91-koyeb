@@ -5,6 +5,8 @@
 	const STORAGE_KEY = "pm_token";
 	const IDB_NAME = "pm_workspace";
 	const IDB_STORE = "workspace";
+	const BLOCKING_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 10 10"><rect x="1" y="1" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="5" y="6.5" font-size="4" fill="currentColor" text-anchor="middle">!</text></svg>';
+	const BLOCKED_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 10 10"><path d="M 5 1 L 9 9 L 1 9 Z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
 	const DEFAULT_STATUSES = [
 		{ name: "To do", color: "#94a3b8", type: "TODO" },
 		{ name: "In progress", color: "#3b82f6", type: "INPROCESS" },
@@ -195,6 +197,16 @@
 		if (Array.isArray(task.assigneeIds) && task.assigneeIds.length > 0) return task.assigneeIds;
 		if (task.assignee) return [task.assignee];
 		return [];
+	}
+
+	function getTaskProgress(task) {
+		const subTasks = (workspace.taskChecklists || []).filter((c) => c.taskId === task.id);
+		if (subTasks.length > 0) {
+			const done = subTasks.filter((c) => c.done).length;
+			return Math.round((done / subTasks.length) * 100);
+		}
+		const p = task.progress;
+		return p != null && !Number.isNaN(Number(p)) ? Math.min(100, Math.max(0, Number(p))) : 0;
 	}
 
 	function pointToStars(n) {
@@ -523,7 +535,10 @@
 					const prioritySelectHtml = `<select class="pm-list-priority-select pm-priority ${priClass}" data-task-id="${t.id}" data-field="priority">${priorityOptions.map((o) => `<option value="${o.value}" ${o.value === priVal ? "selected" : ""}>${o.label}</option>`).join("")}</select>`;
 					const num = String(i + 1).padStart(2, "0");
 					const subTasks = (workspace.taskChecklists || []).filter((c) => c.taskId === t.id);
-					const progressHtml = subTasks.length > 0 ? (() => { const done = subTasks.filter((c) => c.done).length; const pct = Math.round((done / subTasks.length) * 100); return `<span class="pm-list-progress"><span class="pm-list-progress-bar"><span class="pm-list-progress-bar-fill" style="width:${pct}%"></span></span>${done}/${subTasks.length}</span>`; })() : "—";
+					const pct = getTaskProgress(t);
+					const progressHtml = subTasks.length > 0
+						? `<span class="pm-list-progress"><span class="pm-list-progress-bar"><span class="pm-list-progress-bar-fill" style="width:${pct}%"></span></span>${subTasks.filter((c) => c.done).length}/${subTasks.length}</span>`
+						: (pct > 0 ? `<span class="pm-list-progress"><span class="pm-list-progress-bar"><span class="pm-list-progress-bar-fill" style="width:${pct}%"></span></span>${pct}%</span>` : "—");
 					return `<tr data-task-id="${t.id}" class="pm-list-task-row" draggable="true">
   <td class="pm-col-num">${num}</td>
   <td class="pm-col-check"><input type="checkbox" ${isDone ? "checked" : ""} data-task-id="${t.id}" data-done></td>
@@ -543,8 +558,8 @@
   <div class="pm-list-group-title" style="color:${status.color || "#888"}">${escapeHtml(status.name)}</div>
   <table class="pm-list-table">
     <thead><tr>
-      <th class="pm-col-num"></th>
-      <th class="pm-col-check"></th>
+      <th class="pm-col-num">#</th>
+      <th class="pm-col-check">Done</th>
       <th class="pm-col-task">Task</th>
       <th class="pm-col-assignee">Assignee</th>
       <th class="pm-col-type">Type</th>
@@ -552,7 +567,7 @@
       <th class="pm-col-point">Point</th>
       <th class="pm-col-due">Due date</th>
       <th class="pm-col-progress">Progress</th>
-      <th class="pm-col-actions"></th>
+      <th class="pm-col-actions">Actions</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
@@ -786,22 +801,15 @@
 				return start <= cellStart && end >= cellEnd;
 			});
 
-			const maxVisible = 2;
-			const visible = daySingleTasks.slice(0, maxVisible);
-			const moreCount = daySingleTasks.length - maxVisible;
-
 			let tasksHtml = "";
-			visible.forEach((t) => {
+			daySingleTasks.forEach((t) => {
 				tasksHtml += `<div class="pm-calendar-task" data-task-id="${t.id}" style="background:${t._color}">${escapeHtml(t.title || "Untitled")}</div>`;
 			});
-			if (moreCount > 0) {
-				tasksHtml += `<button type="button" class="pm-calendar-more-link" data-date="${dateStr}" data-all-tasks="${daySingleTasks.map((x) => x.id).join(",")}">+${moreCount} more</button>`;
-			}
 
 			const monthLabel = (d.getMonth() !== today.getMonth() || d.getFullYear() !== today.getFullYear()) ? " " + d.toLocaleDateString("en-US", { month: "short" }).slice(0, 1) : "";
 			html += `<div class="pm-calendar-day ${isToday ? "pm-calendar-day-today" : ""}" data-date="${dateStr}" style="grid-row:${row};grid-column:${col}">
           <div class="pm-calendar-day-num">${d.getDate()}${monthLabel}</div>
-          ${tasksHtml}
+          <div class="pm-calendar-day-tasks">${tasksHtml}</div>
         </div>`;
 		}
 
@@ -923,17 +931,21 @@
 			barPositions.push({ taskId: t.id, leftPct, widthPct, endPct: leftPct + widthPct, rowIdx });
 			const status = statuses.find((s) => s.id === t.taskStatusId);
 			const barColor = status ? (status.color || "var(--pm-accent)") : "var(--pm-accent)";
-			const taskChecklists = (workspace.taskChecklists || []).filter((c) => c.taskId === t.id);
-			const progressPct = taskChecklists.length > 0 ? Math.round((taskChecklists.filter((c) => c.done).length / taskChecklists.length) * 100) : 0;
+			const progressPct = getTaskProgress(t);
 			const startStr = (t.startDate || "").slice(0, 10);
 			const dueStr = (t.dueDate || "").slice(0, 10);
-			const tooltipText = `Task: ${escapeHtml(t.title || "Untitled")}<br/>Type: ${escapeHtml(t.type || "Task")}<br/>Starts: ${startStr}<br/>Ends: ${dueStr}${taskChecklists.length ? `<br/>Progress: ${progressPct}% (${taskChecklists.filter((c) => c.done).length}/${taskChecklists.length})` : "<br/>Progress: Add subtasks to track"}${t.description ? "<br/>" + escapeHtml(t.description.slice(0, 80)) + (t.description.length > 80 ? "…" : "") : ""}`;
+			const taskChecklists = (workspace.taskChecklists || []).filter((c) => c.taskId === t.id);
+			const tooltipText = `Task: ${escapeHtml(t.title || "Untitled")}<br/>Type: ${escapeHtml(t.type || "Task")}<br/>Starts: ${startStr}<br/>Ends: ${dueStr}<br/>Progress: ${progressPct}%${taskChecklists.length ? ` (${taskChecklists.filter((c) => c.done).length}/${taskChecklists.length})` : ""}${t.description ? "<br/>" + escapeHtml(t.description.slice(0, 80)) + (t.description.length > 80 ? "…" : "") : ""}`;
 			const progressHtml = `<div class="pm-gantt-bar-progress-wrap"><div class="pm-gantt-bar-progress" style="width:${progressPct}%"></div></div>`;
+			const hasBlocking = (t.blockingIds || []).length > 0;
+			const hasBlocked = (t.blockedByIds || []).length > 0;
+			const iconBlocking = hasBlocking ? `<span class="pm-gantt-bar-icon pm-gantt-bar-icon-blocking" title="Blocking other tasks">${BLOCKING_ICON_SVG}</span>` : "";
+			const iconBlocked = hasBlocked ? `<span class="pm-gantt-bar-icon pm-gantt-bar-icon-blocked" title="Blocked by other tasks">${BLOCKED_ICON_SVG}</span>` : "";
 			html += `<div class="pm-gantt-row" data-task-id="${t.id}">
         <div class="pm-gantt-row-label">${escapeHtml(t.title || "Untitled")}</div>
         <div class="pm-gantt-row-bars">
           <div class="pm-gantt-bar-wrap">
-            <div class="pm-gantt-bar" style="left:${Math.max(0, leftPct)}%;width:${Math.max(2, widthPct)}%;background:${barColor}" data-tooltip="${escapeHtml(tooltipText).replace(/"/g, "&quot;")}">${progressHtml}</div>
+            <div class="pm-gantt-bar" style="left:${Math.max(0, leftPct)}%;width:${Math.max(2, widthPct)}%;background:${barColor}" data-tooltip="${escapeHtml(tooltipText).replace(/"/g, "&quot;")}">${iconBlocking}${progressHtml}${iconBlocked}</div>
           </div>
         </div>
       </div>`;
@@ -990,47 +1002,6 @@
 			svg.setAttribute("class", "pm-gantt-deps-svg");
 			svg.setAttribute("viewBox", "0 0 100 100");
 			svg.setAttribute("preserveAspectRatio", "none");
-			const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
-			const markerBlocking = document.createElementNS("http://www.w3.org/2000/svg", "marker");
-			markerBlocking.setAttribute("id", "pm-gantt-marker-blocking");
-			markerBlocking.setAttribute("markerWidth", "10");
-			markerBlocking.setAttribute("markerHeight", "10");
-			markerBlocking.setAttribute("refX", "5");
-			markerBlocking.setAttribute("refY", "5");
-			markerBlocking.setAttribute("orient", "auto");
-			const warnRect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-			warnRect.setAttribute("x", "1");
-			warnRect.setAttribute("y", "1");
-			warnRect.setAttribute("width", "8");
-			warnRect.setAttribute("height", "8");
-			warnRect.setAttribute("fill", "none");
-			warnRect.setAttribute("stroke", depColor);
-			warnRect.setAttribute("stroke-width", "1.5");
-			const warnText = document.createElementNS("http://www.w3.org/2000/svg", "text");
-			warnText.setAttribute("x", "5");
-			warnText.setAttribute("y", "6.5");
-			warnText.setAttribute("font-size", "4");
-			warnText.setAttribute("fill", depColor);
-			warnText.setAttribute("text-anchor", "middle");
-			warnText.textContent = "!";
-			markerBlocking.appendChild(warnRect);
-			markerBlocking.appendChild(warnText);
-			defs.appendChild(markerBlocking);
-			const markerBlocked = document.createElementNS("http://www.w3.org/2000/svg", "marker");
-			markerBlocked.setAttribute("id", "pm-gantt-marker-blocked");
-			markerBlocked.setAttribute("markerWidth", "10");
-			markerBlocked.setAttribute("markerHeight", "10");
-			markerBlocked.setAttribute("refX", "5");
-			markerBlocked.setAttribute("refY", "5");
-			markerBlocked.setAttribute("orient", "auto");
-			const alertTri = document.createElementNS("http://www.w3.org/2000/svg", "path");
-			alertTri.setAttribute("d", "M 5 1 L 9 9 L 1 9 Z");
-			alertTri.setAttribute("fill", "none");
-			alertTri.setAttribute("stroke", depColor);
-			alertTri.setAttribute("stroke-width", "1.5");
-			markerBlocked.appendChild(alertTri);
-			defs.appendChild(markerBlocked);
-			svg.appendChild(defs);
 			depLines.forEach((line) => {
 				const fromY = (line.fromRow + 0.5) * rowH;
 				const toY = (line.toRow + 0.5) * rowH;
@@ -1042,8 +1013,6 @@
 				path.setAttribute("stroke-width", "1");
 				path.setAttribute("stroke-linecap", "round");
 				path.setAttribute("stroke-linejoin", "round");
-				path.setAttribute("marker-start", "url(#pm-gantt-marker-blocking)");
-				path.setAttribute("marker-end", "url(#pm-gantt-marker-blocked)");
 				svg.appendChild(path);
 			});
 			const depsWrap = document.createElement("div");
@@ -1217,15 +1186,39 @@
 		const progressWrap = $("pm-task-progress-wrap");
 		const progressFill = $("pm-task-progress-fill");
 		const progressText = $("pm-task-progress-text");
+		const progressSliderWrap = $("pm-task-progress-slider-wrap");
+		const progressSlider = $("pm-task-progress-slider");
 		if (progressWrap && progressFill && progressText) {
 			if (taskChecklists.length > 0) {
 				const done = taskChecklists.filter((c) => c.done).length;
 				const pct = Math.round((done / taskChecklists.length) * 100);
 				progressWrap.style.display = "block";
+				if (progressSliderWrap) progressSliderWrap.style.display = "none";
 				progressFill.style.width = pct + "%";
 				progressText.textContent = `${done}/${taskChecklists.length} (${pct}%)`;
 			} else {
-				progressWrap.style.display = "none";
+				progressWrap.style.display = "block";
+				if (progressSliderWrap) progressSliderWrap.style.display = "block";
+				const pct = getTaskProgress(task);
+				progressFill.style.width = pct + "%";
+				progressText.textContent = pct + "%";
+				if (progressSlider) {
+					progressSlider.value = pct;
+					if (!progressSlider._pmBound) {
+						progressSlider._pmBound = true;
+						progressSlider.addEventListener("input", () => {
+							if (!selectedTaskId) return;
+							const t = workspace.tasks.find((x) => x.id === selectedTaskId);
+							if (!t) return;
+							const val = Math.min(100, Math.max(0, parseInt(progressSlider.value, 10)));
+							t.progress = val;
+							t.updatedAt = new Date().toISOString();
+							progressFill.style.width = val + "%";
+							progressText.textContent = val + "%";
+							saveWorkspace(workspace).then(() => render());
+						});
+					}
+				}
 			}
 		}
 		const descEl = $("pm-task-description");
