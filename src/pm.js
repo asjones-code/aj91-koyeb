@@ -125,6 +125,7 @@
 	let calendarMonth = new Date();
 	let calendarWeekOffset = 0;
 	let ganttWeekOffset = 0;
+	let showArchived = false;
 
 	function isLocal() {
 		return mode === "local";
@@ -332,27 +333,82 @@
 		$("pm-detail-view").style.display = "none";
 		const list = $("pm-project-list");
 		const empty = $("pm-no-projects");
-		const projects = workspace.projects || [];
+		const showArchivedWrap = document.getElementById("pm-show-archived-wrap");
+		const showArchivedCb = document.getElementById("pm-show-archived");
+		if (showArchivedWrap) showArchivedWrap.style.display = isLocal() ? "none" : "block";
+		if (showArchivedCb) showArchivedCb.checked = showArchived;
+		const allProjects = workspace.projects || [];
+		const projects = showArchived ? allProjects : allProjects.filter((p) => !p.isArchived);
 		if (projects.length === 0) {
 			list.innerHTML = "";
 			empty.style.display = "block";
+			const archivedCount = allProjects.filter((p) => p.isArchived).length;
+			if (showArchived) {
+				empty.textContent = "No archived projects.";
+			} else if (archivedCount > 0) {
+				empty.textContent = "All projects are archived. Check 'Show archived' to view them.";
+			} else {
+				empty.textContent = "No projects yet. Create one to start.";
+			}
 			return;
 		}
 		empty.style.display = "none";
+		const syncMode = !isLocal();
 		list.innerHTML = projects
 			.map(
-				(p) =>
-					`<div class="pm-project-card" data-id="${p.id}">
+				(p) => {
+					const actions = syncMode
+						? `<div class="pm-project-card-actions">
+                <button type="button" class="pm-btn pm-project-archive" data-id="${p.id}" data-archived="${!!p.isArchived}" title="${p.isArchived ? "Unarchive" : "Archive"}">${p.isArchived ? "↩ Unarchive" : "Archive"}</button>
+                <button type="button" class="pm-btn pm-project-delete" data-id="${p.id}" title="Delete project">Delete</button>
+              </div>`
+						: "";
+					return `<div class="pm-project-card" data-id="${p.id}">
             <h3>${escapeHtml(p.name || "Untitled")}</h3>
             <p>${escapeHtml((p.description || "").slice(0, 80))}${(p.description || "").length > 80 ? "…" : ""}</p>
-          </div>`
+            ${actions}
+          </div>`;
+				}
 			)
 			.join("");
 		list.querySelectorAll(".pm-project-card").forEach((el) => {
-			el.addEventListener("click", () => {
+			el.addEventListener("click", (e) => {
+				if (e.target.closest(".pm-project-card-actions")) return;
 				currentProjectId = el.dataset.id;
 				ensureDefaultStatuses(currentProjectId);
 				render();
+			});
+		});
+		list.querySelectorAll(".pm-project-archive").forEach((btn) => {
+			btn.addEventListener("click", (e) => {
+				e.stopPropagation();
+				const id = btn.dataset.id;
+				const archived = btn.dataset.archived === "true";
+				const path = archived ? "unarchive" : "archive";
+				fetch(API_BASE + `/api/pm/projects/${id}/${path}`, { method: "POST", headers: apiHeaders() })
+					.then((r) => r.json())
+					.then((data) => {
+						if (data.error) alert(data.error);
+						else loadAndRender();
+					})
+					.catch(() => alert("Request failed."));
+			});
+		});
+		list.querySelectorAll(".pm-project-delete").forEach((btn) => {
+			btn.addEventListener("click", (e) => {
+				e.stopPropagation();
+				if (!confirm("Delete this project and all its tasks? This cannot be undone.")) return;
+				const id = btn.dataset.id;
+				fetch(API_BASE + `/api/pm/projects/${id}`, { method: "DELETE", headers: apiHeaders() })
+					.then((r) => r.json())
+					.then((data) => {
+						if (data.error) alert(data.error);
+						else {
+							currentProjectId = currentProjectId === id ? null : currentProjectId;
+							loadAndRender();
+						}
+					})
+					.catch(() => alert("Request failed."));
 			});
 		});
 	}
@@ -561,8 +617,8 @@
 					const subTasks = (workspace.taskChecklists || []).filter((c) => c.taskId === t.id);
 					const pct = getTaskProgress(t);
 					const progressHtml = subTasks.length > 0
-						? `<span class="pm-list-progress"><span class="pm-list-progress-bar"><span class="pm-list-progress-bar-fill" style="width:${pct}%"></span></span><span class="pm-list-progress-pct">${pct}%</span></span>`
-						: (pct > 0 ? `<span class="pm-list-progress"><span class="pm-list-progress-bar"><span class="pm-list-progress-bar-fill" style="width:${pct}%"></span></span><span class="pm-list-progress-pct">${pct}%</span></span>` : "—");
+						? `<span class="pm-list-progress"><span class="pm-list-progress-pct">${pct}%</span><span class="pm-list-progress-bar"><span class="pm-list-progress-bar-fill" style="width:${pct}%"></span></span></span>`
+						: (pct > 0 ? `<span class="pm-list-progress"><span class="pm-list-progress-pct">${pct}%</span><span class="pm-list-progress-bar"><span class="pm-list-progress-bar-fill" style="width:${pct}%"></span></span></span>` : "—");
 					return `<tr data-task-id="${t.id}" data-status-id="${status.id}" class="pm-list-task-row" draggable="true">
   <td class="pm-col-num">${num}</td>
   <td class="pm-col-check"><input type="checkbox" ${isDone ? "checked" : ""} data-task-id="${t.id}" data-done></td>
@@ -1384,6 +1440,15 @@
 		});
 	});
 	$("pm-mode-local").checked = true;
+
+	// ——— Show archived (sync mode) ———
+	const showArchivedEl = document.getElementById("pm-show-archived");
+	if (showArchivedEl) {
+		showArchivedEl.addEventListener("change", () => {
+			showArchived = showArchivedEl.checked;
+			render();
+		});
+	}
 
 	// ——— New project ———
 	$("pm-new-project").addEventListener("click", () => {

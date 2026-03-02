@@ -9,6 +9,7 @@
   <style>
     .pm-login { max-width: 20rem; margin: 4rem auto; }
     .pm-login h1 { font-size: 1.25rem; margin-bottom: 1rem; }
+    .pm-login input[type="email"],
     .pm-login input[type="password"] { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--pm-border); border-radius: 6px; background: var(--pm-surface); color: var(--pm-text); font-size: 1rem; margin-bottom: 1rem; }
     .pm-login button { width: 100%; padding: 0.5rem 0.75rem; background: var(--pm-accent); color: #fff; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; }
     .pm-login .error { color: #ef4444; font-size: 0.875rem; margin-top: 0.5rem; }
@@ -36,6 +37,10 @@
     .pm-project-card:hover { border-color: var(--pm-accent); }
     .pm-project-card h3 { font-size: 1rem; margin-bottom: 0.25rem; }
     .pm-project-card p { font-size: 0.875rem; color: var(--pm-muted); }
+    .pm-show-archived-wrap { margin-bottom: 0.75rem; font-size: 0.875rem; color: var(--pm-muted); }
+    .pm-show-archived-wrap label { cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; }
+    .pm-project-card-actions { display: flex; gap: 0.35rem; margin-top: 0.5rem; }
+    .pm-project-card-actions .pm-btn { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
     .pm-detail { max-width: 42rem; }
     .pm-detail.pm-gantt-active { max-width: 64rem; }
     .pm-detail h2 { font-size: 1.125rem; margin-bottom: 1rem; }
@@ -208,10 +213,10 @@
     .pm-deps-type-select { padding: 0.4rem 0.5rem; border: 1px solid var(--pm-border); border-radius: 4px; background: var(--pm-bg); color: var(--pm-text); font-size: 0.875rem; }
     .pm-deps-empty { color: var(--pm-muted); font-style: italic; }
     .pm-list-table .pm-col-progress { width: 4.5rem; text-align: center; }
-    .pm-list-progress { font-size: 0.75rem; color: var(--pm-muted); }
-    .pm-list-progress-bar { display: inline-block; width: 2.5rem; height: 4px; background: var(--pm-border); border-radius: 2px; overflow: hidden; vertical-align: middle; margin-right: 0.25rem; }
-    .pm-list-progress-bar-fill { height: 100%; background: var(--pm-accent); border-radius: 2px; }
-    .pm-list-progress-pct { font-weight: 600; margin-left: 0.25rem; }
+    .pm-list-progress { font-size: 0.75rem; color: var(--pm-muted); display: inline-flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+    .pm-list-progress-bar { display: block; width: 4rem; height: 6px; background: var(--pm-border); border-radius: 3px; overflow: hidden; }
+    .pm-list-progress-bar-fill { height: 100%; background: var(--pm-accent); border-radius: 3px; }
+    .pm-list-progress-pct { font-weight: 600; font-size: 0.7rem; line-height: 1; }
     /* Gantt view */
     .pm-gantt-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
     .pm-gantt-chart { overflow-x: auto; overflow-y: auto; max-height: 32rem; border: 1px solid var(--pm-border); border-radius: 8px; background: var(--pm-surface); scroll-behavior: smooth; }
@@ -325,6 +330,9 @@
     <main id="pm-main">
       <p id="pm-loading" class="pm-loading" style="display: none;">Loading…</p>
       <div id="pm-list-view">
+        <div id="pm-show-archived-wrap" class="pm-show-archived-wrap" style="display: none;">
+          <label><input type="checkbox" id="pm-show-archived" name="pm-show-archived"> Show archived</label>
+        </div>
         <div class="pm-projects" id="pm-project-list"></div>
         <p id="pm-no-projects" class="pm-empty" style="display: none;">No projects yet. Create one to start.</p>
       </div>

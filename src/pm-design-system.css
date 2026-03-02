@@ -457,6 +457,7 @@
 }
 
 .pm-root input[type="text"],
+.pm-root input[type="email"],
 .pm-root input[type="password"],
 .pm-root input[type="date"],
 .pm-root input[type="number"],

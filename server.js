@@ -1107,6 +1107,27 @@ async function handlePmNotifyAssignment(body) {
 	return { success: true };
 }
 
+async function handlePmArchiveProject(projectId) {
+	if (!dbPool) return { error: "Database not available." };
+	const r = await dbPool.query("UPDATE pm_projects SET is_archived = true, updated_at = NOW() WHERE id = $1 RETURNING id", [projectId]);
+	if (r.rows.length === 0) return { error: "Project not found.", status: 404 };
+	return { success: true };
+}
+
+async function handlePmUnarchiveProject(projectId) {
+	if (!dbPool) return { error: "Database not available." };
+	const r = await dbPool.query("UPDATE pm_projects SET is_archived = false, updated_at = NOW() WHERE id = $1 RETURNING id", [projectId]);
+	if (r.rows.length === 0) return { error: "Project not found.", status: 404 };
+	return { success: true };
+}
+
+async function handlePmDeleteProject(projectId) {
+	if (!dbPool) return { error: "Database not available." };
+	const r = await dbPool.query("DELETE FROM pm_projects WHERE id = $1 RETURNING id", [projectId]);
+	if (r.rows.length === 0) return { error: "Project not found.", status: 404 };
+	return { success: true };
+}
+
 // ——— Live: WebSocket for location sharing + ephemeral chat (5 min) ———
 const CHAT_TTL_MS = 5 * 60 * 1000;
 const CHAT_RATE_MS = 2000;
@@ -1342,7 +1363,7 @@ const server = http.createServer(async (req, res) => {
 	// PM: password-protected project management API
 	if (pathname.startsWith("/api/pm/")) {
 		const origin = req.headers.origin;
-		const cors = { "Access-Control-Allow-Origin": origin || "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization, X-PM-Token" };
+		const cors = { "Access-Control-Allow-Origin": origin || "*", "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization, X-PM-Token" };
 		if (method === "OPTIONS") {
 			res.writeHead(204, { ...cors, "Access-Control-Max-Age": "86400" });
 			res.end();
@@ -1442,6 +1463,27 @@ const server = http.createServer(async (req, res) => {
 			try { body = await collectBody(req); } catch { jsonResponse(res, 500, { error: "Request failed." }, cors); return; }
 			const result = await handlePmNotifyAssignment(body);
 			if (result.error) jsonResponse(res, result.status === 400 ? 400 : 500, { error: result.error }, cors);
+			else jsonResponse(res, 200, result, cors);
+			return;
+		}
+		const archiveMatch = pathname.match(/^\/api\/pm\/projects\/([^/]+)\/archive$/);
+		if (archiveMatch && method === "POST") {
+			const result = await handlePmArchiveProject(archiveMatch[1]);
+			if (result.error) jsonResponse(res, result.status === 404 ? 404 : 500, { error: result.error }, cors);
+			else jsonResponse(res, 200, result, cors);
+			return;
+		}
+		const unarchiveMatch = pathname.match(/^\/api\/pm\/projects\/([^/]+)\/unarchive$/);
+		if (unarchiveMatch && method === "POST") {
+			const result = await handlePmUnarchiveProject(unarchiveMatch[1]);
+			if (result.error) jsonResponse(res, result.status === 404 ? 404 : 500, { error: result.error }, cors);
+			else jsonResponse(res, 200, result, cors);
+			return;
+		}
+		const deleteProjMatch = pathname.match(/^\/api\/pm\/projects\/([^/]+)$/);
+		if (deleteProjMatch && method === "DELETE") {
+			const result = await handlePmDeleteProject(deleteProjMatch[1]);
+			if (result.error) jsonResponse(res, result.status === 404 ? 404 : 500, { error: result.error }, cors);
 			else jsonResponse(res, 200, result, cors);
 			return;
 		}
