@@ -652,7 +652,10 @@ async function sendMailerSendEmail({ to, subject, html, text }) {
 			console.error("[mailersend] Send failed:", res.status, err);
 			return { ok: false, error: err };
 		}
-		return { ok: true };
+		const body = await res.text();
+		const messageId = res.headers.get("x-message-id");
+		console.log("[mailersend] Sent OK:", { status: res.status, messageId, to, body: body || "(empty)" });
+		return { ok: true, messageId };
 	} catch (err) {
 		console.error("[mailersend] Request failed:", err.message);
 		return { ok: false, error: err.message };
@@ -1060,13 +1063,17 @@ async function handlePmInvite(body) {
 	);
 	const baseUrl = (process.env.APP_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 	const inviteUrl = `${baseUrl}/pm.html?invite=${invToken}`;
-	await sendMailerSendEmail({
+	const mailResult = await sendMailerSendEmail({
 		to: email,
 		subject: `You're invited to "${projectName}"`,
 		html: `<p>You've been invited to collaborate on <strong>${projectName}</strong>.</p><p><a href="${inviteUrl}">Accept invitation</a></p><p>Link expires in 7 days.</p>`,
 		text: `You're invited to "${projectName}". Accept: ${inviteUrl} (expires in 7 days)`,
 	});
-	return { success: true, message: "Invitation sent." };
+	if (!mailResult.ok) {
+		console.error("[pm-invite] MailerSend failed:", mailResult.error);
+		return { success: false, message: "Invitation created but email failed to send.", mailError: mailResult.error };
+	}
+	return { success: true, message: "Invitation sent.", messageId: mailResult.messageId };
 }
 
 async function handlePmGetUsers() {
