@@ -43,6 +43,7 @@
 			comments: [],
 			activities: [],
 			taskChecklists: [],
+			projectCollaborators: [],
 		};
 	}
 
@@ -299,7 +300,8 @@
 		getWorkspace()
 			.then((w) => {
 				document.getElementById("pm-load-fail")?.remove();
-				workspace = w;
+				workspace = { ...emptyWorkspace(), ...w };
+				workspace.projectCollaborators = w.projectCollaborators || [];
 				setLoading(false);
 				updateSyncStatus();
 				render();
@@ -365,6 +367,9 @@
 			return;
 		}
 		$("pm-detail-title").textContent = project.name || "Untitled";
+		const collabs = (workspace.projectCollaborators || []).filter((c) => c.projectId === currentProjectId);
+		const collabList = $("pm-collaborators-list");
+		if (collabList) collabList.innerHTML = collabs.length ? collabs.map((c) => `<span class="pm-collab-chip" title="${escapeHtml(c.email)}">${escapeHtml(c.name || c.email)}</span>`).join("") : "";
 		const statuses = (workspace.taskStatuses || []).filter((s) => s.projectId === currentProjectId).sort((a, b) => (a.order || 0) - (b.order || 0));
 		const tasks = getFilteredTasks(currentProjectId);
 		const doneStatus = statuses.find((s) => (s.type || "").toUpperCase() === "DONE");
@@ -509,9 +514,23 @@
 		const doneId = doneStatus ? doneStatus.id : null;
 		const firstTodo = statuses.find((s) => (s.type || "").toUpperCase() !== "DONE");
 
-		let html = "";
+		const headerRow = `<tr class="pm-list-header-row">
+      <th class="pm-col-num">#</th>
+      <th class="pm-col-check">Done</th>
+      <th class="pm-col-task">Title</th>
+      <th class="pm-col-assignee">Assignee</th>
+      <th class="pm-col-type">Type</th>
+      <th class="pm-col-priority">Priority</th>
+      <th class="pm-col-point">Point</th>
+      <th class="pm-col-due">Due date</th>
+      <th class="pm-col-progress">Status %</th>
+      <th class="pm-col-actions">Actions</th>
+    </tr>`;
+
+		let html = `<table class="pm-list-table pm-list-table-unified"><thead>${headerRow}</thead><tbody>`;
 		for (const status of statuses) {
 			const statusTasks = tasks.filter((t) => t.taskStatusId === status.id).sort((a, b) => (a.order || 0) - (b.order || 0));
+			html += `<tr class="pm-list-group-header" data-status-id="${status.id}"><td colspan="10" class="pm-list-group-title" style="color:${status.color || "#888"}">${escapeHtml(status.name)}</td></tr>`;
 			const rows = statusTasks
 				.map((t, i) => {
 					const isDone = t.taskStatusId === doneId;
@@ -544,7 +563,7 @@
 					const progressHtml = subTasks.length > 0
 						? `<span class="pm-list-progress"><span class="pm-list-progress-bar"><span class="pm-list-progress-bar-fill" style="width:${pct}%"></span></span><span class="pm-list-progress-pct">${pct}%</span></span>`
 						: (pct > 0 ? `<span class="pm-list-progress"><span class="pm-list-progress-bar"><span class="pm-list-progress-bar-fill" style="width:${pct}%"></span></span><span class="pm-list-progress-pct">${pct}%</span></span>` : "—");
-					return `<tr data-task-id="${t.id}" class="pm-list-task-row" draggable="true">
+					return `<tr data-task-id="${t.id}" data-status-id="${status.id}" class="pm-list-task-row" draggable="true">
   <td class="pm-col-num">${num}</td>
   <td class="pm-col-check"><input type="checkbox" ${isDone ? "checked" : ""} data-task-id="${t.id}" data-done></td>
   <td class="pm-col-task"><span class="pm-list-edit pm-list-task-title" data-task-id="${t.id}" data-field="title" contenteditable="true">${escapeHtml(t.title || "Untitled")}</span></td>
@@ -558,27 +577,10 @@
 </tr>`;
 				})
 				.join("");
-			html += `
-<div class="pm-list-group" data-status-id="${status.id}">
-  <div class="pm-list-group-title" style="color:${status.color || "#888"}">${escapeHtml(status.name)}</div>
-  <table class="pm-list-table">
-    <thead><tr>
-      <th class="pm-col-num">#</th>
-      <th class="pm-col-check">Done</th>
-      <th class="pm-col-task">Title</th>
-      <th class="pm-col-assignee">Assignee</th>
-      <th class="pm-col-type">Type</th>
-      <th class="pm-col-priority">Priority</th>
-      <th class="pm-col-point">Point</th>
-      <th class="pm-col-due">Due date</th>
-      <th class="pm-col-progress">Status %</th>
-      <th class="pm-col-actions">Actions</th>
-    </tr></thead>
-    <tbody>${rows}</tbody>
-  </table>
-  <button type="button" class="pm-list-create-link" data-status-id="${status.id}">+ Create new task</button>
-</div>`;
+			html += rows;
+			html += `<tr class="pm-list-create-row" data-status-id="${status.id}"><td colspan="10"><button type="button" class="pm-list-create-link" data-status-id="${status.id}">+ Create new task</button></td></tr>`;
 		}
+		html += "</tbody></table>";
 		container.innerHTML = html;
 
 		container.querySelectorAll("tr.pm-list-task-row").forEach((row) => {
@@ -595,31 +597,29 @@
 			});
 			row.addEventListener("dragend", () => row.classList.remove("dragging"));
 		});
-		container.querySelectorAll(".pm-list-group").forEach((group) => {
-			group.addEventListener("dragover", (e) => {
-				e.preventDefault();
-				e.dataTransfer.dropEffect = "move";
-				group.classList.add("drag-over");
-			});
-			group.addEventListener("dragleave", () => group.classList.remove("drag-over"));
-			group.addEventListener("drop", (e) => {
-				e.preventDefault();
-				group.classList.remove("drag-over");
-				const taskId = e.dataTransfer.getData("text/plain");
-				if (!taskId) return;
-				const task = workspace.tasks.find((t) => t.id === taskId);
-				const statusId = group.dataset.statusId;
-				if (!task || !statusId || task.taskStatusId === statusId) return;
-				const oldStatus = workspace.taskStatuses.find((s) => s.id === task.taskStatusId);
-				const newStatus = workspace.taskStatuses.find((s) => s.id === statusId);
-				const statusTasks = tasks.filter((t) => t.taskStatusId === statusId).map((t) => t.order || 0);
-				const maxOrder = statusTasks.length ? Math.max(...statusTasks) : 0;
-				task.taskStatusId = statusId;
-				task.order = maxOrder + 1;
-				task.updatedAt = new Date().toISOString();
-				if (oldStatus && newStatus) appendActivity(taskId, "TASK_STATUS_CHANGED", { from: oldStatus.name, to: newStatus.name });
-				saveWorkspace(workspace);
-			});
+		const handleDrop = (e, statusId) => {
+			e.preventDefault();
+			container.querySelectorAll(".drag-over").forEach((x) => x.classList.remove("drag-over"));
+			const taskId = e.dataTransfer.getData("text/plain");
+			if (!taskId || !statusId) return;
+			const task = workspace.tasks.find((t) => t.id === taskId);
+			if (!task || task.taskStatusId === statusId) return;
+			const oldStatus = workspace.taskStatuses.find((s) => s.id === task.taskStatusId);
+			const newStatus = workspace.taskStatuses.find((s) => s.id === statusId);
+			const statusTasks = tasks.filter((t) => t.taskStatusId === statusId).map((t) => t.order || 0);
+			const maxOrder = statusTasks.length ? Math.max(...statusTasks) : 0;
+			task.taskStatusId = statusId;
+			task.order = maxOrder + 1;
+			task.updatedAt = new Date().toISOString();
+			if (oldStatus && newStatus) appendActivity(taskId, "TASK_STATUS_CHANGED", { from: oldStatus.name, to: newStatus.name });
+			saveWorkspace(workspace);
+		};
+		container.querySelectorAll(".pm-list-group-header, .pm-list-create-row, .pm-list-task-row").forEach((el) => {
+			const statusId = el.dataset.statusId;
+			if (!statusId) return;
+			el.addEventListener("dragover", (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; el.classList.add("drag-over"); });
+			el.addEventListener("dragleave", (e) => { if (!el.contains(e.relatedTarget)) el.classList.remove("drag-over"); });
+			el.addEventListener("drop", (e) => handleDrop(e, statusId));
 		});
 		container.querySelectorAll("input[data-done]").forEach((cb) => {
 			cb.addEventListener("change", () => {
@@ -641,9 +641,18 @@
 				const raw = span.textContent.trim();
 				if (field === "title") task.title = raw || "Untitled";
 				else if (field === "assigneeIds") {
+					const prevIds = getTaskAssigneeIds(task);
 					const assigneeIds = raw === "—" || !raw ? [] : raw.split(",").map((s) => s.trim()).filter(Boolean);
 					task.assigneeIds = assigneeIds;
 					task.assignee = assigneeIds[0] || "";
+					const newEmails = assigneeIds.filter((a) => a.includes("@") && !prevIds.includes(a));
+					newEmails.forEach((email) => {
+						fetch(API_BASE + "/api/pm/notify/assignment", {
+							method: "POST",
+							headers: apiHeaders(),
+							body: JSON.stringify({ taskId: task.id, taskTitle: task.title, assigneeEmail: email }),
+						}).catch(() => {});
+					});
 				} else if (field === "type") task.type = raw || "Task";
 				task.updatedAt = new Date().toISOString();
 				saveWorkspace(workspace).then(() => render());
@@ -1341,13 +1350,15 @@
 	$("pm-login-form").addEventListener("submit", (e) => {
 		e.preventDefault();
 		const form = e.target;
+		const email = (form.email && form.email.value || "").trim();
 		const password = form.password.value;
 		const errEl = $("pm-login-error");
 		errEl.style.display = "none";
+		const body = email ? { email, password } : { password };
 		fetch(API_BASE + "/api/pm/login", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ password }),
+			body: JSON.stringify(body),
 		})
 			.then((r) => r.json())
 			.then((data) => {
@@ -1628,8 +1639,118 @@
 		});
 	}
 
+	// ——— Sign up / Invite accept ———
+	if ($("pm-show-signup")) {
+		$("pm-show-signup").addEventListener("click", (e) => {
+			e.preventDefault();
+			$("pm-login")?.querySelectorAll("h1, #pm-login-form, .pm-login-signup").forEach((el) => { if (el) el.style.display = "none"; });
+			$("pm-signup-wrap").style.display = "block";
+		});
+	}
+	if ($("pm-signup-back")) {
+		$("pm-signup-back").addEventListener("click", (e) => {
+			e.preventDefault();
+			$("pm-login")?.querySelectorAll("h1, #pm-login-form, .pm-login-signup").forEach((el) => { if (el) el.style.display = ""; });
+			$("pm-signup-wrap").style.display = "none";
+		});
+	}
+	if ($("pm-signup-form")) {
+		$("pm-signup-form").addEventListener("submit", (e) => {
+			e.preventDefault();
+			const form = e.target;
+			fetch(API_BASE + "/api/pm/signup", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ email: form.email.value.trim(), password: form.password.value, name: form.name.value.trim() }),
+			})
+				.then((r) => r.json())
+				.then((data) => {
+					if (data.error) { $("pm-login-error").textContent = data.error; $("pm-login-error").style.display = "block"; return; }
+					alert(data.message || "Check your email to verify.");
+					form.reset();
+					$("pm-signup-back").click();
+				})
+				.catch(() => { $("pm-login-error").textContent = "Request failed."; $("pm-login-error").style.display = "block"; });
+		});
+	}
+	if ($("pm-invite-form")) {
+		$("pm-invite-form").addEventListener("submit", (e) => {
+			e.preventDefault();
+			if (!currentProjectId) return;
+			const email = $("pm-invite-email").value.trim();
+			if (!email) return;
+			fetch(API_BASE + "/api/pm/invite", {
+				method: "POST",
+				headers: apiHeaders(),
+				body: JSON.stringify({ email, projectId: currentProjectId }),
+			})
+				.then((r) => r.json())
+				.then((data) => {
+					if (data.error) alert(data.error);
+					else { alert("Invitation sent."); $("pm-invite-modal").style.display = "none"; $("pm-invite-email").value = ""; loadAndRender(); }
+				})
+				.catch(() => alert("Request failed."));
+		});
+	}
+	if ($("pm-invite-collab-btn")) {
+		$("pm-invite-collab-btn").addEventListener("click", () => {
+			$("pm-invite-modal").style.display = "flex";
+		});
+	}
+	if ($("pm-invite-modal-close")) {
+		$("pm-invite-modal-close").addEventListener("click", () => { $("pm-invite-modal").style.display = "none"; });
+	}
+	if ($("pm-invite-accept-form")) {
+		$("pm-invite-accept-form").addEventListener("submit", (e) => {
+			e.preventDefault();
+			const form = e.target;
+			const token = $("pm-invite-token").value;
+			if (!token) return;
+			fetch(API_BASE + "/api/pm/invite/accept", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ token, password: form.password.value, name: form.name.value.trim() }),
+			})
+				.then((r) => r.json())
+				.then((data) => {
+					if (data.error) alert(data.error);
+					else if (data.token) { setToken(data.token); $("pm-invite-accept-wrap").style.display = "none"; $("pm-login").querySelector("h1, form, .pm-login-signup").forEach((el) => { if (el) el.style.display = ""; }); showApp(); }
+				})
+				.catch(() => alert("Request failed."));
+		});
+	}
+
 	// ——— Boot ———
-	if (getToken()) {
+	const urlParams = new URLSearchParams(window.location.search);
+	const verifyToken = urlParams.get("verify");
+	const inviteToken = urlParams.get("invite");
+	if (inviteToken) {
+		$("pm-invite-token").value = inviteToken;
+		fetch(API_BASE + "/api/pm/invite/accept?token=" + encodeURIComponent(inviteToken))
+			.then((r) => r.json())
+			.then((data) => {
+				if (data.success) { setToken(data.token); showApp(); history.replaceState({}, "", window.location.pathname); return; }
+				if (data.needsPassword) {
+					$("pm-login").style.display = "block";
+					$("pm-app").style.display = "none";
+					$("pm-login")?.querySelectorAll("h1, #pm-login-form, .pm-login-signup").forEach((el) => { if (el) el.style.display = "none"; });
+					$("pm-signup-wrap").style.display = "none";
+					$("pm-invite-accept-wrap").style.display = "block";
+					$("pm-invite-accept-msg").textContent = `Set a password to join "${data.projectName || "the project"}" as ${data.email}`;
+					history.replaceState({}, "", window.location.pathname);
+				} else if (data.error) alert(data.error);
+			})
+			.catch(() => alert("Invalid invitation link."));
+	} else if (verifyToken) {
+		fetch(API_BASE + "/api/pm/verify?token=" + encodeURIComponent(verifyToken))
+			.then((r) => r.json())
+			.then((data) => {
+				alert(data.success ? data.message : data.error || "Verification failed.");
+				history.replaceState({}, "", window.location.pathname);
+				showLogin();
+			})
+			.catch(() => { alert("Verification failed."); showLogin(); });
+	} else if (getToken()) {
 		showApp();
 	} else {
 		showLogin();

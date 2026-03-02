@@ -98,6 +98,9 @@ async function initDatabase() {
 			ALTER TABLE pm_tasks ADD COLUMN IF NOT EXISTS start_date DATE;
 			ALTER TABLE pm_tasks ADD COLUMN IF NOT EXISTS assignee_ids JSONB;
 			ALTER TABLE pm_tasks ADD COLUMN IF NOT EXISTS point INTEGER;
+			ALTER TABLE pm_tasks ADD COLUMN IF NOT EXISTS blocked_by_ids JSONB;
+			ALTER TABLE pm_tasks ADD COLUMN IF NOT EXISTS blocking_ids JSONB;
+			ALTER TABLE pm_tasks ADD COLUMN IF NOT EXISTS progress INTEGER;
 			CREATE TABLE IF NOT EXISTS pm_tags (
 				id TEXT PRIMARY KEY,
 				project_id TEXT NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
@@ -137,6 +140,38 @@ async function initDatabase() {
 			CREATE INDEX IF NOT EXISTS idx_pm_comments_task ON pm_comments(task_id);
 			CREATE INDEX IF NOT EXISTS idx_pm_activities_object ON pm_activities(object_id);
 			CREATE INDEX IF NOT EXISTS idx_pm_task_checklists_task ON pm_task_checklists(task_id);
+			CREATE TABLE IF NOT EXISTS pm_users (
+				id TEXT PRIMARY KEY,
+				email VARCHAR(255) NOT NULL UNIQUE,
+				password_hash TEXT,
+				name TEXT,
+				verified_at TIMESTAMPTZ,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+			CREATE TABLE IF NOT EXISTS pm_project_collaborators (
+				id TEXT PRIMARY KEY,
+				project_id TEXT NOT NULL REFERENCES pm_projects(id) ON DELETE CASCADE,
+				user_id TEXT NOT NULL REFERENCES pm_users(id) ON DELETE CASCADE,
+				role TEXT NOT NULL DEFAULT 'member',
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				UNIQUE(project_id, user_id)
+			);
+			CREATE TABLE IF NOT EXISTS pm_invitation_tokens (
+				id TEXT PRIMARY KEY,
+				email VARCHAR(255) NOT NULL,
+				token TEXT NOT NULL UNIQUE,
+				project_id TEXT REFERENCES pm_projects(id) ON DELETE CASCADE,
+				task_id TEXT REFERENCES pm_tasks(id) ON DELETE CASCADE,
+				type TEXT NOT NULL,
+				expires_at TIMESTAMPTZ NOT NULL,
+				used_at TIMESTAMPTZ,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+			CREATE INDEX IF NOT EXISTS idx_pm_project_collaborators_project ON pm_project_collaborators(project_id);
+			CREATE INDEX IF NOT EXISTS idx_pm_project_collaborators_user ON pm_project_collaborators(user_id);
+			CREATE INDEX IF NOT EXISTS idx_pm_invitation_tokens_token ON pm_invitation_tokens(token);
+			CREATE INDEX IF NOT EXISTS idx_pm_invitation_tokens_email ON pm_invitation_tokens(email);
 		`);
 		console.log("[db] Database initialized");
 		return pool;
@@ -588,6 +623,42 @@ function collectBody(req) {
 	});
 }
 
+// ——— MailerSend ———
+async function sendMailerSendEmail({ to, subject, html, text }) {
+	const token = (process.env.MAILERSEND_API_TOKEN || "").trim();
+	if (!token) {
+		console.warn("[mailersend] MAILERSEND_API_TOKEN not set; email skipped");
+		return { ok: false, error: "Email not configured" };
+	}
+	const fromEmail = process.env.MAILERSEND_FROM_EMAIL || "noreply@yourdomain.com";
+	const fromName = process.env.MAILERSEND_FROM_NAME || "PM";
+	try {
+		const res = await fetch("https://api.mailersend.com/v1/email", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${token}`,
+			},
+			body: JSON.stringify({
+				from: { email: fromEmail, name: fromName },
+				to: [{ email: to, name: to }],
+				subject,
+				html: html || text,
+				text: text || (html ? html.replace(/<[^>]+>/g, " ").trim() : ""),
+			}),
+		});
+		if (!res.ok) {
+			const err = await res.text();
+			console.error("[mailersend] Send failed:", res.status, err);
+			return { ok: false, error: err };
+		}
+		return { ok: true };
+	} catch (err) {
+		console.error("[mailersend] Request failed:", err.message);
+		return { ok: false, error: err.message };
+	}
+}
+
 // ——— PM: password-protected project management (local or sync to DB) ———
 const PM_PASSWORD = (process.env.PM_PASSWORD || "").trim() || "test";
 const PM_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -610,6 +681,18 @@ function isPmTokenValid(token) {
 	return true;
 }
 
+function hashPassword(password) {
+	const salt = crypto.randomBytes(16).toString("hex");
+	const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+	return `${salt}:${hash}`;
+}
+function verifyPassword(password, stored) {
+	const [salt, hash] = (stored || "").split(":");
+	if (!salt || !hash) return false;
+	const computed = crypto.scryptSync(password, salt, 64).toString("hex");
+	return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(computed, "hex"));
+}
+
 async function handlePmLogin(body) {
 	let parsed;
 	try {
@@ -618,6 +701,17 @@ async function handlePmLogin(body) {
 		return { error: "Invalid JSON." };
 	}
 	const password = typeof parsed.password === "string" ? parsed.password : "";
+	const email = typeof parsed.email === "string" ? parsed.email.trim().toLowerCase() : "";
+	if (email) {
+		if (!dbPool) return { error: "User login requires database." };
+		const r = await dbPool.query("SELECT id, password_hash FROM pm_users WHERE email = $1 AND verified_at IS NOT NULL", [email]);
+		if (r.rows.length === 0) return { error: "Invalid email or password.", status: 401 };
+		const user = r.rows[0];
+		if (!verifyPassword(password, user.password_hash)) return { error: "Invalid email or password.", status: 401 };
+		const token = crypto.randomBytes(32).toString("hex");
+		pmSessions.set(token, { createdAt: Date.now(), userId: user.id });
+		return { token, userId: user.id };
+	}
 	if (password !== PM_PASSWORD) return { error: "Invalid password.", status: 401 };
 	const token = crypto.randomBytes(32).toString("hex");
 	pmSessions.set(token, { createdAt: Date.now() });
@@ -627,15 +721,16 @@ async function handlePmLogin(body) {
 async function handlePmGetWorkspace() {
 	if (!dbPool) return { error: "Database not available. Set DATABASE_URL to use sync (or check server logs if it is set)." };
 	try {
-		const [projectsRows, statusesRows, viewsRows, tasksRows, tagsRows, commentsRows, activitiesRows, checklistsRows] = await Promise.all([
+		const [projectsRows, statusesRows, viewsRows, tasksRows, tagsRows, commentsRows, activitiesRows, checklistsRows, collabRows] = await Promise.all([
 			dbPool.query("SELECT id, name, description, cover, icon, is_archived, created_at, updated_at FROM pm_projects ORDER BY updated_at DESC"),
 			dbPool.query("SELECT id, project_id, name, color, \"order\", type FROM pm_task_statuses ORDER BY project_id, \"order\""),
 			dbPool.query("SELECT id, project_id, type, name, data, \"order\" FROM pm_project_views ORDER BY project_id, \"order\""),
-			dbPool.query("SELECT id, project_id, task_status_id, title, description, due_date, start_date, \"order\", priority, assignee, assignee_ids, type, point, created_at, updated_at FROM pm_tasks ORDER BY project_id, \"order\""),
+			dbPool.query("SELECT id, project_id, task_status_id, title, description, due_date, start_date, \"order\", priority, assignee, assignee_ids, type, point, blocked_by_ids, blocking_ids, progress, created_at, updated_at FROM pm_tasks ORDER BY project_id, \"order\""),
 			dbPool.query("SELECT id, project_id, name, color FROM pm_tags ORDER BY project_id"),
 			dbPool.query("SELECT id, task_id, project_id, content, created_by, created_at, updated_at FROM pm_comments ORDER BY created_at"),
 			dbPool.query("SELECT id, object_id, object_type, type, created_by, data, created_at FROM pm_activities ORDER BY created_at"),
 			dbPool.query("SELECT id, task_id, title, \"order\", done, done_at FROM pm_task_checklists ORDER BY task_id, \"order\""),
+			dbPool.query("SELECT pc.project_id, u.id as user_id, u.email, u.name FROM pm_project_collaborators pc JOIN pm_users u ON u.id = pc.user_id"),
 		]);
 		const projects = projectsRows.rows.map((r) => ({
 			id: r.id,
@@ -677,6 +772,9 @@ async function handlePmGetWorkspace() {
 			assigneeIds: Array.isArray(r.assignee_ids) ? r.assignee_ids : (r.assignee_ids ? [r.assignee_ids] : []),
 			type: r.type ?? "Task",
 			point: r.point != null ? r.point : undefined,
+			blockedByIds: Array.isArray(r.blocked_by_ids) ? r.blocked_by_ids : [],
+			blockingIds: Array.isArray(r.blocking_ids) ? r.blocking_ids : [],
+			progress: r.progress != null ? r.progress : undefined,
 			createdAt: r.created_at,
 			updatedAt: r.updated_at,
 		}));
@@ -712,6 +810,12 @@ async function handlePmGetWorkspace() {
 			done: !!r.done,
 			doneAt: r.done_at,
 		}));
+		const projectCollaborators = (collabRows?.rows || []).map((r) => ({
+			projectId: r.project_id,
+			userId: r.user_id,
+			email: r.email,
+			name: r.name || r.email,
+		}));
 		return {
 			version: 1,
 			lastModified: new Date().toISOString(),
@@ -723,6 +827,7 @@ async function handlePmGetWorkspace() {
 			comments,
 			activities,
 			taskChecklists,
+			projectCollaborators,
 		};
 	} catch (err) {
 		console.error("[pm] Get workspace error:", err.message);
@@ -779,10 +884,12 @@ async function handlePmSyncWorkspace(body) {
 		}
 		for (const t of tasks) {
 			const assigneeIdsJson = Array.isArray(t.assigneeIds) ? JSON.stringify(t.assigneeIds) : (t.assignee ? JSON.stringify([t.assignee]) : "[]");
+			const blockedByIdsJson = Array.isArray(t.blockedByIds) ? JSON.stringify(t.blockedByIds) : "[]";
+			const blockingIdsJson = Array.isArray(t.blockingIds) ? JSON.stringify(t.blockingIds) : "[]";
 			await dbPool.query(
-				`INSERT INTO pm_tasks (id, project_id, task_status_id, title, description, due_date, start_date, "order", priority, assignee, assignee_ids, type, point, created_at, updated_at)
-				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13, COALESCE($14::timestamptz, NOW()), COALESCE($15::timestamptz, NOW()))`,
-				[t.id, t.projectId, t.taskStatusId ?? null, t.title || "", t.description ?? "", t.dueDate ?? null, t.startDate ?? null, Number(t.order) || 0, t.priority ?? "", t.assignee ?? "", assigneeIdsJson, t.type ?? "Task", t.point != null ? t.point : null, t.createdAt ?? null, t.updatedAt ?? null]
+				`INSERT INTO pm_tasks (id, project_id, task_status_id, title, description, due_date, start_date, "order", priority, assignee, assignee_ids, type, point, blocked_by_ids, blocking_ids, progress, created_at, updated_at)
+				 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13, $14::jsonb, $15::jsonb, $16, COALESCE($17::timestamptz, NOW()), COALESCE($18::timestamptz, NOW()))`,
+				[t.id, t.projectId, t.taskStatusId ?? null, t.title || "", t.description ?? "", t.dueDate ?? null, t.startDate ?? null, Number(t.order) || 0, t.priority ?? "", t.assignee ?? "", assigneeIdsJson, t.type ?? "Task", t.point != null ? t.point : null, blockedByIdsJson, blockingIdsJson, t.progress != null ? t.progress : null, t.createdAt ?? null, t.updatedAt ?? null]
 			);
 		}
 		for (const c of comments) {
@@ -819,6 +926,178 @@ async function handlePmSyncWorkspace(body) {
 		console.error("[pm] Sync workspace error:", err.message);
 		return { error: "Failed to sync workspace." };
 	}
+}
+
+function id() {
+	return crypto.randomUUID ? crypto.randomUUID() : "x" + Math.random().toString(36).slice(2, 11);
+}
+
+async function handlePmSignup(body) {
+	if (!dbPool) return { error: "Database not available." };
+	let parsed;
+	try { parsed = JSON.parse(body); } catch { return { error: "Invalid JSON." }; }
+	const email = (parsed.email || "").trim().toLowerCase();
+	const password = typeof parsed.password === "string" ? parsed.password : "";
+	const name = (parsed.name || "").trim();
+	if (!email || !email.includes("@")) return { error: "Valid email required.", status: 400 };
+	if (password.length < 6) return { error: "Password must be at least 6 characters.", status: 400 };
+	const existing = await dbPool.query("SELECT id FROM pm_users WHERE email = $1", [email]);
+	if (existing.rows.length > 0) return { error: "Email already registered. Try logging in.", status: 400 };
+	const userId = id();
+	const passwordHash = hashPassword(password);
+	await dbPool.query(
+		"INSERT INTO pm_users (id, email, password_hash, name) VALUES ($1, $2, $3, $4)",
+		[userId, email, passwordHash, name || email.split("@")[0]]
+	);
+	const verifyToken = crypto.randomBytes(32).toString("hex");
+	const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+	await dbPool.query(
+		"INSERT INTO pm_invitation_tokens (id, email, token, type, expires_at) VALUES ($1, $2, $3, 'signup', $4)",
+		[id(), email, verifyToken, expiresAt]
+	);
+	const baseUrl = (process.env.APP_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
+	const verifyUrl = `${baseUrl}/pm.html?verify=${verifyToken}`;
+	await sendMailerSendEmail({
+		to: email,
+		subject: "Verify your PM account",
+		html: `<p>Click to verify your email:</p><p><a href="${verifyUrl}">${verifyUrl}</a></p><p>Link expires in 24 hours.</p>`,
+		text: `Verify your email: ${verifyUrl} (expires in 24 hours)`,
+	});
+	return { success: true, message: "Check your email to verify your account." };
+}
+
+async function handlePmVerify(token) {
+	if (!dbPool) return { error: "Database not available." };
+	if (!token) return { error: "Token required." };
+	const r = await dbPool.query(
+		"SELECT id, email FROM pm_invitation_tokens WHERE token = $1 AND type = 'signup' AND used_at IS NULL AND expires_at > NOW()",
+		[token]
+	);
+	if (r.rows.length === 0) return { error: "Invalid or expired verification link." };
+	const row = r.rows[0];
+	await dbPool.query("UPDATE pm_invitation_tokens SET used_at = NOW() WHERE id = $1", [row.id]);
+	await dbPool.query("UPDATE pm_users SET verified_at = NOW(), updated_at = NOW() WHERE email = $1", [row.email]);
+	return { success: true, message: "Email verified. You can now log in." };
+}
+
+async function handlePmInviteAcceptGet(token) {
+	if (!dbPool) return { error: "Database not available." };
+	if (!token) return { error: "Token required." };
+	const r = await dbPool.query(
+		"SELECT it.*, p.name as project_name FROM pm_invitation_tokens it LEFT JOIN pm_projects p ON p.id = it.project_id WHERE it.token = $1 AND it.type = 'project_invite' AND it.used_at IS NULL AND it.expires_at > NOW()",
+		[token]
+	);
+	if (r.rows.length === 0) return { error: "Invalid or expired invitation link." };
+	const row = r.rows[0];
+	const user = await dbPool.query("SELECT id, verified_at FROM pm_users WHERE email = $1", [row.email]);
+	if (user.rows.length > 0 && user.rows[0].verified_at) {
+		await dbPool.query("UPDATE pm_invitation_tokens SET used_at = NOW() WHERE id = $1", [row.id]);
+		const uid = user.rows[0].id;
+		await dbPool.query(
+			"INSERT INTO pm_project_collaborators (id, project_id, user_id, role) VALUES ($1, $2, $3, 'member') ON CONFLICT (project_id, user_id) DO NOTHING",
+			[id(), row.project_id, uid]
+		);
+		const sessionToken = crypto.randomBytes(32).toString("hex");
+		pmSessions.set(sessionToken, { createdAt: Date.now(), userId: uid });
+		return { success: true, token: sessionToken, userId: uid, message: "You've been added to the project.", projectName: row.project_name };
+	}
+	return { needsPassword: true, email: row.email, projectName: row.project_name, token };
+}
+
+async function handlePmInviteAcceptPost(body) {
+	if (!dbPool) return { error: "Database not available." };
+	let parsed;
+	try { parsed = JSON.parse(body); } catch { return { error: "Invalid JSON." }; }
+	const token = (parsed.token || "").trim();
+	const password = typeof parsed.password === "string" ? parsed.password : "";
+	const name = (parsed.name || "").trim();
+	if (!token) return { error: "Token required.", status: 400 };
+	if (password.length < 6) return { error: "Password must be at least 6 characters.", status: 400 };
+	const r = await dbPool.query(
+		"SELECT * FROM pm_invitation_tokens WHERE token = $1 AND type = 'project_invite' AND used_at IS NULL AND expires_at > NOW()",
+		[token]
+	);
+	if (r.rows.length === 0) return { error: "Invalid or expired invitation link.", status: 400 };
+	const row = r.rows[0];
+	let userId;
+	const existing = await dbPool.query("SELECT id FROM pm_users WHERE email = $1", [row.email]);
+	if (existing.rows.length > 0) {
+		userId = existing.rows[0].id;
+		await dbPool.query("UPDATE pm_users SET password_hash = $1, verified_at = COALESCE(verified_at, NOW()), updated_at = NOW() WHERE id = $2", [hashPassword(password), userId]);
+	} else {
+		userId = id();
+		await dbPool.query(
+			"INSERT INTO pm_users (id, email, password_hash, name, verified_at) VALUES ($1, $2, $3, $4, NOW())",
+			[userId, row.email, hashPassword(password), name || row.email.split("@")[0]]
+		);
+	}
+	await dbPool.query("UPDATE pm_invitation_tokens SET used_at = NOW() WHERE id = $1", [row.id]);
+	await dbPool.query(
+		"INSERT INTO pm_project_collaborators (id, project_id, user_id, role) VALUES ($1, $2, $3, 'member') ON CONFLICT (project_id, user_id) DO NOTHING",
+		[id(), row.project_id, userId]
+	);
+	const sessionToken = crypto.randomBytes(32).toString("hex");
+	pmSessions.set(sessionToken, { createdAt: Date.now(), userId });
+	return { success: true, token: sessionToken, userId };
+}
+
+async function handlePmInvite(body) {
+	if (!dbPool) return { error: "Database not available." };
+	let parsed;
+	try { parsed = JSON.parse(body); } catch { return { error: "Invalid JSON." }; }
+	const email = (parsed.email || "").trim().toLowerCase();
+	const projectId = (parsed.projectId || "").trim();
+	if (!email || !email.includes("@")) return { error: "Valid email required.", status: 400 };
+	if (!projectId) return { error: "Project ID required.", status: 400 };
+	const proj = await dbPool.query("SELECT id, name FROM pm_projects WHERE id = $1", [projectId]);
+	if (proj.rows.length === 0) return { error: "Project not found.", status: 400 };
+	const projectName = proj.rows[0].name;
+	const invToken = crypto.randomBytes(32).toString("hex");
+	const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+	await dbPool.query(
+		"INSERT INTO pm_invitation_tokens (id, email, token, project_id, type, expires_at) VALUES ($1, $2, $3, $4, 'project_invite', $5)",
+		[id(), email, invToken, projectId, expiresAt]
+	);
+	const baseUrl = (process.env.APP_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
+	const inviteUrl = `${baseUrl}/pm.html?invite=${invToken}`;
+	await sendMailerSendEmail({
+		to: email,
+		subject: `You're invited to "${projectName}"`,
+		html: `<p>You've been invited to collaborate on <strong>${projectName}</strong>.</p><p><a href="${inviteUrl}">Accept invitation</a></p><p>Link expires in 7 days.</p>`,
+		text: `You're invited to "${projectName}". Accept: ${inviteUrl} (expires in 7 days)`,
+	});
+	return { success: true, message: "Invitation sent." };
+}
+
+async function handlePmGetUsers() {
+	if (!dbPool) return { error: "Database not available." };
+	const r = await dbPool.query("SELECT id, email, name FROM pm_users WHERE verified_at IS NOT NULL ORDER BY name, email");
+	return { users: r.rows.map((u) => ({ id: u.id, email: u.email, name: u.name || u.email })) };
+}
+
+async function handlePmGetCollaborators(projectId) {
+	if (!dbPool) return { error: "Database not available." };
+	const r = await dbPool.query(
+		"SELECT u.id, u.email, u.name, pc.role FROM pm_project_collaborators pc JOIN pm_users u ON u.id = pc.user_id WHERE pc.project_id = $1",
+		[projectId]
+	);
+	return { collaborators: r.rows.map((c) => ({ id: c.id, email: c.email, name: c.name || c.email, role: c.role })) };
+}
+
+async function handlePmNotifyAssignment(body) {
+	let parsed;
+	try { parsed = JSON.parse(body); } catch { return { error: "Invalid JSON." }; }
+	const { taskId, taskTitle, assigneeEmail } = parsed;
+	if (!assigneeEmail || !assigneeEmail.includes("@")) return { error: "Valid assignee email required.", status: 400 };
+	const baseUrl = (process.env.APP_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
+	const taskUrl = `${baseUrl}/pm.html`;
+	await sendMailerSendEmail({
+		to: assigneeEmail,
+		subject: `You've been assigned to a task${taskTitle ? `: ${taskTitle}` : ""}`,
+		html: `<p>You've been assigned to a task${taskTitle ? `: <strong>${taskTitle}</strong>` : ""}.</p><p><a href="${taskUrl}">Open PM</a></p>`,
+		text: `You've been assigned to a task${taskTitle ? `: ${taskTitle}` : ""}. Open: ${taskUrl}`,
+	});
+	return { success: true };
 }
 
 // ——— Live: WebSocket for location sharing + ephemeral chat (5 min) ———
@@ -1064,18 +1343,40 @@ const server = http.createServer(async (req, res) => {
 		}
 		if (pathname === "/api/pm/login" && method === "POST") {
 			let body;
-			try {
-				body = await collectBody(req);
-			} catch {
-				jsonResponse(res, 500, { error: "Request failed." }, cors);
-				return;
-			}
+			try { body = await collectBody(req); } catch { jsonResponse(res, 500, { error: "Request failed." }, cors); return; }
 			const result = await handlePmLogin(body);
-			if (result.error) {
-				jsonResponse(res, result.status === 401 ? 401 : 400, { error: result.error }, cors);
-			} else {
-				jsonResponse(res, 200, { token: result.token }, cors);
-			}
+			if (result.error) jsonResponse(res, result.status === 401 ? 401 : 400, { error: result.error }, cors);
+			else jsonResponse(res, 200, { token: result.token, userId: result.userId }, cors);
+			return;
+		}
+		if (pathname === "/api/pm/signup" && method === "POST") {
+			let body;
+			try { body = await collectBody(req); } catch { jsonResponse(res, 500, { error: "Request failed." }, cors); return; }
+			const result = await handlePmSignup(body);
+			if (result.error) jsonResponse(res, result.status === 400 ? 400 : 500, { error: result.error }, cors);
+			else jsonResponse(res, 200, result, cors);
+			return;
+		}
+		if (pathname === "/api/pm/verify" && method === "GET") {
+			const token = url.searchParams.get("token") || "";
+			const result = await handlePmVerify(token);
+			if (result.error) jsonResponse(res, 400, { error: result.error }, cors);
+			else jsonResponse(res, 200, result, cors);
+			return;
+		}
+		if (pathname === "/api/pm/invite/accept" && method === "GET") {
+			const token = url.searchParams.get("token") || "";
+			const result = await handlePmInviteAcceptGet(token);
+			if (result.error) jsonResponse(res, 400, { error: result.error }, cors);
+			else jsonResponse(res, 200, result, cors);
+			return;
+		}
+		if (pathname === "/api/pm/invite/accept" && method === "POST") {
+			let body;
+			try { body = await collectBody(req); } catch { jsonResponse(res, 500, { error: "Request failed." }, cors); return; }
+			const result = await handlePmInviteAcceptPost(body);
+			if (result.error) jsonResponse(res, result.status === 400 ? 400 : 500, { error: result.error }, cors);
+			else jsonResponse(res, 200, result, cors);
 			return;
 		}
 		const token = getPmToken(req);
@@ -1106,6 +1407,35 @@ const server = http.createServer(async (req, res) => {
 			} else {
 				jsonResponse(res, 200, result, cors);
 			}
+			return;
+		}
+		if (pathname === "/api/pm/invite" && method === "POST") {
+			let body;
+			try { body = await collectBody(req); } catch { jsonResponse(res, 500, { error: "Request failed." }, cors); return; }
+			const result = await handlePmInvite(body);
+			if (result.error) jsonResponse(res, result.status === 400 ? 400 : 500, { error: result.error }, cors);
+			else jsonResponse(res, 200, result, cors);
+			return;
+		}
+		const collabMatch = pathname.match(/^\/api\/pm\/projects\/([^/]+)\/collaborators$/);
+		if (collabMatch && method === "GET") {
+			const result = await handlePmGetCollaborators(collabMatch[1]);
+			if (result.error) jsonResponse(res, 500, { error: result.error }, cors);
+			else jsonResponse(res, 200, result, cors);
+			return;
+		}
+		if (pathname === "/api/pm/users" && method === "GET") {
+			const result = await handlePmGetUsers();
+			if (result.error) jsonResponse(res, 500, { error: result.error }, cors);
+			else jsonResponse(res, 200, result, cors);
+			return;
+		}
+		if (pathname === "/api/pm/notify/assignment" && method === "POST") {
+			let body;
+			try { body = await collectBody(req); } catch { jsonResponse(res, 500, { error: "Request failed." }, cors); return; }
+			const result = await handlePmNotifyAssignment(body);
+			if (result.error) jsonResponse(res, result.status === 400 ? 400 : 500, { error: result.error }, cors);
+			else jsonResponse(res, 200, result, cors);
 			return;
 		}
 		jsonResponse(res, 404, { error: "Not found." }, cors);

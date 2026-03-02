@@ -12,6 +12,16 @@
     .pm-login input[type="password"] { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--pm-border); border-radius: 6px; background: var(--pm-surface); color: var(--pm-text); font-size: 1rem; margin-bottom: 1rem; }
     .pm-login button { width: 100%; padding: 0.5rem 0.75rem; background: var(--pm-accent); color: #fff; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; }
     .pm-login .error { color: #ef4444; font-size: 0.875rem; margin-top: 0.5rem; }
+    .pm-login-signup { margin-top: 0.75rem; font-size: 0.875rem; }
+    .pm-login-signup a { color: var(--pm-accent); }
+    .pm-signup-wrap input, .pm-invite-accept-wrap input { width: 100%; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; border: 1px solid var(--pm-border); border-radius: 6px; background: var(--pm-surface); color: var(--pm-text); }
+    .pm-detail-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+    .pm-detail-header h2 { margin: 0; }
+    .pm-collaborators-wrap { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .pm-collab-chip { font-size: 0.75rem; padding: 0.2rem 0.5rem; background: var(--pm-border); border-radius: 999px; }
+    .pm-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 150; display: flex; align-items: center; justify-content: center; }
+    .pm-modal-inner { background: var(--pm-surface); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--pm-border); min-width: 20rem; }
+    .pm-modal-inner input { width: 100%; padding: 0.5rem; margin-bottom: 0.75rem; }
     .pm-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
     .pm-header h1 { font-size: 1.25rem; font-weight: 600; }
     .pm-mode { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--pm-muted); }
@@ -44,6 +54,10 @@
     .pm-view-toggle button.active { background: var(--pm-accent); border-color: var(--pm-accent); color: #fff; }
     .pm-list-group { margin-bottom: 1.5rem; transition: background 0.15s, border-color 0.15s; border-radius: 8px; border: 1px solid transparent; }
     .pm-list-group.drag-over { background: rgba(59, 130, 246, 0.12); border-color: var(--pm-accent); }
+    .pm-list-table-unified { margin-bottom: 0; }
+    .pm-list-group-header td { padding: 0.5rem 0.75rem; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; background: rgba(0,0,0,0.03); border-bottom: 1px solid var(--pm-border); }
+    .pm-root[data-mode="dark"] .pm-list-group-header td { background: rgba(255,255,255,0.03); }
+    .pm-list-create-row td { padding: 0.25rem 0.75rem; border-bottom: 1px solid var(--pm-border); }
     .pm-list-group-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--pm-muted); margin-bottom: 0.5rem; padding: 0 0.5rem; }
     .pm-list-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
     .pm-list-table th, .pm-list-table td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--pm-border); vertical-align: middle; }
@@ -258,10 +272,32 @@
   <div id="pm-login" class="pm-login" style="display: none;">
     <h1>Sign in</h1>
     <form id="pm-login-form">
+      <input type="email" name="email" placeholder="Email (optional, for user accounts)" autocomplete="email">
       <input type="password" name="password" placeholder="Password" autocomplete="current-password" required>
       <button type="submit">Sign in</button>
     </form>
+    <p class="pm-login-signup"><a href="#" id="pm-show-signup">Sign up with email</a></p>
     <p id="pm-login-error" class="error" style="display: none;"></p>
+    <div id="pm-signup-wrap" class="pm-signup-wrap" style="display: none;">
+      <h2>Sign up</h2>
+      <form id="pm-signup-form">
+        <input type="email" name="email" placeholder="Email" required>
+        <input type="password" name="password" placeholder="Password (min 6 chars)" minlength="6" required>
+        <input type="text" name="name" placeholder="Name (optional)">
+        <button type="submit">Sign up</button>
+      </form>
+      <p><a href="#" id="pm-signup-back">← Back to sign in</a></p>
+    </div>
+    <div id="pm-invite-accept-wrap" class="pm-invite-accept-wrap" style="display: none;">
+      <h2>Set up your account</h2>
+      <p id="pm-invite-accept-msg"></p>
+      <form id="pm-invite-accept-form">
+        <input type="password" name="password" placeholder="Password (min 6 chars)" minlength="6" required>
+        <input type="text" name="name" placeholder="Name (optional)">
+        <input type="hidden" name="token" id="pm-invite-token">
+        <button type="submit">Join project</button>
+      </form>
+    </div>
   </div>
   <div id="pm-app" style="display: none;">
     <header class="pm-header">
@@ -291,7 +327,23 @@
       </div>
       <div id="pm-detail-view" class="pm-detail" style="display: none;">
         <button type="button" class="pm-btn" id="pm-back">← Back</button>
-        <h2 id="pm-detail-title"></h2>
+        <div class="pm-detail-header">
+          <h2 id="pm-detail-title"></h2>
+          <div class="pm-collaborators-wrap">
+            <button type="button" class="pm-btn" id="pm-invite-collab-btn" title="Invite collaborators">+ Invite</button>
+            <div id="pm-collaborators-list" class="pm-collaborators-list"></div>
+          </div>
+        </div>
+        <div id="pm-invite-modal" class="pm-modal" style="display: none;">
+          <div class="pm-modal-inner">
+            <h3>Invite to project</h3>
+            <form id="pm-invite-form">
+              <input type="email" id="pm-invite-email" placeholder="Email address" required>
+              <button type="submit" class="pm-btn primary">Send invitation</button>
+            </form>
+            <button type="button" class="pm-btn pm-modal-close" id="pm-invite-modal-close">Cancel</button>
+          </div>
+        </div>
         <div class="pm-view-toggle" style="align-items: center;">
           <button type="button" id="pm-view-list" class="pm-view-btn">List</button>
           <button type="button" id="pm-view-board" class="pm-view-btn active">Board</button>
