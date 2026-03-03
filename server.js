@@ -1497,7 +1497,9 @@ const server = http.createServer(async (req, res) => {
 		return;
 	}
 
-	const status = await serveStatic(res, pathname, method);
+	// Clean URLs: /projects -> /projects.html
+	const pathToServe = pathname === "/projects" ? "/projects.html" : pathname;
+	const status = await serveStatic(res, pathToServe, method);
 	if (status !== 200) {
 		const code = status === 404 ? 404 : status === 403 ? 403 : 500;
 		const msg = code === 404 ? "Not Found" : code === 403 ? "Forbidden" : "Internal Server Error";

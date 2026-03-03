@@ -790,8 +790,8 @@ barba.hooks.after((data) => {
 	lenis.resize();
 	runPageInit();
 
-	// Body class for work page (header max-width 50% when scrolled)
-	document.body.classList.remove("page-is-work");
+	// Body class for work/projects pages (header styling)
+	document.body.classList.remove("page-is-work", "page-is-projects");
 	if (data.next.namespace === "work") {
 		document.body.classList.add("page-is-work");
 		// TOC is only in work.html; when we arrive via Barba the script didn’t run, so generate it
@@ -802,6 +802,9 @@ barba.hooks.after((data) => {
 		data.next.container.style.opacity = "1";
 		// Smooth scroll-linked header pinch (100% → 50% by scroll %)
 		requestAnimationFrame(() => initWorkHeaderPinch());
+	}
+	if (data.next.namespace === "projects") {
+		document.body.classList.add("page-is-projects");
 	}
 
 	// When navigating back to home (e.g. from About), run the same intro as initial load
@@ -833,5 +836,8 @@ window.addEventListener("load", () => {
 	if (document.querySelector("[data-barba-namespace='work']")) {
 		document.body.classList.add("page-is-work");
 		initWorkHeaderPinch();
+	}
+	if (document.querySelector("[data-barba-namespace='projects']")) {
+		document.body.classList.add("page-is-projects");
 	}
 });

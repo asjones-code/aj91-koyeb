@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Projects — AJ91</title>
+  <script>
+    (function () {
+      function setVh() {
+        var v = window.visualViewport;
+        var vh = (v && v.height) ? v.height : window.innerHeight;
+        document.documentElement.style.setProperty('--vh', vh + 'px');
+      }
+      setVh();
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', setVh);
+        window.visualViewport.addEventListener('scroll', setVh);
+      }
+      window.addEventListener('resize', setVh);
+      window.addEventListener('orientationchange', function () { setTimeout(setVh, 100); });
+      document.addEventListener('DOMContentLoaded', setVh);
+      setTimeout(setVh, 500);
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
+    crossorigin="anonymous">
+</head>
+
+<body data-barba="wrapper" class="page-is-projects">
+  <div class="container">
+    <header class="header">
+      <div class="header-inner">
+        <a href="/" class="header-logo logo word font-kihim">aj91</a>
+        <nav class="header-nav navigation" aria-label="Main">
+          <ul>
+            <li><a class="font-mono" href="https://www.linkedin.com/in/asjones91/" aria-label="LinkedIn"><i
+                  class="fa-brands fa-linkedin" aria-hidden="true"></i><span class="nav-text">Linkedin</span></a></li>
+            <li><a class="font-mono" href="https://aj91.substack.com/" aria-label="Substack"><i
+                  class="fa-solid fa-newspaper" aria-hidden="true"></i><span class="nav-text">Substack</span></a></li>
+          </ul>
+        </nav>
+        <button class="menuToggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="menu-panel"
+          aria-label="Toggle menu">
+          <div class="hamburger">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="cross">
+            <span></span>
+            <span></span>
+          </div>
+        </button>
+      </div>
+    </header>
+
+    <main data-barba="container" data-barba-namespace="projects">
+      <div class="page-projects layout-morph">
+        <div class="page-projects-content">
+          <a href="/" class="page-projects-back font-mono">← Back</a>
+          <header class="page-projects-header">
+            <h1 class="page-projects-title">A sample of my work</h1>
+            <p class="page-projects-subtitle">From startups to enterprise — implementations, product, and ventures.</p>
+          </header>
+
+          <div class="page-projects-grid">
+            <article class="page-projects-card">
+              <h3 class="page-projects-card-title">Goodgrow</h3>
+              <p class="page-projects-card-desc">A distributor of ethically sourced natural goods — connecting artisan producers to global markets in ways that strengthen local economies and build community.</p>
+              <div class="page-projects-card-tags">
+                <span>Venture</span>
+                <span>Product</span>
+                <span>Strategy</span>
+              </div>
+              <a href="work.html#goodgrow" class="page-projects-card-link font-mono">View case study →</a>
+            </article>
+
+            <article class="page-projects-card">
+              <h3 class="page-projects-card-title">Assembled</h3>
+              <p class="page-projects-card-desc">Getting AI-driven workflows into the hands of ops so they can automate a big chunk of tickets instead of triaging by hand. Built an internal app that pulls data from Salesforce, Zendesk, and other CRMs into one place.</p>
+              <div class="page-projects-card-tags">
+                <span>Implementation</span>
+                <span>Engineering</span>
+              </div>
+              <a href="work.html#assembled" class="page-projects-card-link font-mono">View case study →</a>
+            </article>
+
+            <article class="page-projects-card">
+              <h3 class="page-projects-card-title">Gotham Greens</h3>
+              <p class="page-projects-card-desc">Led analytics, ops, and finance for controlled-environment greenhouses. Wired labor data from HRIS into the data warehouse so COGS and efficiency could be tracked properly across sites.</p>
+              <div class="page-projects-card-tags">
+                <span>IT Project Management</span>
+                <span>Data</span>
+              </div>
+              <a href="work.html#gotham" class="page-projects-card-link font-mono">View case study →</a>
+            </article>
+
+            <article class="page-projects-card">
+              <h3 class="page-projects-card-title">Meta</h3>
+              <p class="page-projects-card-desc">Led implementations of omni-channel CRM for commercial and enterprise clients. Deployed Salesforce Apex to automate project kickoff and tracking. Focus on Spanish-speaking enterprise.</p>
+              <div class="page-projects-card-tags">
+                <span>Implementation</span>
+                <span>CRM</span>
+              </div>
+              <a href="work.html#meta" class="page-projects-card-link font-mono">View case study →</a>
+            </article>
+
+            <article class="page-projects-card">
+              <h3 class="page-projects-card-title">Barrel</h3>
+              <p class="page-projects-card-desc">Shaped technical approaches for clients from small sites to six-figure engagements. For an FDIC-chartered bank: used SQL to clean and validate a large dataset of online account applications.</p>
+              <div class="page-projects-card-tags">
+                <span>Solutions Architecture</span>
+                <span>Data</span>
+              </div>
+              <a href="work.html#barrel" class="page-projects-card-link font-mono">View case study →</a>
+            </article>
+
+            <article class="page-projects-card">
+              <h3 class="page-projects-card-title">Sendwave</h3>
+              <p class="page-projects-card-desc">Ran growth: onboarding new users, tuning the funnel, influencer partnerships. Grew users and revenue sharply — Sendwave later joined WorldRemit (Zepz) in a large acquisition.</p>
+              <div class="page-projects-card-tags">
+                <span>Growth</span>
+                <span>Product</span>
+              </div>
+              <a href="work.html#sendwave" class="page-projects-card-link font-mono">View case study →</a>
+            </article>
+
+            <article class="page-projects-card">
+              <h3 class="page-projects-card-title">Rootwise</h3>
+              <p class="page-projects-card-desc">Real-time monitoring and analysis in the Global South — crises, political risk. Reporting and analysis so field teams and decision-makers could see what was happening and adjust quickly.</p>
+              <div class="page-projects-card-tags">
+                <span>Research</span>
+                <span>Analysis</span>
+              </div>
+              <a href="work.html#rootwise" class="page-projects-card-link font-mono">View case study →</a>
+            </article>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script type="module" src="loader.js"></script>
+</body>
+
+</html>

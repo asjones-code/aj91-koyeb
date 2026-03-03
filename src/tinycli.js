@@ -29,7 +29,7 @@ function extractVisibleText(html) {
 
 async function loadSiteContent() {
 	if (loadSiteContent.cache) return loadSiteContent.cache;
-	const paths = ["/index.html", "/about.html", "/work.html"];
+	const paths = ["/index.html", "/about.html", "/work.html", "/projects.html"];
 	const parts = [];
 	for (const path of paths) {
 		try {
@@ -588,10 +588,13 @@ const event = {
 				case "work":
 					out = `Selected work: <a href="work.html">Work</a>`;
 					break;
+				case "projects":
+					out = `Projects: <a href="projects.html">Projects</a>`;
+					break;
 				case "?":
 				case "h":
 				case "help":
-					out = `Commands: cls, about, work, help, news, ask &lt;question&gt;, calc &lt;expr&gt;, search &lt;phrase&gt;, web &lt;url&gt;, location, chat, exit<br><br>Quick links: <a href="about.html">About</a> · <a href="work.html">Work</a>`;
+					out = `Commands: cls, about, work, projects, help, news, ask &lt;question&gt;, calc &lt;expr&gt;, search &lt;phrase&gt;, web &lt;url&gt;, location, chat, exit<br><br>Quick links: <a href="about.html">About</a> · <a href="work.html">Work</a> · <a href="projects.html">Projects</a>`;
 					break;
 				case "eval":
 				case "calc":
