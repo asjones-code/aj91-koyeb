@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { WebSocketServer } from "ws";
 import { XMLParser } from "fast-xml-parser";
+import * as cms from "./cms/index.js";
 const { Pool } = pg;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -172,6 +173,25 @@ async function initDatabase() {
 			CREATE INDEX IF NOT EXISTS idx_pm_project_collaborators_user ON pm_project_collaborators(user_id);
 			CREATE INDEX IF NOT EXISTS idx_pm_invitation_tokens_token ON pm_invitation_tokens(token);
 			CREATE INDEX IF NOT EXISTS idx_pm_invitation_tokens_email ON pm_invitation_tokens(email);
+			CREATE TABLE IF NOT EXISTS cms_admin_users (
+				id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+				email VARCHAR(255) NOT NULL UNIQUE,
+				password_hash TEXT NOT NULL,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+			CREATE TABLE IF NOT EXISTS cms_posts (
+				id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+				slug VARCHAR(255) NOT NULL UNIQUE,
+				title VARCHAR(500) NOT NULL,
+				excerpt TEXT,
+				content TEXT,
+				published BOOLEAN NOT NULL DEFAULT FALSE,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+				updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+			CREATE INDEX IF NOT EXISTS idx_cms_posts_slug ON cms_posts(slug);
+			CREATE INDEX IF NOT EXISTS idx_cms_posts_published ON cms_posts(published) WHERE published = TRUE;
 		`);
 		console.log("[db] Database initialized");
 		return pool;
@@ -1279,6 +1299,12 @@ const server = http.createServer(async (req, res) => {
 	const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
 	const pathname = url.pathname;
 
+	// CMS: /api/posts/:slug (public) and /api/admin/* (protected)
+	if (pathname.startsWith("/api/posts/") || pathname.startsWith("/api/admin/")) {
+		const handled = await cms.handle(req, res, pathname, method, () => collectBody(req));
+		if (handled) return;
+	}
+
 	if (pathname === "/api/ask") {
 		const origin = req.headers.origin;
 		const cors = corsHeaders(origin);
@@ -1497,8 +1523,10 @@ const server = http.createServer(async (req, res) => {
 		return;
 	}
 
-	// Clean URLs: /projects -> /projects.html
-	const pathToServe = pathname === "/projects" ? "/projects.html" : pathname;
+	// Clean URLs: /projects -> /projects.html, /admin -> /admin.html
+	let pathToServe = pathname;
+	if (pathname === "/projects") pathToServe = "/projects.html";
+	else if (pathname === "/admin") pathToServe = "/admin.html";
 	const status = await serveStatic(res, pathToServe, method);
 	if (status !== 200) {
 		const code = status === 404 ? 404 : status === 403 ? 403 : 500;
@@ -1521,6 +1549,7 @@ server.on("upgrade", (request, socket, head) => {
 
 initDatabase().then((pool) => {
 	dbPool = pool;
+	cms.init(pool);
 	server.listen(PORT, () => {
 		console.log(`Listening on port ${PORT}`);
 	});

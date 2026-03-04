@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — CMS</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #1a1a1a; color: #e5e5e5; min-height: 100vh; padding: 2rem; }
+    h1 { font-size: 1.5rem; margin-bottom: 1.5rem; }
+    h2 { font-size: 1.125rem; margin: 1.5rem 0 0.75rem; }
+    form { max-width: 24rem; }
+    label { display: block; font-size: 0.875rem; margin-bottom: 0.25rem; color: #a3a3a3; }
+    input, textarea { width: 100%; padding: 0.5rem 0.75rem; margin-bottom: 1rem; border: 1px solid #404040; border-radius: 6px; background: #262626; color: #e5e5e5; font-size: 1rem; }
+    textarea { min-height: 8rem; resize: vertical; }
+    button { padding: 0.5rem 1rem; border-radius: 6px; font-size: 0.875rem; cursor: pointer; border: none; }
+    .btn-primary { background: #3b82f6; color: white; }
+    .btn-primary:hover { background: #2563eb; }
+    .btn-secondary { background: #404040; color: #e5e5e5; margin-left: 0.5rem; }
+    .btn-danger { background: #dc2626; color: white; }
+    .error { color: #f87171; font-size: 0.875rem; margin-bottom: 1rem; }
+    .success { color: #4ade80; font-size: 0.875rem; margin-bottom: 1rem; }
+    #login-view, #posts-view, #edit-view { display: none; }
+    #login-view.active, #posts-view.active, #edit-view.active { display: block; }
+    .post-list { list-style: none; }
+    .post-list li { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; border: 1px solid #404040; border-radius: 6px; margin-bottom: 0.5rem; background: #262626; }
+    .post-list li span { flex: 1; }
+    .post-list .slug { font-size: 0.75rem; color: #737373; }
+    .post-list .published { font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px; }
+    .post-list .published.yes { background: #166534; color: #86efac; }
+    .post-list .published.no { background: #422006; color: #fcd34d; }
+    .post-list .actions { display: flex; gap: 0.5rem; }
+    .checkbox-wrap { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
+    .checkbox-wrap input { width: auto; margin: 0; }
+    .logout { font-size: 0.875rem; color: #737373; cursor: pointer; margin-left: 1rem; }
+    .logout:hover { color: #a3a3a3; }
+  </style>
+</head>
+<body>
+  <div id="login-view" class="active">
+    <h1>Admin Login</h1>
+    <p id="login-error" class="error" style="display:none"></p>
+    <form id="login-form">
+      <label for="email">Email</label>
+      <input type="email" id="email" name="email" required autocomplete="email">
+      <label for="password">Password</label>
+      <input type="password" id="password" name="password" required autocomplete="current-password">
+      <button type="submit" class="btn-primary">Sign in</button>
+    </form>
+  </div>
+
+  <div id="posts-view">
+    <h1>Posts <span class="logout" id="logout">Sign out</span></h1>
+    <p id="posts-error" class="error" style="display:none"></p>
+    <p id="posts-success" class="success" style="display:none"></p>
+    <button type="button" class="btn-primary" id="new-post">New post</button>
+    <h2>All posts</h2>
+    <ul id="post-list" class="post-list"></ul>
+  </div>
+
+  <div id="edit-view">
+    <h1 id="edit-title">New post</h1>
+    <p id="edit-error" class="error" style="display:none"></p>
+    <form id="edit-form">
+      <input type="hidden" id="edit-id">
+      <label for="edit-slug">Slug</label>
+      <input type="text" id="edit-slug" name="slug" required placeholder="my-post-slug">
+      <label for="edit-title-input">Title</label>
+      <input type="text" id="edit-title-input" name="title" required placeholder="Post title">
+      <label for="edit-excerpt">Excerpt</label>
+      <textarea id="edit-excerpt" name="excerpt" placeholder="Short summary"></textarea>
+      <label for="edit-content">Content</label>
+      <textarea id="edit-content" name="content" placeholder="Full content (HTML supported)"></textarea>
+      <div class="checkbox-wrap">
+        <input type="checkbox" id="edit-published" name="published">
+        <label for="edit-published">Published</label>
+      </div>
+      <button type="submit" class="btn-primary">Save</button>
+      <button type="button" class="btn-secondary" id="edit-cancel">Cancel</button>
+    </form>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    let token = sessionStorage.getItem("cms_token");
+
+    function apiHeaders() {
+      const h = { "Content-Type": "application/json" };
+      if (token) h["Authorization"] = "Bearer " + token;
+      return h;
+    }
+
+    function showView(name) {
+      document.querySelectorAll("#login-view, #posts-view, #edit-view").forEach((v) => v.classList.remove("active"));
+      document.getElementById(name + "-view").classList.add("active");
+    }
+
+    function showError(id, msg) {
+      const el = document.getElementById(id);
+      el.textContent = msg || "";
+      el.style.display = msg ? "block" : "none";
+    }
+
+    function showSuccess(id, msg) {
+      const el = document.getElementById(id);
+      el.textContent = msg || "";
+      el.style.display = msg ? "block" : "none";
+    }
+
+    document.getElementById("login-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      showError("login-error");
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      try {
+        const r = await fetch(API + "/api/admin/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await r.json();
+        if (data.error) {
+          showError("login-error", data.error);
+          return;
+        }
+        token = data.token;
+        sessionStorage.setItem("cms_token", token);
+        showView("posts");
+        loadPosts();
+      } catch (err) {
+        showError("login-error", "Request failed.");
+      }
+    });
+
+    document.getElementById("logout").addEventListener("click", () => {
+      token = null;
+      sessionStorage.removeItem("cms_token");
+      showView("login");
+    });
+
+    async function loadPosts() {
+      showError("posts-error");
+      showSuccess("posts-success");
+      try {
+        const r = await fetch(API + "/api/admin/posts", { headers: apiHeaders() });
+        const data = await r.json();
+        if (data.error) {
+          if (r.status === 401) {
+            token = null;
+            sessionStorage.removeItem("cms_token");
+            showView("login");
+            return;
+          }
+          showError("posts-error", data.error);
+          return;
+        }
+        const list = document.getElementById("post-list");
+        list.innerHTML = (data.posts || []).map(
+          (p) => `
+          <li>
+            <span>
+              <strong>${escapeHtml(p.title)}</strong>
+              <span class="slug">/${escapeHtml(p.slug)}</span>
+              <span class="published ${p.published ? "yes" : "no"}">${p.published ? "Published" : "Draft"}</span>
+            </span>
+            <span class="actions">
+              <button type="button" class="btn-secondary" data-edit="${p.id}">Edit</button>
+              <button type="button" class="btn-danger" data-delete="${p.id}">Delete</button>
+            </span>
+          </li>
+        `
+        ).join("");
+        list.querySelectorAll("[data-edit]").forEach((btn) => {
+          btn.addEventListener("click", () => editPost(btn.dataset.edit));
+        });
+        list.querySelectorAll("[data-delete]").forEach((btn) => {
+          btn.addEventListener("click", () => deletePost(btn.dataset.delete));
+        });
+      } catch (err) {
+        showError("posts-error", "Request failed.");
+      }
+    }
+
+    function escapeHtml(s) {
+      const div = document.createElement("div");
+      div.textContent = s || "";
+      return div.innerHTML;
+    }
+
+    document.getElementById("new-post").addEventListener("click", () => {
+      document.getElementById("edit-id").value = "";
+      document.getElementById("edit-slug").value = "";
+      document.getElementById("edit-title-input").value = "";
+      document.getElementById("edit-excerpt").value = "";
+      document.getElementById("edit-content").value = "";
+      document.getElementById("edit-published").checked = false;
+      document.getElementById("edit-title").textContent = "New post";
+      showError("edit-error");
+      showView("edit");
+    });
+
+    async function editPost(id) {
+      try {
+        const r = await fetch(API + "/api/admin/posts/" + id, { headers: apiHeaders() });
+        const data = await r.json();
+        const post = data.post;
+        if (!post) {
+          showError("edit-error", data.error || "Post not found.");
+          return;
+        }
+        document.getElementById("edit-id").value = post.id;
+        document.getElementById("edit-slug").value = post.slug;
+        document.getElementById("edit-title-input").value = post.title;
+        document.getElementById("edit-excerpt").value = post.excerpt || "";
+        document.getElementById("edit-content").value = post.content || "";
+        document.getElementById("edit-published").checked = !!post.published;
+        document.getElementById("edit-title").textContent = "Edit post";
+        showError("edit-error");
+        showView("edit");
+      } catch (err) {
+        showError("edit-error", "Request failed.");
+      }
+    }
+
+    async function deletePost(id) {
+      if (!confirm("Delete this post?")) return;
+      try {
+        const r = await fetch(API + "/api/admin/posts/" + id, {
+          method: "DELETE",
+          headers: apiHeaders(),
+        });
+        const data = await r.json();
+        if (data.error) {
+          showError("posts-error", data.error);
+          return;
+        }
+        showSuccess("posts-success", "Post deleted.");
+        loadPosts();
+      } catch (err) {
+        showError("posts-error", "Request failed.");
+      }
+    }
+
+    document.getElementById("edit-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      showError("edit-error");
+      const id = document.getElementById("edit-id").value;
+      const body = {
+        slug: document.getElementById("edit-slug").value.trim(),
+        title: document.getElementById("edit-title-input").value.trim(),
+        excerpt: document.getElementById("edit-excerpt").value.trim(),
+        content: document.getElementById("edit-content").value.trim(),
+        published: document.getElementById("edit-published").checked,
+      };
+      try {
+        const url = id ? API + "/api/admin/posts/" + id : API + "/api/admin/posts";
+        const method = id ? "PUT" : "POST";
+        const r = await fetch(url, {
+          method,
+          headers: apiHeaders(),
+          body: JSON.stringify(body),
+        });
+        const data = await r.json();
+        if (data.error) {
+          showError("edit-error", data.error);
+          return;
+        }
+        showView("posts");
+        showSuccess("posts-success", id ? "Post updated." : "Post created.");
+        loadPosts();
+      } catch (err) {
+        showError("edit-error", "Request failed.");
+      }
+    });
+
+    document.getElementById("edit-cancel").addEventListener("click", () => {
+      showView("posts");
+    });
+
+    if (token) {
+      showView("posts");
+      loadPosts();
+    } else {
+      showView("login");
+    }
+  </script>
+</body>
+</html>
