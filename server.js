@@ -1523,10 +1523,11 @@ const server = http.createServer(async (req, res) => {
 		return;
 	}
 
-	// Clean URLs: /projects -> /projects.html, /admin -> /admin.html
+	// Clean URLs: /projects -> /projects.html, /admin -> /admin.html, /blog -> /blog.html
 	let pathToServe = pathname;
 	if (pathname === "/projects") pathToServe = "/projects.html";
 	else if (pathname === "/admin") pathToServe = "/admin.html";
+	else if (pathname === "/blog") pathToServe = "/blog.html";
 	const status = await serveStatic(res, pathToServe, method);
 	if (status !== 200) {
 		const code = status === 404 ? 404 : status === 403 ? 403 : 500;

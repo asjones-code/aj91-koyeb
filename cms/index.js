@@ -35,7 +35,18 @@ function jsonResponse(res, status, data, headers = {}) {
  * @param {() => Promise<string>} collectBody
  */
 export async function handle(req, res, pathname, method, collectBody) {
-	// Public: GET /api/posts/:slug
+	// Public: GET /api/posts (list published)
+	if (pathname === "/api/posts" && method === "GET") {
+		const result = await routes.handleListPublishedPosts();
+		if (result.error) {
+			jsonResponse(res, result.status || 500, { error: result.error }, cors);
+		} else {
+			jsonResponse(res, 200, result, cors);
+		}
+		return true;
+	}
+
+	// Public: GET /api/posts/:slug (single post)
 	const publicPostMatch = pathname.match(/^\/api\/posts\/([^/]+)$/);
 	if (publicPostMatch && method === "GET") {
 		const result = await routes.handleGetPostBySlug(publicPostMatch[1]);

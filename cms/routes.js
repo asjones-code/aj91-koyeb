@@ -80,3 +80,9 @@ export async function handleGetPostBySlug(slug) {
 	if (result.error) return { error: result.error, status: result.status || 500 };
 	return result;
 }
+
+export async function handleListPublishedPosts() {
+	const result = await postModel.findAll(false);
+	if (result.error) return { error: result.error, status: 500 };
+	return result;
+}
