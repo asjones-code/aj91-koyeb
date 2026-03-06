@@ -803,7 +803,7 @@ barba.hooks.after((data) => {
 		// Smooth scroll-linked header pinch (100% → 50% by scroll %)
 		requestAnimationFrame(() => initWorkHeaderPinch());
 	}
-	if (data.next.namespace === "projects") {
+	if (data.next.namespace === "projects" || data.next.namespace === "project") {
 		document.body.classList.add("page-is-projects");
 	}
 
@@ -837,7 +837,7 @@ window.addEventListener("load", () => {
 		document.body.classList.add("page-is-work");
 		initWorkHeaderPinch();
 	}
-	if (document.querySelector("[data-barba-namespace='projects']")) {
+	if (document.querySelector("[data-barba-namespace='projects']") || document.querySelector("[data-barba-namespace='project']")) {
 		document.body.classList.add("page-is-projects");
 	}
 });

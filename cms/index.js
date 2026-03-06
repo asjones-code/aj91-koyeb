@@ -46,6 +46,29 @@ export async function handle(req, res, pathname, method, collectBody) {
 		return true;
 	}
 
+	// Public: GET /api/projects (list published)
+	if (pathname === "/api/projects" && method === "GET") {
+		const result = await routes.handleListPublishedProjects();
+		if (result.error) {
+			jsonResponse(res, result.status || 500, { error: result.error }, cors);
+		} else {
+			jsonResponse(res, 200, result, cors);
+		}
+		return true;
+	}
+
+	// Public: GET /api/projects/:slug (single project)
+	const projectSlugMatch = pathname.match(/^\/api\/projects\/([^/]+)$/);
+	if (projectSlugMatch && method === "GET") {
+		const result = await routes.handleGetProjectBySlug(projectSlugMatch[1]);
+		if (result.error) {
+			jsonResponse(res, result.status || 500, { error: result.error }, cors);
+		} else {
+			jsonResponse(res, 200, result, cors);
+		}
+		return true;
+	}
+
 	// Public: GET /api/posts/:slug (single post)
 	const publicPostMatch = pathname.match(/^\/api\/posts\/([^/]+)$/);
 	if (publicPostMatch && method === "GET") {

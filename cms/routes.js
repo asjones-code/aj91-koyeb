@@ -2,6 +2,7 @@
  * CMS API route handlers.
  */
 import * as postModel from "./models/post.js";
+import * as projectModel from "./models/project.js";
 import * as adminModel from "./models/admin.js";
 import { createToken, requireAuth } from "./middleware.js";
 
@@ -84,5 +85,17 @@ export async function handleGetPostBySlug(slug) {
 export async function handleListPublishedPosts() {
 	const result = await postModel.findAll(false);
 	if (result.error) return { error: result.error, status: 500 };
+	return result;
+}
+
+export async function handleListPublishedProjects() {
+	const result = await projectModel.findAll(false);
+	if (result.error) return { error: result.error, status: 500 };
+	return result;
+}
+
+export async function handleGetProjectBySlug(slug) {
+	const result = await projectModel.findBySlug(slug);
+	if (result.error) return { error: result.error, status: result.status || 500 };
 	return result;
 }

@@ -65,82 +65,61 @@
             <p class="page-projects-subtitle">From startups to enterprise — implementations, product, and ventures.</p>
           </header>
 
-          <div class="page-projects-grid">
-            <article class="page-projects-card">
-              <h3 class="page-projects-card-title">Goodgrow</h3>
-              <p class="page-projects-card-desc">A distributor of ethically sourced natural goods — connecting artisan producers to global markets in ways that strengthen local economies and build community.</p>
-              <div class="page-projects-card-tags">
-                <span>Venture</span>
-                <span>Product</span>
-                <span>Strategy</span>
-              </div>
-              <a href="work.html#goodgrow" class="page-projects-card-link font-mono">View case study →</a>
-            </article>
-
-            <article class="page-projects-card">
-              <h3 class="page-projects-card-title">Assembled</h3>
-              <p class="page-projects-card-desc">Getting AI-driven workflows into the hands of ops so they can automate a big chunk of tickets instead of triaging by hand. Built an internal app that pulls data from Salesforce, Zendesk, and other CRMs into one place.</p>
-              <div class="page-projects-card-tags">
-                <span>Implementation</span>
-                <span>Engineering</span>
-              </div>
-              <a href="work.html#assembled" class="page-projects-card-link font-mono">View case study →</a>
-            </article>
-
-            <article class="page-projects-card">
-              <h3 class="page-projects-card-title">Gotham Greens</h3>
-              <p class="page-projects-card-desc">Led analytics, ops, and finance for controlled-environment greenhouses. Wired labor data from HRIS into the data warehouse so COGS and efficiency could be tracked properly across sites.</p>
-              <div class="page-projects-card-tags">
-                <span>IT Project Management</span>
-                <span>Data</span>
-              </div>
-              <a href="work.html#gotham" class="page-projects-card-link font-mono">View case study →</a>
-            </article>
-
-            <article class="page-projects-card">
-              <h3 class="page-projects-card-title">Meta</h3>
-              <p class="page-projects-card-desc">Led implementations of omni-channel CRM for commercial and enterprise clients. Deployed Salesforce Apex to automate project kickoff and tracking. Focus on Spanish-speaking enterprise.</p>
-              <div class="page-projects-card-tags">
-                <span>Implementation</span>
-                <span>CRM</span>
-              </div>
-              <a href="work.html#meta" class="page-projects-card-link font-mono">View case study →</a>
-            </article>
-
-            <article class="page-projects-card">
-              <h3 class="page-projects-card-title">Barrel</h3>
-              <p class="page-projects-card-desc">Shaped technical approaches for clients from small sites to six-figure engagements. For an FDIC-chartered bank: used SQL to clean and validate a large dataset of online account applications.</p>
-              <div class="page-projects-card-tags">
-                <span>Solutions Architecture</span>
-                <span>Data</span>
-              </div>
-              <a href="work.html#barrel" class="page-projects-card-link font-mono">View case study →</a>
-            </article>
-
-            <article class="page-projects-card">
-              <h3 class="page-projects-card-title">Sendwave</h3>
-              <p class="page-projects-card-desc">Ran growth: onboarding new users, tuning the funnel, influencer partnerships. Grew users and revenue sharply — Sendwave later joined WorldRemit (Zepz) in a large acquisition.</p>
-              <div class="page-projects-card-tags">
-                <span>Growth</span>
-                <span>Product</span>
-              </div>
-              <a href="work.html#sendwave" class="page-projects-card-link font-mono">View case study →</a>
-            </article>
-
-            <article class="page-projects-card">
-              <h3 class="page-projects-card-title">Rootwise</h3>
-              <p class="page-projects-card-desc">Real-time monitoring and analysis in the Global South — crises, political risk. Reporting and analysis so field teams and decision-makers could see what was happening and adjust quickly.</p>
-              <div class="page-projects-card-tags">
-                <span>Research</span>
-                <span>Analysis</span>
-              </div>
-              <a href="work.html#rootwise" class="page-projects-card-link font-mono">View case study →</a>
-            </article>
-          </div>
+          <p id="projects-loading" class="page-projects-subtitle">Loading…</p>
+          <p id="projects-error" class="page-projects-subtitle" style="display:none; color:#f87171;"></p>
+          <div id="page-projects-grid" class="page-projects-grid" style="display:none"></div>
         </div>
       </div>
     </main>
   </div>
+  <script>
+    (function () {
+      if (window.location.port === "1234") window.API_ORIGIN = "http://localhost:3000";
+      const API = (window.API_ORIGIN || window.location.origin);
+
+      function escapeHtml(s) {
+        const div = document.createElement("div");
+        div.textContent = s || "";
+        return div.innerHTML;
+      }
+
+      fetch(API + "/api/projects")
+        .then((r) => r.json())
+        .then((data) => {
+          document.getElementById("projects-loading").style.display = "none";
+          if (data.error) {
+            document.getElementById("projects-error").textContent = data.error || "Failed to load projects.";
+            document.getElementById("projects-error").style.display = "block";
+            return;
+          }
+          const projects = data.projects || [];
+          if (projects.length === 0) {
+            document.getElementById("projects-error").textContent = "No projects yet.";
+            document.getElementById("projects-error").style.display = "block";
+            return;
+          }
+          const grid = document.getElementById("page-projects-grid");
+          grid.style.display = "grid";
+          grid.innerHTML = projects.map((p) => {
+            const tags = (p.tags || []).map((t) => `<span>${escapeHtml(t)}</span>`).join("");
+            const link = p.slug ? `project.html?slug=${encodeURIComponent(p.slug)}` : "#";
+            return `
+            <article class="page-projects-card">
+              <h3 class="page-projects-card-title">${escapeHtml(p.title || "Untitled")}</h3>
+              <p class="page-projects-card-desc">${escapeHtml(p.excerpt || "")}</p>
+              ${tags ? `<div class="page-projects-card-tags">${tags}</div>` : ""}
+              <a href="${link}" class="page-projects-card-link font-mono">View project →</a>
+            </article>
+          `;
+          }).join("");
+        })
+        .catch(() => {
+          document.getElementById("projects-loading").style.display = "none";
+          document.getElementById("projects-error").textContent = "Failed to load projects.";
+          document.getElementById("projects-error").style.display = "block";
+        });
+    })();
+  </script>
   <script type="module" src="loader.js"></script>
 </body>
 
