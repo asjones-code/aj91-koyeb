@@ -99,3 +99,55 @@ export async function handleGetProjectBySlug(slug) {
 	if (result.error) return { error: result.error, status: result.status || 500 };
 	return result;
 }
+
+export async function handleGetProjects(req) {
+	const auth = requireAuth(req);
+	if (auth.error) return auth;
+	const result = await projectModel.findAll(true);
+	if (result.error) return { error: result.error, status: 500 };
+	return result;
+}
+
+export async function handleGetProject(req, projectId) {
+	const auth = requireAuth(req);
+	if (auth.error) return auth;
+	const result = await projectModel.findById(projectId);
+	if (result.error) return { error: result.error, status: result.status || 500 };
+	return result;
+}
+
+export async function handleCreateProject(req, body) {
+	const auth = requireAuth(req);
+	if (auth.error) return auth;
+	let parsed;
+	try {
+		parsed = JSON.parse(body);
+	} catch {
+		return { error: "Invalid JSON.", status: 400 };
+	}
+	const result = await projectModel.create(parsed);
+	if (result.error) return { error: result.error, status: result.status || 500 };
+	return result;
+}
+
+export async function handleUpdateProject(req, body, projectId) {
+	const auth = requireAuth(req);
+	if (auth.error) return auth;
+	let parsed;
+	try {
+		parsed = JSON.parse(body);
+	} catch {
+		return { error: "Invalid JSON.", status: 400 };
+	}
+	const result = await projectModel.update(projectId, parsed);
+	if (result.error) return { error: result.error, status: result.status || 500 };
+	return result;
+}
+
+export async function handleDeleteProject(req, projectId) {
+	const auth = requireAuth(req);
+	if (auth.error) return auth;
+	const result = await projectModel.remove(projectId);
+	if (result.error) return { error: result.error, status: result.status || 500 };
+	return result;
+}

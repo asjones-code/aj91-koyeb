@@ -173,9 +173,81 @@ export async function handle(req, res, pathname, method, collectBody) {
 	}
 
 	// DELETE /api/admin/posts/:id
-	const deleteMatch = pathname.match(/^\/api\/admin\/posts\/([^/]+)$/);
-	if (deleteMatch && method === "DELETE") {
-		const result = await routes.handleDeletePost(req, deleteMatch[1]);
+	const deletePostMatch = pathname.match(/^\/api\/admin\/posts\/([^/]+)$/);
+	if (deletePostMatch && method === "DELETE") {
+		const result = await routes.handleDeletePost(req, deletePostMatch[1]);
+		if (result.error) {
+			jsonResponse(res, result.status || 500, { error: result.error }, cors);
+		} else {
+			jsonResponse(res, 200, result, cors);
+		}
+		return true;
+	}
+
+	// GET /api/admin/projects
+	if (pathname === "/api/admin/projects" && method === "GET") {
+		const result = await routes.handleGetProjects(req);
+		if (result.error) {
+			jsonResponse(res, result.status || 500, { error: result.error }, cors);
+		} else {
+			jsonResponse(res, 200, result, cors);
+		}
+		return true;
+	}
+
+	// GET /api/admin/projects/:id
+	const getProjectMatch = pathname.match(/^\/api\/admin\/projects\/([^/]+)$/);
+	if (getProjectMatch && method === "GET") {
+		const result = await routes.handleGetProject(req, getProjectMatch[1]);
+		if (result.error) {
+			jsonResponse(res, result.status || 500, { error: result.error }, cors);
+		} else {
+			jsonResponse(res, 200, result, cors);
+		}
+		return true;
+	}
+
+	// POST /api/admin/projects
+	if (pathname === "/api/admin/projects" && method === "POST") {
+		let body;
+		try {
+			body = await collectBody();
+		} catch {
+			jsonResponse(res, 500, { error: "Request failed." }, cors);
+			return true;
+		}
+		const result = await routes.handleCreateProject(req, body);
+		if (result.error) {
+			jsonResponse(res, result.status || 500, { error: result.error }, cors);
+		} else {
+			jsonResponse(res, 201, result, cors);
+		}
+		return true;
+	}
+
+	// PUT /api/admin/projects/:id
+	const putProjectMatch = pathname.match(/^\/api\/admin\/projects\/([^/]+)$/);
+	if (putProjectMatch && method === "PUT") {
+		let body;
+		try {
+			body = await collectBody();
+		} catch {
+			jsonResponse(res, 500, { error: "Request failed." }, cors);
+			return true;
+		}
+		const result = await routes.handleUpdateProject(req, body, putProjectMatch[1]);
+		if (result.error) {
+			jsonResponse(res, result.status || 500, { error: result.error }, cors);
+		} else {
+			jsonResponse(res, 200, result, cors);
+		}
+		return true;
+	}
+
+	// DELETE /api/admin/projects/:id
+	const deleteProjectMatch = pathname.match(/^\/api\/admin\/projects\/([^/]+)$/);
+	if (deleteProjectMatch && method === "DELETE") {
+		const result = await routes.handleDeleteProject(req, deleteProjectMatch[1]);
 		if (result.error) {
 			jsonResponse(res, result.status || 500, { error: result.error }, cors);
 		} else {

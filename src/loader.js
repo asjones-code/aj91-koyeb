@@ -806,6 +806,11 @@ barba.hooks.after((data) => {
 	if (data.next.namespace === "projects" || data.next.namespace === "project") {
 		document.body.classList.add("page-is-projects");
 	}
+	if (data.next.namespace === "project") {
+		requestAnimationFrame(() => {
+			import("./project-page.js").then((m) => m.init?.());
+		});
+	}
 
 	// When navigating back to home (e.g. from About), run the same intro as initial load
 	if (data.next.namespace === "home") {
