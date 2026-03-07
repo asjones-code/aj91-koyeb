@@ -3,7 +3,7 @@
  */
 import { getPool } from "../db.js";
 
-const COLS = "id, slug, title, excerpt, hero_image, about_text, gallery_images, gallery_caption, footer_cta, footer_email, tags, published, created_at, updated_at";
+const COLS = "id, slug, title, excerpt, hero_image, hero_video, about_text, gallery_images, gallery_caption, footer_cta, footer_email, tags, published, created_at, updated_at";
 
 export async function findAll(includeUnpublished = false) {
 	const p = getPool();
@@ -57,14 +57,15 @@ export async function create(data) {
 		const gallery = JSON.stringify(Array.isArray(data.galleryImages) ? data.galleryImages : (data.gallery_images || []));
 		const tags = JSON.stringify(Array.isArray(data.tags) ? data.tags : []);
 		const r = await p.query(
-			`INSERT INTO cms_projects (slug, title, excerpt, hero_image, about_text, gallery_images, gallery_caption, footer_cta, footer_email, tags, published)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			`INSERT INTO cms_projects (slug, title, excerpt, hero_image, hero_video, about_text, gallery_images, gallery_caption, footer_cta, footer_email, tags, published)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING ${COLS}`,
 			[
 				data.slug.trim(),
 				data.title.trim(),
 				data.excerpt?.trim() || null,
 				data.hero_image?.trim() || null,
+				data.hero_video?.trim() || null,
 				data.about_text?.trim() || null,
 				gallery,
 				data.gallery_caption?.trim() || null,
@@ -90,13 +91,14 @@ export async function update(id, data) {
 		const gallery = JSON.stringify(Array.isArray(data.galleryImages) ? data.galleryImages : (data.gallery_images || []));
 		const tags = JSON.stringify(Array.isArray(data.tags) ? data.tags : []);
 		const r = await p.query(
-			`UPDATE cms_projects SET slug = $1, title = $2, excerpt = $3, hero_image = $4, about_text = $5, gallery_images = $6, gallery_caption = $7, footer_cta = $8, footer_email = $9, tags = $10, published = $11, updated_at = NOW()
-       WHERE id = $12 RETURNING ${COLS}`,
+			`UPDATE cms_projects SET slug = $1, title = $2, excerpt = $3, hero_image = $4, hero_video = $5, about_text = $6, gallery_images = $7, gallery_caption = $8, footer_cta = $9, footer_email = $10, tags = $11, published = $12, updated_at = NOW()
+       WHERE id = $13 RETURNING ${COLS}`,
 			[
 				data.slug.trim(),
 				data.title.trim(),
 				data.excerpt?.trim() || null,
 				data.hero_image?.trim() || null,
+				data.hero_video?.trim() || null,
 				data.about_text?.trim() || null,
 				gallery,
 				data.gallery_caption?.trim() || null,

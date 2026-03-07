@@ -1,5 +1,10 @@
 import barba from "@barba/core";
 import { gsap } from "gsap";
+
+// Dev: Vite (1234) serves static; API is on Node (3000)
+if (typeof window !== "undefined" && window.location?.port === "1234") {
+	window.API_ORIGIN = "http://localhost:3000";
+}
 import { CustomEase } from "gsap/CustomEase";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import Lenis from "lenis";
@@ -807,8 +812,9 @@ barba.hooks.after((data) => {
 		document.body.classList.add("page-is-projects");
 	}
 	if (data.next.namespace === "project") {
+		const slug = data.next?.url?.query?.slug ?? new URL(data.next?.url?.href || window.location.href).searchParams.get("slug");
 		requestAnimationFrame(() => {
-			import("./project-page.js").then((m) => m.init?.());
+			import("./project-page.js").then((m) => m.init?.({ slug, url: data.next?.url?.href }));
 		});
 	}
 

@@ -22,7 +22,7 @@ function runAnimations() {
 		if (el) el.style.width = pct + "%";
 	});
 
-	gsap.to(".project-hero-image", {
+	gsap.to(".project-hero-media", {
 		scrollTrigger: { trigger: ".project-hero", start: "top bottom", end: "center center", scrub: true },
 		scale: 1, opacity: 1, filter: "blur(0px)", duration: 1.5, ease: "power2.out"
 	});
@@ -50,9 +50,9 @@ function runAnimations() {
 	});
 }
 
-export async function init() {
-	const params = new URLSearchParams(window.location.search);
-	const slug = params.get("slug");
+export async function init(opts = {}) {
+	// When navigating via Barba, window.location may not be updated yet; use passed slug/URL
+	const slug = opts.slug ?? new URL(opts.url || window.location.href, window.location.origin).searchParams.get("slug");
 
 	if (!slug) {
 		document.getElementById("project-loading").style.display = "none";
@@ -80,12 +80,22 @@ export async function init() {
 
 		document.getElementById("project-title").textContent = p.title || "Untitled";
 
+		const heroMedia = document.getElementById("project-hero-media");
 		const heroImg = document.getElementById("project-hero-img");
-		if (p.hero_image) {
+		const heroVideo = document.getElementById("project-hero-video");
+		if (p.hero_video) {
+			heroImg.style.display = "none";
+			heroVideo.src = p.hero_video;
+			heroVideo.style.display = "block";
+			heroVideo.load();
+			heroVideo.play().catch(() => {});
+		} else if (p.hero_image) {
+			heroVideo.style.display = "none";
 			heroImg.src = p.hero_image;
 			heroImg.alt = p.title;
+			heroImg.style.display = "block";
 		} else {
-			heroImg.parentElement.style.display = "none";
+			heroMedia.style.display = "none";
 		}
 
 		document.getElementById("project-about").textContent = p.about_text || p.excerpt || "";

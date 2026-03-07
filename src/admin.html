@@ -114,6 +114,8 @@
       <textarea id="edit-project-excerpt" name="excerpt" placeholder="Short description"></textarea>
       <label for="edit-project-hero-image">Hero image URL</label>
       <input type="url" id="edit-project-hero-image" name="hero_image" placeholder="https://...">
+      <label for="edit-project-hero-video">Hero video URL (optional; overrides image if set)</label>
+      <input type="url" id="edit-project-hero-video" name="hero_video" placeholder="https://...mp4">
       <label for="edit-project-about">About text (hero section)</label>
       <textarea id="edit-project-about" name="about_text" placeholder="Longer description for hero"></textarea>
       <label for="edit-project-gallery">Gallery image URLs (one per line)</label>
@@ -322,6 +324,7 @@
       document.getElementById("edit-project-title-input").value = "";
       document.getElementById("edit-project-excerpt").value = "";
       document.getElementById("edit-project-hero-image").value = "";
+      document.getElementById("edit-project-hero-video").value = "";
       document.getElementById("edit-project-about").value = "";
       document.getElementById("edit-project-gallery").value = "";
       document.getElementById("edit-project-gallery-caption").value = "";
@@ -371,6 +374,7 @@
         document.getElementById("edit-project-title-input").value = p.title;
         document.getElementById("edit-project-excerpt").value = p.excerpt || "";
         document.getElementById("edit-project-hero-image").value = p.hero_image || "";
+        document.getElementById("edit-project-hero-video").value = p.hero_video || "";
         document.getElementById("edit-project-about").value = p.about_text || "";
         document.getElementById("edit-project-gallery").value = (p.galleryImages || []).join("\n");
         document.getElementById("edit-project-gallery-caption").value = p.gallery_caption || "";
@@ -459,6 +463,7 @@
         title: document.getElementById("edit-project-title-input").value.trim(),
         excerpt: document.getElementById("edit-project-excerpt").value.trim(),
         hero_image: document.getElementById("edit-project-hero-image").value.trim() || null,
+        hero_video: document.getElementById("edit-project-hero-video").value.trim() || null,
         about_text: document.getElementById("edit-project-about").value.trim() || null,
         galleryImages,
         gallery_caption: document.getElementById("edit-project-gallery-caption").value.trim() || null,

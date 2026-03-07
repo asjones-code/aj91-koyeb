@@ -210,6 +210,7 @@ async function initDatabase() {
 			);
 			CREATE INDEX IF NOT EXISTS idx_cms_projects_slug ON cms_projects(slug);
 			CREATE INDEX IF NOT EXISTS idx_cms_projects_published ON cms_projects(published) WHERE published = TRUE;
+			ALTER TABLE cms_projects ADD COLUMN IF NOT EXISTS hero_video TEXT;
 		`);
 		console.log("[db] Database initialized");
 		return pool;
