@@ -796,7 +796,7 @@ barba.hooks.after((data) => {
 	runPageInit();
 
 	// Body class for work/projects pages (header styling)
-	document.body.classList.remove("page-is-work", "page-is-projects");
+	document.body.classList.remove("page-is-work", "page-is-projects", "page-is-project-detail");
 	if (data.next.namespace === "work") {
 		document.body.classList.add("page-is-work");
 		// TOC is only in work.html; when we arrive via Barba the script didn’t run, so generate it
@@ -812,9 +812,15 @@ barba.hooks.after((data) => {
 		document.body.classList.add("page-is-projects");
 	}
 	if (data.next.namespace === "project") {
+		document.body.classList.add("page-is-project-detail");
+	}
+	if (data.next.namespace === "project") {
 		const slug = data.next?.url?.query?.slug ?? new URL(data.next?.url?.href || window.location.href).searchParams.get("slug");
+		// Give Barba transition + styles time to apply before init (prevents unstyled flash)
 		requestAnimationFrame(() => {
-			import("./project-page.js").then((m) => m.init?.({ slug, url: data.next?.url?.href }));
+			requestAnimationFrame(() => {
+				import("./project-page.js").then((m) => m.init?.({ slug, url: data.next?.url?.href }));
+			});
 		});
 	}
 
@@ -850,5 +856,8 @@ window.addEventListener("load", () => {
 	}
 	if (document.querySelector("[data-barba-namespace='projects']") || document.querySelector("[data-barba-namespace='project']")) {
 		document.body.classList.add("page-is-projects");
+	}
+	if (document.querySelector("[data-barba-namespace='project']")) {
+		document.body.classList.add("page-is-project-detail");
 	}
 });

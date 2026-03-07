@@ -24,42 +24,8 @@
   </script>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
-  <style>
-    .project-page { min-height: 100vh; }
-    .project-hero { min-height: 100vh; display: flex; flex-direction: column; padding-bottom: 2rem; }
-    .project-hero-media { position: relative; overflow: hidden; opacity: 0; transform: scale(0.95); transform-origin: bottom; filter: blur(8px); width: 100%; height: 60vh; min-height: 320px; margin-bottom: 2rem; }
-    .project-hero-media img,
-    .project-hero-media video { width: 100%; height: 100%; object-fit: cover; display: block; filter: grayscale(100%); }
-    .project-hero-inner { display: grid; grid-template-columns: 1fr 1rem 1fr; gap: 2rem; width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 2rem; align-items: end; flex: 1; }
-    .project-hero-text { padding-left: 1rem; text-align: right; overflow: hidden; }
-    .project-hero-text p { font-size: 1.125rem; line-height: 1.6; color: rgba(255,255,255,0.85); opacity: 0; transform: translateY(3rem); filter: blur(5px); }
-    .project-title-row { margin-top: 0; margin-bottom: 2rem; }
-    .project-title { font-size: clamp(2rem, 5vw, 4rem); font-weight: 600; color: rgba(255,255,255,0.95); letter-spacing: -0.02em; }
-    .project-gallery { min-height: 100vh; display: flex; align-items: center; padding: 4rem 0; overflow: hidden; }
-    .project-gallery-inner { width: 100%; max-width: 1200px; margin: 0 auto; padding: 0 2rem; }
-    .project-gallery-grid { display: flex; justify-content: center; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 3rem; }
-    .project-gallery-item { flex: 0 0 min(25rem, 100%); height: 28rem; overflow: hidden; position: relative; }
-    .project-gallery-item img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(100%); transition: filter 0.5s ease; clip-path: inset(100% 0 0 0); display: block; }
-    .project-gallery-item video { width: 100%; height: 100%; object-fit: contain; filter: grayscale(100%); transition: filter 0.5s ease; clip-path: inset(100% 0 0 0); display: block; background: #111; }
-    .project-gallery-item:hover img,
-    .project-gallery-item:hover video { filter: grayscale(0%); }
-    .project-gallery-caption { max-width: 48rem; margin: 0 auto; font-size: 1rem; line-height: 1.6; color: rgba(255,255,255,0.7); opacity: 0; transform: translateY(2rem); filter: blur(5px); }
-    .project-footer { min-height: 40vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4rem 2rem; position: relative; }
-    .project-footer-cta { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; opacity: 0; filter: blur(5px); transform: translateY(1rem); }
-    .project-footer-cta a { color: rgba(255,255,255,0.9); text-decoration: none; }
-    .project-footer-cta .cta-label { font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.6); }
-    .project-scroll-indicator { position: fixed; top: 0; left: 0; height: 2px; background: rgba(255,255,255,0.9); z-index: 100; width: 0; transition: width 0.1s linear; }
-    .project-back { position: fixed; top: 1.5rem; left: 2rem; z-index: 50; color: rgba(255,255,255,0.8); text-decoration: none; font-size: 0.9rem; }
-    .project-back:hover { color: #fff; }
-    .project-loading { padding: 4rem 2rem; text-align: center; color: rgba(255,255,255,0.6); }
-    .project-error { padding: 4rem 2rem; text-align: center; color: #f87171; }
-    @media (max-width: 768px) {
-      .project-hero-inner { grid-template-columns: 1fr; }
-      .project-hero-text { text-align: left; padding-left: 0; }
-    }
-  </style>
 </head>
-<body data-barba="wrapper">
+<body data-barba="wrapper" class="page-is-projects page-is-project-detail">
   <div class="project-scroll-indicator" id="scroll-indicator"></div>
   <a href="projects.html" class="project-back font-mono">← Back</a>
   <div class="container">
