@@ -31,10 +31,10 @@ function runAnimations() {
 		y: 0, opacity: 1, filter: "blur(0px)", duration: 1, ease: "power2.out"
 	});
 
-	document.querySelectorAll(".project-gallery-item img").forEach((img, i) => {
-		gsap.fromTo(img, { clipPath: "inset(100% 0 0 0)" }, {
+	document.querySelectorAll(".project-gallery-item img, .project-gallery-item video").forEach((el, i) => {
+		gsap.fromTo(el, { clipPath: "inset(100% 0 0 0)" }, {
 			clipPath: "inset(0% 0 0 0)",
-			scrollTrigger: { trigger: img.parentElement, start: "top bottom-=100", end: "bottom top+=100", scrub: true },
+			scrollTrigger: { trigger: el.parentElement, start: "top bottom-=100", end: "bottom top+=100", scrub: true },
 			duration: 1.2, delay: i * 0.1, ease: "power2.out"
 		});
 	});
@@ -101,9 +101,20 @@ export async function init(opts = {}) {
 		document.getElementById("project-about").textContent = p.about_text || p.excerpt || "";
 
 		const galleryGrid = document.getElementById("project-gallery-grid");
-		const images = p.galleryImages || [];
-		if (images.length > 0) {
-			galleryGrid.innerHTML = images.map((url) => `<div class="project-gallery-item"><img src="${escapeHtml(url)}" alt=""></div>`).join("");
+		const items = p.galleryImages || [];
+		const isVideo = (url) => /\.(mp4|webm|mov|ogg)(\?|$)/i.test(url || "");
+		if (items.length > 0) {
+			galleryGrid.innerHTML = items.map((url) => {
+				const safe = escapeHtml(url);
+				if (isVideo(url)) {
+					return `<div class="project-gallery-item"><video src="${safe}" playsinline muted loop autoplay></video></div>`;
+				}
+				return `<div class="project-gallery-item"><img src="${safe}" alt=""></div>`;
+			}).join("");
+			// Start playback for gallery videos (autoplay often blocked until user interaction)
+			galleryGrid.querySelectorAll("video").forEach((v) => {
+				v.play().catch(() => {});
+			});
 		} else {
 			document.getElementById("project-gallery").style.display = "none";
 		}
