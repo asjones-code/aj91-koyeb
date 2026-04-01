@@ -14,7 +14,7 @@
     "build:globe": "node scripts/build-hero-globe.js",
     "prebuild": "npm run build:globe",
     "dev": "node node_modules/parcel/lib/bin.js src/index.html",
-    "build": "node node_modules/parcel/lib/bin.js build src/index.html src/projects.html src/project.html src/work.html src/about.html src/pm.html src/admin.html src/blog.html",
+    "build": "node node_modules/parcel/lib/bin.js build src/index.html src/projects.html src/project.html src/work.html src/about.html src/pm.html src/admin.html src/blog.html && node scripts/build-sitemap.mjs",
     "start": "node server.js",
     "cms:create-admin": "node -r dotenv/config cms/scripts/create-admin.js",
     "test": "echo \"Error: no test specified\" && exit 1"

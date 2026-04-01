@@ -349,6 +349,7 @@ const MIME = {
 	".woff2": "font/woff2",
 	".ttf": "font/ttf",
 	".txt": "text/plain; charset=utf-8",
+	".xml": "application/xml; charset=utf-8",
 };
 
 function extractResponsesAnswer(data) {
@@ -408,6 +409,18 @@ function lastmodYmd(value) {
 }
 
 async function handleSitemap(req, res, method) {
+	try {
+		await sendSitemapBody(req, res, method);
+	} catch (err) {
+		console.error("[sitemap]", err.message || err);
+		if (!res.headersSent) {
+			res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+			res.end("Sitemap temporarily unavailable.");
+		}
+	}
+}
+
+async function sendSitemapBody(req, res, method) {
 	const base = siteOrigin(req);
 	const staticPages = [
 		{ loc: `${base}/`, changefreq: "weekly", priority: "1.0" },
@@ -463,9 +476,10 @@ ${urlElements}
 
 	const body = Buffer.from(xml, "utf8");
 	res.writeHead(200, {
-		"Content-Type": "application/xml; charset=utf-8",
+		"Content-Type": "application/xml",
 		"Content-Length": body.length,
 		"Cache-Control": "public, max-age=3600",
+		"X-Content-Type-Options": "nosniff",
 	});
 	if (method === "HEAD") res.end();
 	else res.end(body);
