@@ -1,0 +1,64 @@
+{
+  "name": "aj91-koyeb",
+  "version": "0.0.1",
+  "type": "module",
+  "description": "An attempt at a minimal, elegant, and high-converting landing page",
+  "default": "dist/index.html",
+  "source": [
+    "src/index.html",
+    "src/about.html",
+    "src/work.html",
+    "src/pm.html"
+  ],
+  "scripts": {
+    "build:globe": "node scripts/build-hero-globe.js",
+    "prebuild": "npm run build:globe",
+    "dev": "node node_modules/parcel/lib/bin.js src/index.html",
+    "build": "node node_modules/parcel/lib/bin.js build src/index.html src/projects.html src/project.html src/work.html src/about.html src/pm.html src/admin.html src/blog.html",
+    "start": "node server.js",
+    "cms:create-admin": "node -r dotenv/config cms/scripts/create-admin.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "koyeb"
+  ],
+  "author": "aj91",
+  "license": "ISC",
+  "alias": {
+    "rsvp": "rsvp/lib/rsvp.js"
+  },
+  "devDependencies": {
+    "@unocss/cli": "^0.62.3",
+    "dotenv-cli": "^11.0.0",
+    "esbuild": "^0.24.0",
+    "jquery": "^3.7.1",
+    "parcel": "2.14.0",
+    "svgo": "^3.3.2",
+    "unocss": "^0.62.4",
+    "unocss-preset-fluid": "^1.0.2"
+  },
+  "dependencies": {
+    "@barba/core": "^2.9.7",
+    "dotenv": "^16.4.5",
+    "barba": "^1.0.0",
+    "dat.gui": "^0.7.9",
+    "express": "^4.21.0",
+    "fast-xml-parser": "^4.3.2",
+    "gsap": "^3.12.5",
+    "lenis": "^1.1.13",
+    "locomotive-scroll": "^4.1.4",
+    "lunarphase-js": "^2.0.3",
+    "openai": "^4.73.0",
+    "pg": "^8.11.3",
+    "pixi.js": "^8.5.2",
+    "route-recognizer": "^0.3.4",
+    "router_js": "^8.0.6",
+    "rsvp": "^4.8.5",
+    "scrollmagic": "^2.0.8",
+    "simplex-noise": "^4.0.3",
+    "splitting": "^1.1.0",
+    "three": "^0.168.0",
+    "typed.js": "^2.1.0",
+    "ws": "^8.18.0"
+  }
+}

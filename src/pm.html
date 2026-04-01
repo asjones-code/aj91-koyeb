@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Projects · PM</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="pm-design-system.css">
+  <style>
+    .pm-login { max-width: 20rem; margin: 4rem auto; }
+    .pm-login h1 { font-size: 1.25rem; margin-bottom: 1rem; }
+    .pm-login input[type="email"],
+    .pm-login input[type="password"] { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--pm-border); border-radius: 6px; background: var(--pm-surface); color: var(--pm-text); font-size: 1rem; margin-bottom: 1rem; }
+    .pm-login button { width: 100%; padding: 0.5rem 0.75rem; background: var(--pm-accent); color: #fff; border: none; border-radius: 6px; font-size: 1rem; cursor: pointer; }
+    .pm-login .error { color: #ef4444; font-size: 0.875rem; margin-top: 0.5rem; }
+    .pm-login-signup { margin-top: 0.75rem; font-size: 0.875rem; }
+    .pm-login-signup a { color: var(--pm-accent); }
+    .pm-signup-wrap input, .pm-invite-accept-wrap input { width: 100%; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; border: 1px solid var(--pm-border); border-radius: 6px; background: var(--pm-surface); color: var(--pm-text); }
+    .pm-detail-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+    .pm-detail-header h2 { margin: 0; }
+    .pm-collaborators-wrap { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .pm-collab-chip { font-size: 0.75rem; padding: 0.2rem 0.5rem; background: var(--pm-border); border-radius: 999px; }
+    .pm-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 150; display: flex; align-items: center; justify-content: center; }
+    .pm-modal-inner { background: var(--pm-surface); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--pm-border); min-width: 20rem; }
+    .pm-modal-inner input { width: 100%; padding: 0.5rem; margin-bottom: 0.75rem; }
+    .pm-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
+    .pm-header h1 { font-size: 1.25rem; font-weight: 600; }
+    .pm-mode { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: var(--pm-muted); }
+    .pm-mode input { margin: 0; }
+    .pm-mode label { cursor: pointer; }
+    .pm-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .pm-btn { padding: 0.4rem 0.75rem; border-radius: 6px; font-size: 0.875rem; cursor: pointer; border: 1px solid var(--pm-border); background: var(--pm-surface); color: var(--pm-text); }
+    .pm-btn.primary { background: var(--pm-accent); border-color: var(--pm-accent); color: #fff; }
+    .pm-btn:hover { opacity: 0.9; }
+    .pm-projects { display: grid; gap: 0.75rem; }
+    .pm-project-card { padding: 1rem; background: var(--pm-surface); border: 1px solid var(--pm-border); border-radius: 8px; cursor: pointer; transition: border-color 0.15s; }
+    .pm-project-card:hover { border-color: var(--pm-accent); }
+    .pm-project-card h3 { font-size: 1rem; margin-bottom: 0.25rem; }
+    .pm-project-card p { font-size: 0.875rem; color: var(--pm-muted); }
+    .pm-show-archived-wrap { margin-bottom: 0.75rem; font-size: 0.875rem; color: var(--pm-muted); }
+    .pm-show-archived-wrap label { cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; }
+    .pm-project-card-actions { display: flex; gap: 0.35rem; margin-top: 0.5rem; }
+    .pm-project-card-actions .pm-btn { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
+    .pm-detail { max-width: 42rem; }
+    .pm-detail.pm-gantt-active { max-width: 64rem; }
+    .pm-detail h2 { font-size: 1.125rem; margin-bottom: 1rem; }
+    .pm-statuses { display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .pm-status { min-width: 12rem; flex: 1; background: var(--pm-surface); border-radius: 8px; padding: 0.75rem; border: 1px solid var(--pm-border); }
+    .pm-status h4 { font-size: 0.75rem; text-transform: uppercase; color: var(--pm-muted); margin-bottom: 0.5rem; }
+    .pm-task { padding: 0.5rem 0.75rem; background: var(--pm-bg); border-radius: 6px; margin-bottom: 0.5rem; font-size: 0.875rem; cursor: grab; border: 1px solid transparent; user-select: none; }
+    .pm-task:hover { border-color: var(--pm-border); }
+    .pm-task.dragging { opacity: 0.5; cursor: grabbing; }
+    .pm-status.drag-over { background: rgba(59, 130, 246, 0.15); border-color: var(--pm-accent); }
+    .pm-task-form { margin-top: 0.5rem; }
+    .pm-sync-status { font-size: 0.75rem; color: var(--pm-muted); display: inline-flex; align-items: center; gap: 0.35rem; }
+    .pm-sync-status.synced { color: #22c55e; }
+    .pm-view-toggle { display: flex; gap: 0.25rem; margin-bottom: 1rem; }
+    .pm-view-toggle button { padding: 0.35rem 0.6rem; font-size: 0.8125rem; border-radius: 4px; border: 1px solid var(--pm-border); background: var(--pm-surface); color: var(--pm-text); cursor: pointer; }
+    .pm-view-toggle button.active { background: var(--pm-accent); border-color: var(--pm-accent); color: #fff; }
+    .pm-list-group { margin-bottom: 1.5rem; transition: background 0.15s, border-color 0.15s; border-radius: 8px; border: 1px solid transparent; }
+    .pm-list-group.drag-over { background: rgba(59, 130, 246, 0.12); border-color: var(--pm-accent); }
+    .pm-list-wrap { overflow: auto; max-height: 70vh; }
+    .pm-list-table-unified { margin-bottom: 0; width: 100%; min-width: 48rem; }
+    .pm-root .pm-list-group-header td { padding: 0.5rem 0.75rem; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; background: rgba(0,0,0,0.03); border-bottom: 1px solid var(--pm-border); grid-column: 1 / -1; min-width: 0; }
+    .pm-root[data-mode="dark"] .pm-list-group-header td { background: rgba(255,255,255,0.03); }
+    .pm-root .pm-list-create-row td { padding: 0.35rem 0.75rem; border-bottom: 1px solid var(--pm-border); grid-column: 1 / -1; min-width: 0; }
+    .pm-list-group-title { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+    .pm-list-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    .pm-list-table th, .pm-list-table td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--pm-border); vertical-align: middle; }
+    .pm-list-table th { color: var(--pm-text); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.02em; background: var(--pm-bg); border-bottom: 2px solid var(--pm-border); }
+    .pm-root .pm-list-table thead { display: table-header-group !important; position: sticky; top: 0; z-index: 2; box-shadow: 0 1px 0 var(--pm-border); }
+    .pm-root .pm-list-table thead tr { display: grid; grid-template-columns: 2rem 2.25rem 1fr 2fr 1fr 6rem 3.5rem 6rem 5.5rem 3rem; grid-column-gap: 2rem; padding: 12px 0; align-items: center; }
+    .pm-list-table .pm-col-num { width: 2.5rem; }
+    .pm-list-table .pm-col-check { width: 2.5rem; }
+    .pm-list-table .pm-col-task { width: 20%; min-width: 10rem; }
+    .pm-list-table .pm-col-assignee { width: 10rem; }
+    .pm-list-table .pm-col-type { width: 5rem; }
+    .pm-list-table .pm-col-priority { width: 6rem; }
+    .pm-list-table .pm-col-point { width: 3.5rem; text-align: center; }
+    .pm-list-table .pm-col-due { width: 6rem; }
+    .pm-list-table .pm-col-progress { width: 5rem; text-align: center; }
+    .pm-list-table .pm-col-actions { width: 2.5rem; }
+    .pm-list-table tbody tr { transition: background 0.15s, filter 0.2s ease-out, opacity 0.2s ease-out; }
+    .pm-list-table tbody tr:hover { background: rgba(255,255,255,0.04); }
+    .pm-list-table tbody tr.dragging { opacity: 0.5; cursor: grabbing; }
+    .pm-list-table:focus-within tbody tr:not(:focus-within) { filter: blur(2px) saturate(0.3); pointer-events: none; opacity: 0.5; }
+    .pm-list-table tbody tr:focus-within { background: rgba(59, 130, 246, 0.15); outline: none; }
+    .pm-list-table .pm-priority { font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 4px; display: inline-block; }
+    .pm-list-table .pm-priority.urgent { background: #7f1d1d; color: #fca5a5; }
+    .pm-list-table .pm-priority.high { background: #78350f; color: #fcd34d; }
+    .pm-list-table .pm-priority.medium { background: #1e3a5f; color: #93c5fd; }
+    .pm-list-table .pm-priority.low { background: #14532d; color: #86efac; }
+    .pm-list-assignee-chips { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+    .pm-list-assignee-chip { font-size: 0.75rem; padding: 0.15rem 0.4rem; border-radius: 999px; background: var(--pm-border); color: var(--pm-text); }
+    .pm-list-point { font-size: 0.8125rem; color: var(--pm-muted); }
+    .pm-list-due { font-size: 0.8125rem; color: var(--pm-muted); }
+    .pm-list-due.overdue { color: #ef4444; }
+    .pm-list-create-link { display: inline-block; padding: 0.35rem 0.75rem; font-size: 0.875rem; color: var(--pm-muted); cursor: pointer; border-radius: 4px; }
+    .pm-list-create-link:hover { background: rgba(255,255,255,0.04); color: var(--pm-accent); }
+    .pm-list-delete-btn { padding: 0.25rem; background: none; border: none; color: var(--pm-muted); cursor: pointer; border-radius: 4px; font-size: 1rem; line-height: 1; }
+    .pm-list-delete-btn:hover { color: #ef4444; background: rgba(239,68,68,0.15); }
+    .pm-task-form input { width: 100%; padding: 0.4rem 0.5rem; border: 1px solid var(--pm-border); border-radius: 4px; background: var(--pm-bg); color: var(--pm-text); font-size: 0.875rem; }
+    .pm-empty { color: var(--pm-muted); font-size: 0.875rem; padding: 0.5rem 0; }
+    .pm-loading { color: var(--pm-muted); }
+    .pm-logout { font-size: 0.875rem; color: var(--pm-muted); cursor: pointer; }
+    .pm-logout:hover { color: var(--pm-text); }
+    .pm-task-panel-wrap {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100;
+      display: flex; align-items: stretch; justify-content: flex-end;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.4s ease-out;
+    }
+    .pm-task-panel-wrap[aria-hidden="false"] {
+      opacity: 1; pointer-events: auto;
+    }
+    .pm-task-panel {
+      width: 100%; max-width: 28rem; background: var(--pm-surface); border-left: 1px solid var(--pm-border);
+      display: flex; flex-direction: column; overflow: hidden;
+      transform: translateX(100%);
+      transition: transform 0.5s cubic-bezier(0.86, 0, 0.672, 1.003);
+    }
+    .pm-task-panel-wrap[aria-hidden="false"] .pm-task-panel {
+      transform: translateX(0);
+    }
+    .pm-task-panel-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 1rem; border-bottom: 1px solid var(--pm-border); }
+    .pm-task-panel-header h3 { font-size: 1rem; margin: 0; flex: 1; }
+    .pm-task-panel-header-actions { display: flex; align-items: center; gap: 0.35rem; }
+    .pm-task-panel-delete { font-size: 0.8125rem; color: var(--pm-muted); }
+    .pm-task-panel-delete:hover { color: #ef4444; }
+    .pm-task-panel-close { padding: 0.25rem 0.5rem; font-size: 1.25rem; line-height: 1; }
+    .pm-task-panel-body { padding: 1rem; overflow-y: auto; flex: 1; }
+    .pm-task-meta { font-size: 0.8125rem; color: var(--pm-muted); margin-bottom: 1rem; }
+    .pm-task-description-wrap label, .pm-task-dates label, .pm-task-point-wrap label { display: block; font-size: 0.75rem; color: var(--pm-muted); margin-bottom: 0.25rem; }
+    .pm-task-description-edit { width: 100%; padding: 0.5rem; border: 1px solid var(--pm-border); border-radius: 4px; background: var(--pm-bg); color: var(--pm-text); font-size: 0.875rem; resize: vertical; margin-bottom: 1rem; }
+    .pm-task-dates { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 1rem; }
+    .pm-task-dates input, .pm-task-point-wrap input { padding: 0.4rem; border: 1px solid var(--pm-border); border-radius: 4px; background: var(--pm-bg); color: var(--pm-text); font-size: 0.875rem; }
+    .pm-task-point-wrap { margin-bottom: 1rem; }
+    .pm-task-section { margin-bottom: 1.25rem; }
+    .pm-task-section h4 { font-size: 0.75rem; text-transform: uppercase; color: var(--pm-muted); margin-bottom: 0.5rem; }
+    .pm-comments-list, .pm-activity-list { list-style: none; padding: 0; margin: 0 0 0.75rem 0; }
+    .pm-comment-item, .pm-activity-item { padding: 0.5rem 0; border-bottom: 1px solid var(--pm-border); font-size: 0.875rem; }
+    .pm-comment-item .pm-comment-meta, .pm-activity-item .pm-activity-meta { font-size: 0.75rem; color: var(--pm-muted); margin-bottom: 0.25rem; }
+    .pm-comment-add textarea { width: 100%; padding: 0.5rem; border: 1px solid var(--pm-border); border-radius: 6px; background: var(--pm-bg); color: var(--pm-text); font-size: 0.875rem; resize: vertical; margin-bottom: 0.5rem; }
+    .pm-task-checklist-add { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+    .pm-task-checklist-add input { flex: 1; padding: 0.4rem 0.5rem; border: 1px solid var(--pm-border); border-radius: 4px; background: var(--pm-bg); color: var(--pm-text); font-size: 0.875rem; }
+    .pm-task-checklist-list { list-style: none; padding: 0; margin: 0; }
+    .pm-task-checklist-list li { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0; }
+    .pm-task-checklist-list input[type="checkbox"] { margin: 0; }
+    .pm-task-checklist-list .pm-checklist-done { text-decoration: line-through; color: var(--pm-muted); }
+    .pm-filter-bar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: center; font-size: 0.875rem; }
+    .pm-filter-bar select { padding: 0.35rem 0.5rem; border: 1px solid var(--pm-border); border-radius: 4px; background: var(--pm-surface); color: var(--pm-text); }
+    .pm-view-toggle button { padding: 0.35rem 0.6rem; font-size: 0.8125rem; border-radius: 4px; border: 1px solid var(--pm-border); background: var(--pm-surface); color: var(--pm-text); cursor: pointer; }
+    .pm-view-toggle button.active { background: var(--pm-accent); border-color: var(--pm-accent); color: #fff; }
+    .pm-priority.urgent, .pm-task.priority-urgent { border-left: 3px solid #dc2626; }
+    .pm-priority.high, .pm-task.priority-high { border-left: 3px solid #ea580c; }
+    .pm-priority.medium, .pm-task.priority-medium { border-left: 3px solid #2563eb; }
+    .pm-priority.low, .pm-task.priority-low { border-left: 3px solid #16a34a; }
+    .pm-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: auto repeat(4, minmax(4rem, 1fr)); gap: 1px; background: var(--pm-border); margin-top: 0.5rem; }
+    .pm-calendar-multiday-bar:hover { filter: brightness(1.1); }
+    .pm-calendar-day { min-height: 4.5rem; background: var(--pm-surface); padding: 0.35rem; font-size: 0.75rem; overflow: hidden; display: flex; flex-direction: column; }
+    .pm-calendar-day-num { flex-shrink: 0; font-weight: 700; font-size: 0.875rem; margin-bottom: 0.35rem; min-height: 1.25rem; line-height: 1.25; color: var(--pm-text); }
+    .pm-calendar-day-today .pm-calendar-day-num { background: var(--pm-accent); color: #fff; width: 1.75rem; height: 1.75rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
+    .pm-calendar-day-tasks { flex: 1; overflow-y: auto; min-height: 0; display: flex; flex-direction: column; gap: 0.2rem; -webkit-overflow-scrolling: touch; }
+    .pm-calendar-day-today { background: rgba(99, 102, 241, 0.12); outline: 2px solid var(--pm-accent); outline-offset: -2px; }
+    .pm-calendar-day-header { font-weight: 600; color: var(--pm-muted); text-align: center; padding: 0.5rem; }
+    .pm-calendar-task { padding: 0.2rem 0.35rem; border-radius: 4px; margin-bottom: 0.2rem; cursor: pointer; font-size: 0.7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; box-sizing: border-box; }
+    .pm-calendar-task:hover { filter: brightness(1.1); }
+    .pm-calendar-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem; }
+    .pm-saved-views-select { padding: 0.35rem 0.5rem; border: 1px solid var(--pm-border); border-radius: 4px; background: var(--pm-surface); color: var(--pm-text); font-size: 0.8125rem; }
+    .pm-point-stars-wrap { display: flex; gap: 0.1rem; }
+    .pm-point-star { background: none; border: none; padding: 0; font-size: 1rem; cursor: pointer; color: var(--pm-muted); line-height: 1; }
+    .pm-point-star:hover { color: var(--pm-accent); }
+    .pm-task-point-stars { font-size: 0.75rem; color: var(--pm-muted); margin-left: 0.25rem; }
+    .pm-panel-point-stars { display: flex; gap: 0.25rem; }
+    .pm-panel-point-stars .pm-panel-star { background: none; border: none; padding: 0; font-size: 1.5rem; cursor: pointer; color: var(--pm-muted); line-height: 1; }
+    .pm-panel-point-stars .pm-panel-star:hover { color: var(--pm-accent); }
+    .pm-panel-point-stars .pm-panel-star[aria-pressed="true"] { color: var(--pm-accent); }
+    .pm-list-priority-select { padding: 0.2rem 0.35rem; font-size: 0.75rem; border-radius: 4px; border: 1px solid var(--pm-border); background: var(--pm-bg); color: var(--pm-text); cursor: pointer; max-width: 100%; }
+    .pm-list-task-title { cursor: text; }
+    .pm-list-task-title:focus { outline: 1px solid var(--pm-accent); outline-offset: 1px; }
+    #pm-task-panel-title { cursor: text; }
+    #pm-task-panel-title:focus { outline: 1px solid var(--pm-accent); outline-offset: 2px; }
+    .pm-task-progress-wrap { margin-bottom: 1rem; }
+    .pm-panel-content .pm-task-progress-wrap { margin-bottom: 1rem; }
+    .pm-task-progress-label { display: block; font-size: 0.75rem; color: var(--pm-muted); margin-bottom: 0.25rem; }
+    .pm-task-progress-bar { height: 6px; background: var(--pm-border); border-radius: 999px; overflow: hidden; }
+    .pm-task-progress-fill { height: 100%; background: var(--pm-accent); border-radius: 999px; transition: width 0.3s ease; }
+    .pm-task-progress-text { font-size: 0.75rem; color: var(--pm-muted); margin-left: 0.5rem; }
+    .pm-task-progress-slider-wrap { margin-top: 0.5rem; }
+    .pm-task-progress-slider { width: 100%; accent-color: var(--pm-accent); }
+    .pm-morphing-disclosure { --border-width: 1px; --border-color: var(--pm-border); --duration: 0.26s; --ease: cubic-bezier(0.215, 0.61, 0.355, 1); margin-bottom: 1rem; }
+    .pm-morphing-disclosure details { border: var(--border-width) solid var(--border-color); border-radius: 8px; margin-bottom: 0.5rem; overflow: hidden; transition: border-color var(--duration) var(--ease), background var(--duration) var(--ease); }
+    .pm-morphing-disclosure details[open] { margin-bottom: 0.75rem; }
+    .pm-morphing-disclosure summary { padding: 0.75rem 1rem; cursor: pointer; font-size: 0.875rem; font-weight: 500; list-style: none; display: flex; align-items: center; gap: 0.5rem; transition: background var(--duration) var(--ease); }
+    .pm-morphing-disclosure summary::-webkit-details-marker { display: none; }
+    .pm-morphing-disclosure summary::after { content: '▶'; font-size: 0.7em; opacity: 0.7; transition: transform var(--duration) var(--ease); }
+    .pm-morphing-disclosure details[open] summary::after { transform: rotate(90deg); }
+    .pm-morphing-disclosure summary:hover { background: rgba(255,255,255,0.04); }
+    .pm-morphing-disclosure .pm-panel-content { padding: 0 1rem 1rem; }
+    .pm-morphing-disclosure .pm-panel-content .pm-task-meta { margin-bottom: 0; }
+    .pm-panel-subsection { margin-bottom: 1rem; }
+    .pm-panel-subsection:last-child { margin-bottom: 0; }
+    .pm-panel-subtitle { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--pm-muted); margin: 0 0 0.5rem 0; }
+    .pm-deps-blocked-by, .pm-deps-blocking { margin-bottom: 0.5rem; }
+    .pm-deps-label { font-size: 0.8125rem; color: var(--pm-muted); display: block; margin-bottom: 0.25rem; }
+    .pm-deps-list { list-style: none; padding: 0; margin: 0; }
+    .pm-deps-list li { display: flex; align-items: center; justify-content: space-between; padding: 0.35rem 0; font-size: 0.875rem; }
+    .pm-deps-list li a { color: var(--pm-accent); text-decoration: none; }
+    .pm-deps-list li a:hover { text-decoration: underline; }
+    .pm-deps-list .pm-deps-remove { padding: 0.15rem 0.4rem; font-size: 0.75rem; }
+    .pm-deps-add { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-top: 0.75rem; }
+    .pm-deps-select { flex: 1; min-width: 120px; padding: 0.4rem 0.5rem; border: 1px solid var(--pm-border); border-radius: 4px; background: var(--pm-bg); color: var(--pm-text); font-size: 0.875rem; }
+    .pm-deps-type-select { padding: 0.4rem 0.5rem; border: 1px solid var(--pm-border); border-radius: 4px; background: var(--pm-bg); color: var(--pm-text); font-size: 0.875rem; }
+    .pm-deps-empty { color: var(--pm-muted); font-style: italic; }
+    .pm-list-table .pm-col-progress { width: 4.5rem; text-align: center; }
+    .pm-list-progress { font-size: 0.75rem; color: var(--pm-muted); display: inline-flex; flex-direction: column; align-items: center; gap: 0.15rem; }
+    .pm-list-progress-bar { display: block; width: 4rem; height: 6px; background: var(--pm-border); border-radius: 3px; overflow: hidden; }
+    .pm-list-progress-bar-fill { height: 100%; background: var(--pm-accent); border-radius: 3px; }
+    .pm-list-progress-pct { font-weight: 600; font-size: 0.7rem; line-height: 1; }
+    /* Gantt view */
+    .pm-gantt-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+    .pm-gantt-chart { overflow-x: auto; overflow-y: auto; max-height: 32rem; border: 1px solid var(--pm-border); border-radius: 8px; background: var(--pm-surface); scroll-behavior: smooth; }
+    .pm-gantt-inner { min-width: max-content; padding: 0.5rem 0; position: relative; }
+    .pm-gantt-header { display: flex; border-bottom: 1px solid var(--pm-border); position: sticky; top: 0; background: var(--pm-surface); z-index: 2; }
+    .pm-gantt-labels-col { width: 10rem; min-width: 10rem; flex-shrink: 0; padding: 0.5rem 0.75rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; color: var(--pm-muted); }
+    .pm-gantt-timeline-col { flex: 1; min-width: 24rem; display: flex; position: relative; }
+    .pm-gantt-day { flex: 1; min-width: 2rem; text-align: center; font-size: 0.7rem; color: var(--pm-muted); padding: 0.35rem 0; border-left: 1px solid var(--pm-border); }
+    .pm-gantt-day:first-child { border-left: none; }
+    .pm-gantt-day.weekend { background: rgba(0,0,0,0.03); }
+    .pm-root[data-mode="dark"] .pm-gantt-day.weekend { background: rgba(255,255,255,0.03); }
+    .pm-gantt-row { display: flex; align-items: center; min-height: 2.5rem; border-bottom: 1px solid var(--pm-border); transition: background 0.15s; content-visibility: auto; contain-intrinsic-size: auto 2.5rem; }
+    .pm-gantt-row:hover { background: rgba(255,255,255,0.04); }
+    .pm-gantt-row-label { width: 10rem; min-width: 10rem; flex-shrink: 0; padding: 0.35rem 0.75rem; font-size: 0.8125rem; white-space: normal; word-wrap: break-word; cursor: pointer; line-height: 1.3; }
+    .pm-gantt-row-label:hover { color: var(--pm-accent); }
+    .pm-gantt-row-bars { flex: 1; min-width: 24rem; position: relative; height: 2rem; }
+    .pm-gantt-bar-wrap { position: absolute; top: 0; bottom: 0; left: 0; right: 0; }
+    .pm-gantt-bar { position: absolute; top: 2px; bottom: 2px; border-radius: 4px; cursor: pointer; transition: opacity 0.15s, transform 0.15s; overflow: hidden; }
+    .pm-gantt-bar-progress-wrap { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(0,0,0,0.2); border-radius: 0 0 4px 4px; overflow: hidden; }
+    .pm-gantt-bar-icon { position: absolute; top: 50%; transform: translateY(-50%); display: flex; align-items: center; justify-content: center; pointer-events: none; }
+    .pm-gantt-bar-icon svg { flex-shrink: 0; }
+    .pm-gantt-bar-icon-blocking { left: 2px; }
+    .pm-gantt-bar-icon-blocked { right: 2px; }
+    .pm-gantt-bar-progress { position: absolute; left: 0; top: 0; bottom: 0; background: var(--pm-accent); border-radius: 0 0 0 4px; min-width: 2px; transition: width 0.2s ease; }
+    .pm-gantt-bar:hover { opacity: 0.9; transform: scaleY(1.1); }
+    .pm-gantt-tooltip { position: fixed; display: none; padding: 0.5rem 0.75rem; font-size: 0.75rem; background: var(--pm-bg); border: 1px solid var(--pm-border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; pointer-events: none; max-width: 14rem; }
+    .pm-gantt-tooltip[aria-hidden="false"] { display: block; }
+    .pm-gantt-empty { padding: 2rem; text-align: center; color: var(--pm-muted); font-size: 0.875rem; }
+    .pm-gantt-no-dates { padding: 1rem 0.75rem; font-size: 0.8125rem; color: var(--pm-muted); }
+    .pm-gantt-today-line-wrap { position: absolute; top: 0; left: 10rem; right: 0; bottom: 0; pointer-events: none; z-index: 3; }
+    .pm-gantt-today-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #ef4444; }
+    .pm-gantt-add-row { display: flex; align-items: center; min-height: 2rem; border-bottom: 1px solid var(--pm-border); padding: 0.35rem 0.75rem; }
+    .pm-gantt-add-row .pm-gantt-row-label { cursor: default; color: var(--pm-muted); }
+    .pm-gantt-add-row .pm-gantt-timeline-col { flex: 1; min-width: 24rem; position: relative; min-height: 2rem; cursor: pointer; }
+    .pm-gantt-add-row .pm-gantt-timeline-col:hover { background: rgba(59, 130, 246, 0.1); }
+    .pm-gantt-deps-wrap { position: absolute; top: 2.5rem; left: 10rem; right: 0; bottom: 0; pointer-events: none; z-index: 1; }
+    .pm-gantt-deps-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    .pm-root { --pm-dep-line-color: dodgerblue; }
+    .pm-calendar-more-link { font-size: 0.7rem; color: var(--pm-accent); cursor: pointer; padding: 0.1rem 0; }
+    .pm-calendar-more-link:hover { text-decoration: underline; }
+    .pm-calendar-more-popover { position: fixed; z-index: 200; background: var(--pm-surface); border: 1px solid var(--pm-border); border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); padding: 0.5rem; max-height: 16rem; overflow-y: auto; }
+    .pm-calendar-more-popover .pm-calendar-more-item { padding: 0.35rem 0.5rem; font-size: 0.8125rem; cursor: pointer; border-radius: 4px; margin-bottom: 0.2rem; }
+    .pm-calendar-more-popover .pm-calendar-more-item:hover { background: rgba(255,255,255,0.08); }
+  </style>
+</head>
+<body class="pm-root" data-theme="neuromorphic" data-mode="light">
+  <div class="pm-ds-bar" role="group" aria-label="Theme">
+    <select id="pm-ds-theme" class="pm-ds-theme-select" title="Theme" aria-label="Theme">
+      <option value="neuromorphic">Neuromorphic</option>
+      <option value="glassmorphic">Glassmorphic</option>
+      <option value="flat">Flat</option>
+      <option value="material">Material</option>
+      <option value="claymorphic">Claymorphic</option>
+      <option value="dark-pro">Dark Pro</option>
+    </select>
+    <button type="button" class="pm-ds-mode-toggle" id="pm-ds-mode-toggle" aria-label="Toggle light/dark mode" style="margin-left: 0.5rem;">
+      <span class="pm-ds-mode-icon pm-ds-mode-icon--light">☀️</span>
+      <span class="pm-ds-mode-icon pm-ds-mode-icon--dark">🌙</span>
+    </button>
+  </div>
+  <div id="pm-login" class="pm-login" style="display: none;">
+    <h1>Sign in</h1>
+    <form id="pm-login-form">
+      <input type="email" name="email" placeholder="Email (optional, for user accounts)" autocomplete="email">
+      <input type="password" name="password" placeholder="Password" autocomplete="current-password" required>
+      <button type="submit">Sign in</button>
+    </form>
+    <p class="pm-login-signup"><a href="#" id="pm-show-signup">Sign up with email</a></p>
+    <p id="pm-login-error" class="error" style="display: none;"></p>
+    <div id="pm-signup-wrap" class="pm-signup-wrap" style="display: none;">
+      <h2>Sign up</h2>
+      <form id="pm-signup-form">
+        <input type="email" name="email" placeholder="Email" required>
+        <input type="password" name="password" placeholder="Password (min 6 chars)" minlength="6" required>
+        <input type="text" name="name" placeholder="Name (optional)">
+        <button type="submit">Sign up</button>
+      </form>
+      <p><a href="#" id="pm-signup-back">← Back to sign in</a></p>
+    </div>
+    <div id="pm-invite-accept-wrap" class="pm-invite-accept-wrap" style="display: none;">
+      <h2>Set up your account</h2>
+      <p id="pm-invite-accept-msg"></p>
+      <form id="pm-invite-accept-form">
+        <input type="password" name="password" placeholder="Password (min 6 chars)" minlength="6" required>
+        <input type="text" name="name" placeholder="Name (optional)">
+        <input type="hidden" name="token" id="pm-invite-token">
+        <button type="submit">Join project</button>
+      </form>
+    </div>
+  </div>
+  <div id="pm-app" style="display: none;">
+    <header class="pm-header">
+      <div>
+        <h1>Projects</h1>
+        <div class="pm-mode">
+          <input type="radio" id="pm-mode-local" name="pm-mode" value="local">
+          <label for="pm-mode-local">Store locally</label>
+          <input type="radio" id="pm-mode-sync" name="pm-mode" value="sync">
+          <label for="pm-mode-sync">Sync to server</label>
+        </div>
+        <span id="pm-sync-status" class="pm-sync-status" aria-live="polite"></span>
+      </div>
+      <div class="pm-actions">
+        <button type="button" class="pm-btn" id="pm-export-btn">Export JSON</button>
+        <button type="button" class="pm-btn" id="pm-import-btn">Import JSON</button>
+        <input type="file" id="pm-import-file" accept=".json" style="display: none;">
+        <button type="button" class="pm-btn primary" id="pm-new-project">New project</button>
+        <span class="pm-logout" id="pm-logout">Sign out</span>
+      </div>
+    </header>
+    <main id="pm-main">
+      <p id="pm-loading" class="pm-loading" style="display: none;">Loading…</p>
+      <div id="pm-list-view">
+        <div id="pm-show-archived-wrap" class="pm-show-archived-wrap" style="display: none;">
+          <label><input type="checkbox" id="pm-show-archived" name="pm-show-archived"> Show archived</label>
+        </div>
+        <div class="pm-projects" id="pm-project-list"></div>
+        <p id="pm-no-projects" class="pm-empty" style="display: none;">No projects yet. Create one to start.</p>
+      </div>
+      <div id="pm-detail-view" class="pm-detail" style="display: none;">
+        <button type="button" class="pm-btn" id="pm-back">← Back</button>
+        <div class="pm-detail-header">
+          <h2 id="pm-detail-title"></h2>
+          <div class="pm-collaborators-wrap">
+            <button type="button" class="pm-btn" id="pm-invite-collab-btn" title="Invite collaborators">+ Invite</button>
+            <div id="pm-collaborators-list" class="pm-collaborators-list"></div>
+          </div>
+        </div>
+        <div id="pm-invite-modal" class="pm-modal" style="display: none;">
+          <div class="pm-modal-inner">
+            <h3>Invite to project</h3>
+            <form id="pm-invite-form">
+              <input type="email" id="pm-invite-email" placeholder="Email address" required>
+              <button type="submit" class="pm-btn primary">Send invitation</button>
+            </form>
+            <button type="button" class="pm-btn pm-modal-close" id="pm-invite-modal-close">Cancel</button>
+          </div>
+        </div>
+        <div class="pm-view-toggle" style="align-items: center;">
+          <button type="button" id="pm-view-list" class="pm-view-btn">List</button>
+          <button type="button" id="pm-view-board" class="pm-view-btn active">Board</button>
+          <button type="button" id="pm-view-calendar" class="pm-view-btn">Calendar</button>
+          <button type="button" id="pm-view-gantt" class="pm-view-btn">Gantt</button>
+          <select id="pm-saved-views" class="pm-saved-views-select" title="Saved views">
+            <option value="">Saved views…</option>
+          </select>
+          <button type="button" class="pm-btn" id="pm-save-view-btn">Save current view</button>
+        </div>
+        <div id="pm-filter-bar" class="pm-filter-bar" style="display: none;">
+          <span>Filter:</span>
+          <select id="pm-filter-status" title="Status">
+            <option value="">Any status</option>
+          </select>
+          <select id="pm-filter-priority" title="Priority">
+            <option value="">Any priority</option>
+            <option value="urgent">🔴 Urgent</option>
+            <option value="high">🟠 High</option>
+            <option value="medium">🟡 Medium</option>
+            <option value="low">🟢 Low</option>
+          </select>
+          <select id="pm-filter-assignee" title="Assignee">
+            <option value="">Any assignee</option>
+          </select>
+          <button type="button" class="pm-btn" id="pm-filter-clear">Clear</button>
+        </div>
+        <div id="pm-board-wrap">
+          <div class="pm-statuses" id="pm-status-columns"></div>
+        </div>
+        <div id="pm-calendar-wrap" style="display: none;">
+          <div class="pm-calendar-nav">
+            <button type="button" class="pm-btn" id="pm-calendar-prev">←</button>
+            <button type="button" class="pm-btn" id="pm-calendar-today">Today</button>
+            <h3 id="pm-calendar-month-title" style="margin: 0; font-size: 1rem;"></h3>
+            <button type="button" class="pm-btn" id="pm-calendar-next">→</button>
+          </div>
+          <div id="pm-calendar-grid" class="pm-calendar-grid"></div>
+        </div>
+        <div id="pm-list-wrap" style="display: none;">
+          <div id="pm-list-groups"></div>
+        </div>
+        <div id="pm-gantt-wrap" style="display: none;">
+          <div class="pm-gantt-nav">
+            <button type="button" class="pm-btn" id="pm-gantt-prev">←</button>
+            <h3 id="pm-gantt-range-title" style="margin: 0; font-size: 1rem;"></h3>
+            <button type="button" class="pm-btn" id="pm-gantt-next">→</button>
+          </div>
+          <div id="pm-gantt-chart" class="pm-gantt-chart"></div>
+          <div id="pm-gantt-tooltip" class="pm-gantt-tooltip" role="tooltip" aria-hidden="true"></div>
+        </div>
+        <div id="pm-task-panel-wrap" class="pm-task-panel-wrap" aria-hidden="true">
+          <div class="pm-task-panel" id="pm-task-panel">
+            <div class="pm-task-panel-header">
+              <h3 id="pm-task-panel-title"></h3>
+              <div class="pm-task-panel-header-actions">
+                <button type="button" class="pm-btn pm-task-panel-delete" id="pm-task-panel-delete" title="Delete task">Delete</button>
+                <button type="button" class="pm-btn pm-task-panel-close" id="pm-task-panel-close" aria-label="Close">×</button>
+              </div>
+            </div>
+            <div class="pm-task-panel-body">
+              <div class="pm-morphing-disclosure pm-task-panel-disclosure" data-style="border" data-bordered="true">
+                <details class="pm-panel-details" id="pm-panel-details-status" open>
+                  <summary class="pm-panel-summary">Status & meta</summary>
+                  <div class="pm-panel-content">
+                    <div class="pm-task-meta" id="pm-task-meta"></div>
+                  </div>
+                </details>
+              </div>
+              <div class="pm-task-description-wrap">
+                <label>Description</label>
+                <textarea id="pm-task-description" class="pm-task-description-edit" rows="3"></textarea>
+              </div>
+              <div class="pm-task-dates">
+                <label>Start date</label>
+                <input type="date" id="pm-task-start-date">
+                <label>Due date</label>
+                <input type="date" id="pm-task-due-date">
+              </div>
+              <div class="pm-task-point-wrap">
+                <label>Points (1–5)</label>
+                <div id="pm-task-point-stars" class="pm-panel-point-stars" role="group" aria-label="Points"></div>
+              </div>
+              <div class="pm-morphing-disclosure pm-task-panel-disclosure" data-style="border" data-bordered="true">
+                <details class="pm-panel-details" id="pm-panel-details-subtasks" open>
+                  <summary class="pm-panel-summary">Subtasks and Dependencies</summary>
+                  <div class="pm-panel-content">
+                    <div class="pm-task-progress-wrap" id="pm-task-progress-wrap" style="display: none;">
+                      <label class="pm-task-progress-label">Progress</label>
+                      <div class="pm-task-progress-bar-wrap" id="pm-task-progress-bar-wrap">
+                        <div class="pm-task-progress-bar"><div class="pm-task-progress-fill" id="pm-task-progress-fill"></div></div>
+                      </div>
+                      <div class="pm-task-progress-slider-wrap" id="pm-task-progress-slider-wrap" style="display: none;">
+                        <input type="range" id="pm-task-progress-slider" min="0" max="100" value="0" class="pm-task-progress-slider">
+                      </div>
+                      <span class="pm-task-progress-text" id="pm-task-progress-text"></span>
+                    </div>
+                    <div class="pm-panel-subsection">
+                      <h5 class="pm-panel-subtitle">Subtasks</h5>
+                      <ul id="pm-task-checklist-list"></ul>
+                      <div class="pm-task-checklist-add">
+                        <input type="text" id="pm-task-checklist-input" placeholder="Add subtask">
+                        <button type="button" class="pm-btn" id="pm-task-checklist-add-btn">Add</button>
+                      </div>
+                    </div>
+                    <div class="pm-panel-subsection">
+                      <h5 class="pm-panel-subtitle">Dependencies</h5>
+                      <div class="pm-deps-blocked-by">
+                        <span class="pm-deps-label">Blocked by:</span>
+                        <ul id="pm-task-blocked-by-list" class="pm-deps-list"></ul>
+                      </div>
+                      <div class="pm-deps-blocking">
+                        <span class="pm-deps-label">Blocking:</span>
+                        <ul id="pm-task-blocking-list" class="pm-deps-list"></ul>
+                      </div>
+                      <div class="pm-deps-add">
+                        <select id="pm-deps-task-select" class="pm-deps-select">
+                          <option value="">Select task…</option>
+                        </select>
+                        <select id="pm-deps-type-select" class="pm-deps-type-select">
+                          <option value="blockedBy">This task is blocked by</option>
+                          <option value="blocking">This task blocks</option>
+                        </select>
+                        <button type="button" class="pm-btn" id="pm-deps-add-btn">Add link</button>
+                      </div>
+                    </div>
+                  </div>
+                </details>
+              </div>
+              <div class="pm-morphing-disclosure pm-task-panel-disclosure" data-style="border" data-bordered="true">
+                <details class="pm-panel-details" id="pm-panel-details-activity">
+                  <summary class="pm-panel-summary">Activity</summary>
+                  <div class="pm-panel-content">
+                    <ul id="pm-task-activity-list" class="pm-activity-list"></ul>
+                  </div>
+                </details>
+                <details class="pm-panel-details" id="pm-panel-details-comments">
+                  <summary class="pm-panel-summary">Comments</summary>
+                  <div class="pm-panel-content">
+                    <ul id="pm-task-comments-list" class="pm-comments-list"></ul>
+                    <div class="pm-comment-add">
+                      <textarea id="pm-comment-input" placeholder="Add a comment…" rows="2"></textarea>
+                      <button type="button" class="pm-btn primary" id="pm-comment-submit">Comment</button>
+                    </div>
+                  </div>
+                </details>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+  <script>
+    // Parcel dev (port 1234) has no API; point PM at Node server (3000)
+    if (window.location.port === "1234") window.API_ORIGIN = "http://localhost:3000";
+  </script>
+  <script src="pm.js"></script>
+</body>
+</html>

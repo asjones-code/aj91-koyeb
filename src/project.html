@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project — AJ91</title>
+  <script>
+    (function () {
+      function setVh() {
+        var v = window.visualViewport;
+        var vh = (v && v.height) ? v.height : window.innerHeight;
+        document.documentElement.style.setProperty('--vh', vh + 'px');
+      }
+      setVh();
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', setVh);
+        window.visualViewport.addEventListener('scroll', setVh);
+      }
+      window.addEventListener('resize', setVh);
+      window.addEventListener('orientationchange', function () { setTimeout(setVh, 100); });
+      document.addEventListener('DOMContentLoaded', setVh);
+      setTimeout(setVh, 500);
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+</head>
+<body data-barba="wrapper" class="page-is-projects page-is-project-detail">
+  <div class="project-scroll-indicator" id="scroll-indicator"></div>
+  <a href="projects.html" class="project-back font-mono">← Back</a>
+  <div class="container">
+    <header class="header">
+      <div class="header-inner">
+        <a href="/" class="header-logo logo word font-kihim">aj91</a>
+        <nav class="header-nav navigation" aria-label="Main">
+          <ul>
+            <li><a class="font-mono" href="https://www.linkedin.com/in/asjones91/" aria-label="LinkedIn"><i class="fa-brands fa-linkedin" aria-hidden="true"></i><span class="nav-text">Linkedin</span></a></li>
+            <li><a class="font-mono" href="https://aj91.substack.com/" aria-label="Substack"><i class="fa-solid fa-newspaper" aria-hidden="true"></i><span class="nav-text">Substack</span></a></li>
+          </ul>
+        </nav>
+        <button class="menuToggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="menu-panel" aria-label="Toggle menu">
+          <div class="hamburger"><span></span><span></span><span></span></div>
+          <div class="cross"><span></span><span></span></div>
+        </button>
+      </div>
+    </header>
+
+    <main class="project-page" data-barba="container" data-barba-namespace="project">
+      <div id="project-loading" class="project-loading">Loading…</div>
+      <div id="project-error" class="project-error" style="display:none"></div>
+      <div id="project-content" style="display:none">
+        <section class="project-hero">
+          <div class="project-hero-media" id="project-hero-media">
+            <img id="project-hero-img" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="">
+            <video id="project-hero-video" playsinline muted loop autoplay style="display:none"></video>
+          </div>
+          <div class="project-hero-inner">
+            <div class="project-title-row">
+              <h1 class="project-title" id="project-title"></h1>
+            </div>
+            <div></div>
+            <div class="project-hero-text">
+              <p id="project-about"></p>
+            </div>
+          </div>
+        </section>
+        <section class="project-gallery" id="project-gallery">
+          <div class="project-gallery-inner">
+            <div class="project-gallery-grid" id="project-gallery-grid"></div>
+            <div class="project-gallery-caption" id="project-gallery-caption"></div>
+          </div>
+        </section>
+        <section class="project-footer">
+          <div class="project-footer-cta" id="project-footer-cta"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script>
+    if (window.location.port === "1234") window.API_ORIGIN = "http://localhost:3000";
+  </script>
+  <script type="module">
+    import { init } from "./project-page.js";
+    init();
+  </script>
+  <script type="module" src="loader.js"></script>
+</body>
+</html>

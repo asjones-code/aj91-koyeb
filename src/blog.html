@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blog — AJ91</title>
+  <script>
+    (function () {
+      function setVh() {
+        var v = window.visualViewport;
+        var vh = (v && v.height) ? v.height : window.innerHeight;
+        document.documentElement.style.setProperty('--vh', vh + 'px');
+      }
+      setVh();
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', setVh);
+        window.visualViewport.addEventListener('scroll', setVh);
+      }
+      window.addEventListener('resize', setVh);
+      window.addEventListener('orientationchange', function () { setTimeout(setVh, 100); });
+      document.addEventListener('DOMContentLoaded', setVh);
+      setTimeout(setVh, 500);
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+  <style>
+    .blog-page { max-width: 42rem; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    .blog-page a { color: rgba(255,255,255,0.9); text-decoration: underline; text-underline-offset: 0.2em; }
+    .blog-page a:hover { color: #fff; }
+    .blog-back { display: inline-block; color: rgba(255,255,255,0.8); text-decoration: none; font-size: 0.9rem; margin-bottom: 2rem; }
+    .blog-back:hover { color: #fff; }
+    .blog-list { list-style: none; }
+    .blog-list li { margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    .blog-list li:last-child { border-bottom: none; }
+    .blog-list a { text-decoration: none; }
+    .blog-list a:hover { text-decoration: underline; }
+    .blog-list h2 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+    .blog-list .blog-meta { font-size: 0.875rem; color: rgba(255,255,255,0.5); margin-bottom: 0.5rem; }
+    .blog-list .blog-excerpt { font-size: 0.9375rem; color: rgba(255,255,255,0.7); line-height: 1.5; }
+    .blog-post h1 { font-size: 1.75rem; margin-bottom: 0.5rem; }
+    .blog-post .blog-meta { font-size: 0.875rem; color: rgba(255,255,255,0.5); margin-bottom: 1.5rem; }
+    .blog-post .blog-content { color: rgba(255,255,255,0.85); line-height: 1.6; }
+    .blog-post .blog-content p { margin-bottom: 1rem; }
+    .blog-empty { color: rgba(255,255,255,0.5); font-style: italic; }
+    .blog-loading { color: rgba(255,255,255,0.6); }
+    .blog-error { color: #f87171; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="header-inner">
+        <a href="/" class="header-logo logo word font-kihim">aj91</a>
+        <nav class="header-nav navigation" aria-label="Main">
+          <ul>
+            <li><a class="font-mono" href="https://www.linkedin.com/in/asjones91/" aria-label="LinkedIn"><i class="fa-brands fa-linkedin" aria-hidden="true"></i><span class="nav-text">Linkedin</span></a></li>
+            <li><a class="font-mono" href="https://aj91.substack.com/" aria-label="Substack"><i class="fa-solid fa-newspaper" aria-hidden="true"></i><span class="nav-text">Substack</span></a></li>
+          </ul>
+        </nav>
+        <button class="menuToggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="menu-panel" aria-label="Toggle menu">
+          <div class="hamburger"><span></span><span></span><span></span></div>
+          <div class="cross"><span></span><span></span></div>
+        </button>
+      </div>
+    </header>
+
+    <main class="blog-page">
+      <a href="/" class="blog-back font-mono">← Back</a>
+      <div id="blog-list-view">
+        <h1>Blog</h1>
+        <p id="blog-list-status" class="blog-loading">Loading…</p>
+        <ul id="blog-list" class="blog-list" style="display:none"></ul>
+      </div>
+      <div id="blog-post-view" style="display:none">
+        <p id="blog-post-status" class="blog-loading" style="display:none"></p>
+        <article class="blog-post">
+          <h1 id="blog-post-title"></h1>
+          <p id="blog-post-meta" class="blog-meta"></p>
+          <div id="blog-post-content" class="blog-content"></div>
+        </article>
+      </div>
+    </main>
+  </div>
+  <script>
+    (function () {
+      if (window.location.port === "1234") window.API_ORIGIN = "http://localhost:3000";
+      const API = (window.API_ORIGIN || window.location.origin);
+
+      const params = new URLSearchParams(window.location.search);
+      const slug = params.get("slug");
+
+      function formatDate(s) {
+        if (!s) return "";
+        const d = new Date(s);
+        return isNaN(d) ? s : d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+      }
+
+      if (slug) {
+        document.getElementById("blog-list-view").style.display = "none";
+        document.getElementById("blog-post-view").style.display = "block";
+        const postView = document.getElementById("blog-post-view");
+        const article = document.querySelector(".blog-post");
+        let status = document.getElementById("blog-post-status");
+        if (!status) {
+          status = document.createElement("p");
+          status.id = "blog-post-status";
+          postView.insertBefore(status, article);
+        }
+        status.className = "blog-loading";
+        status.textContent = "Loading…";
+        status.style.display = "block";
+        fetch(API + "/api/posts/" + encodeURIComponent(slug))
+          .then((r) => r.json())
+          .then((data) => {
+            status.style.display = "none";
+            if (data.error) {
+              status.textContent = data.error || "Post not found.";
+              status.className = "blog-error";
+              status.style.display = "block";
+              return;
+            }
+            const p = data.post;
+            document.title = (p.title || "Post") + " — AJ91";
+            document.getElementById("blog-post-title").textContent = p.title || "Untitled";
+            document.getElementById("blog-post-meta").textContent = formatDate(p.created_at);
+            document.getElementById("blog-post-content").innerHTML = p.content || "<p>No content.</p>";
+          })
+          .catch(() => {
+            status.textContent = "Failed to load post.";
+            status.className = "blog-error";
+            status.style.display = "block";
+          });
+      } else {
+        fetch(API + "/api/posts")
+          .then((r) => r.json())
+          .then((data) => {
+            const statusEl = document.getElementById("blog-list-status");
+            const listEl = document.getElementById("blog-list");
+            if (data.error) {
+              statusEl.textContent = data.error || "Failed to load posts.";
+              statusEl.className = "blog-error";
+              return;
+            }
+            const posts = data.posts || [];
+            if (posts.length === 0) {
+              statusEl.textContent = "No posts yet.";
+              statusEl.className = "blog-empty";
+              return;
+            }
+            statusEl.style.display = "none";
+            listEl.style.display = "block";
+            listEl.innerHTML = posts.map((p) => `
+              <li>
+                <a href="blog.html?slug=${encodeURIComponent(p.slug)}">
+                  <h2>${escapeHtml(p.title || "Untitled")}</h2>
+                  <p class="blog-meta">${formatDate(p.created_at)}</p>
+                  ${p.excerpt ? `<p class="blog-excerpt">${escapeHtml(p.excerpt)}</p>` : ""}
+                </a>
+              </li>
+            `).join("");
+          })
+          .catch(() => {
+            document.getElementById("blog-list-status").textContent = "Failed to load posts.";
+            document.getElementById("blog-list-status").className = "blog-error";
+          });
+      }
+
+      function escapeHtml(s) {
+        const div = document.createElement("div");
+        div.textContent = s || "";
+        return div.innerHTML;
+      }
+    })();
+  </script>
+  <script type="module" src="loader.js"></script>
+</body>
+</html>
