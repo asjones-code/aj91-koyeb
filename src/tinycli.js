@@ -309,11 +309,9 @@ const event = {
 				this.typedInstance.destroy();
 				this.typedInstance = null;
 			}
-			// Start Typed only after the intro/preloader is done so the terminal is visible (otherwise text appears already full)
-			const INTRO_DELAY_MS = 2800;
 			const fullText = "Thanks for stopping by. Visit About and Work — AJ";
-			setTimeout(() => {
-				if (!typedEl.isConnected) return; // terminal was removed
+			const startTyped = () => {
+				if (!typedEl.isConnected) return;
 				this.typedInstance = new Typed(typedEl, {
 					strings: [fullText],
 					contentType: "text",
@@ -326,7 +324,13 @@ const event = {
 						wrap.innerHTML = 'Thanks for stopping by. Visit <a href="about.html">About</a> and <a href="work.html">Work</a> — AJ';
 					}
 				});
-			}, INTRO_DELAY_MS);
+			};
+			// Wait for ASCII art to finish typing; fall back after 6s if the art module isn't present
+			const fallback = setTimeout(startTyped, 6000);
+			window.addEventListener('ascii-art-complete', () => {
+				clearTimeout(fallback);
+				setTimeout(startTyped, 1500);
+			}, { once: true });
 		},
 		typeChar(c) {
 			const realChr = controller.triggerCtrlCodes(c);

@@ -1,4 +1,4 @@
-@import url("https://api.fontshare.com/v2/css?f[]=kihim@200,300,400,500,600,700,800&display=swap");
+@import url("https://api.fontshare.com/v2/css?f[]=kihim@200,300,400,500,600,700,800&f[]=cabinet-grotesk@400,500,600,700,800&display=swap");
 
 /* Local Kihim fallback when font server is down */
 @font-face {
@@ -43,7 +43,7 @@ body {
   line-height: 150%;
   /* 24px */
   /* letter-spacing: -0.32px; */
-  font-family: "Host Grotesk", sans-serif;
+  font-family: "Cabinet Grotesk", "Host Grotesk", sans-serif;
   background-color: #151513;
   overflow-x: hidden;
   min-height: 100vh;
@@ -97,7 +97,7 @@ body {
 .preloader-mask {
   z-index: 100;
   background-color: #000000;
-  --preloader-mask-size: 40%;
+  --preloader-mask-size: 36%;
   mask-image: linear-gradient(white, white), url('https://ik.imagekit.io/kg2nszxjp/ironstride-preloader/preloader-mask.svg');
   mask-position: center, center;
   mask-size: 100% 100%, var(--preloader-mask-size);
@@ -130,12 +130,14 @@ body {
     margin: auto;
     text-align: center;
     mix-blend-mode: difference;
-    font-size: 4rem;
+    font-size: 3.6rem;
     color: #fff;
     font-weight: 500;
     line-height: 1.1;
     white-space: nowrap;
     overflow: visible;
+    padding: 0 0.28em;
+    box-sizing: content-box;
   }
 }
 
@@ -198,6 +200,11 @@ body:not(.page-is-work) .header {
   -webkit-backdrop-filter: blur(calc(var(--nav-pill-p, 0) * 12px));
   box-shadow: 0 4px 24px rgba(0, 0, 0, calc(0.2 * var(--nav-pill-p, 0)));
   border-radius: calc(var(--nav-pill-p, 0) * 9999px);
+  /* Pull pill in from viewport edges so rounded corners are visible */
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  width: calc(100% - 4rem * var(--nav-pill-p, 0));
 }
 
 .header-inner {
@@ -2313,7 +2320,7 @@ html {
   }
 
   .content-cta.term {
-    width: 92%;
+    width: 96%;
     max-width: 480px;
     margin-inline: auto;
     margin-bottom: 3rem;
@@ -2325,7 +2332,8 @@ html {
     width: 100%;
     min-width: 0; /* allow shrinking so 92% works */
     max-width: none;
-    max-height: 18rem;
+    height: 26rem;
+    max-height: none;
   }
 
   /* Add padding to nav-rail on mobile - position above menu cards at bottom (fixed so not cut off when page scrolls) */

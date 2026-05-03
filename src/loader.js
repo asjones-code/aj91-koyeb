@@ -26,7 +26,7 @@ window.addEventListener("resize", setViewportHeightVar);
 
 // Lenis smooth scroll – keeps scroll-linked effects (e.g. work header pinch) from jittering
 const lenis = new Lenis({
-	lerp: 0.08,
+	lerp: 0.11,       // 0.08 felt laggy/jerky; 0.11 is snappier while still smooth
 	smoothWheel: true,
 	anchors: true
 });
@@ -41,6 +41,10 @@ function smoothstep(t) {
 
 lenis.on("scroll", (e) => {
 	ScrollTrigger.update(e);
+	// Feed scroll velocity to the globe so it spins faster when scrolling
+	if (document.querySelector(".hero-globe-wrap")) {
+		window.dispatchEvent(new CustomEvent("globe-scroll-velocity", { detail: e.velocity }));
+	}
 	// Work page: drive header pinch and is-scrolled from smoothed progress (no instant toggle)
 	if (!document.body.classList.contains("page-is-work")) return;
 	const header = document.querySelector(".header");
@@ -147,7 +151,6 @@ function animateText(el) {
 function preloaderAnimation() {
 	let tl = gsap.timeline({
 		onUpdate: function() {
-			// Update logo progress based on timeline progress
 			updateLogoProgress(this.progress());
 		}
 	});
@@ -168,7 +171,9 @@ function preloaderAnimation() {
 			{
 				opacity: 0,
 				duration: 0.85,
-				ease: "power2.inOut"
+				ease: "power2.inOut",
+				// Fire as soon as the preloader chrome fades out — no need to wait for the globe settle
+				onComplete: () => window.dispatchEvent(new CustomEvent('preloader-complete'))
 			},
 			"<"
 		)
@@ -229,8 +234,9 @@ if (document.readyState === "loading") {
 }
 
 function initTerminal() {
-	// Load tinycli (terminal with commands; about/work are clickable links)
 	import("./tinycli.js").then((m) => m.initTinycli());
+	import("./ascii-art.js").then((m) => m.initAsciiArt());
+	import("./terminal-ui.js").then((m) => m.initTerminalUI());
 }
 
 function initGlobeOptIn() {
@@ -832,10 +838,9 @@ barba.hooks.after((data) => {
 		introTimeline.add(preloaderTl).add(heroTl, "-=2.4");
 		initTerminal();
 		initGlobeOptIn();
-		// Re-mount the globe into the new .hero-globe-wrap (script only runs once on load)
 		window.dispatchEvent(new CustomEvent("hero-globe-mount"));
-		// Re-populate writing feed (container was replaced by Barba)
 		import("./js/writing.js").then((m) => m.init?.());
+		import("./home.js").then((m) => { m.initRevealLines(); m.initCarousel(); m.initAboutMedia(); });
 	}
 });
 
@@ -847,6 +852,7 @@ window.addEventListener("load", () => {
 		introTimeline.add(preloaderTl).add(heroTl, "-=2.4");
 		initTerminal();
 		initGlobeOptIn();
+		import("./home.js").then((m) => { m.initRevealLines(); m.initCarousel(); m.initAboutMedia(); });
 		hasRunIntro = true;
 	}
 	runPageInit();
