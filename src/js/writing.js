@@ -103,11 +103,11 @@ async function fetchHashnode() {
 function getHardcodedYouTube() {
   return [
     {
-      source: "YouTube",
+      source: "Goodgrow",
+      label: "OUR MODEL",
       title: "What is Goodgrow?",
       excerpt: "Discover how Goodgrow is building a fairer, more transparent marketplace — connecting artisans, farmers, and conscious consumers through regenerative supply chains.",
-      url: "https://www.youtube.com/watch?v=jyW-fOZmM0c",
-      // VIDEO CARD: Add video URL here to enable video card (looping video instead of thumbnail)
+      url: "https://goodgrow.io",
       video: "https://res.cloudinary.com/duq7hplof/video/upload/v1771259377/Sequence_01_3_zjpuqs.mp4",
       publishedAt: "2025-02-16T00:00:00.000Z",
     },
@@ -178,6 +178,11 @@ function createCardElement(article, index) {
   cardLink.target = "_blank";
   cardLink.rel = "noopener noreferrer";
 
+  const labelHtml = article.label
+    ? `<span class="card-label">${escapeHtml(article.label)}</span>`
+    : "";
+  const ctaHtml = `<span class="card-cta">Learn more →</span>`;
+
   if (article.video) {
     card.classList.add("writing-card--video");
     cardLink.innerHTML =
@@ -189,8 +194,10 @@ function createCardElement(article, index) {
           </video>
         </div>
         <div class="card-body">
+          ${labelHtml}
           <h3 class="card-title">${escapeHtml(article.title)}</h3>
           <p class="card-excerpt">${escapeHtml(article.excerpt)}</p>
+          ${ctaHtml}
         </div>
       </div>`;
   } else {
@@ -203,8 +210,10 @@ function createCardElement(article, index) {
     }
     cardLink.innerHTML =
       `<div class="writing-card-inner">${thumbBlock}<div class="card-body">
+        ${labelHtml}
         <h3 class="card-title">${escapeHtml(article.title)}</h3>
         <p class="card-excerpt">${escapeHtml(article.excerpt)}</p>
+        ${ctaHtml}
       </div></div>`;
   }
 
@@ -332,35 +341,7 @@ function loadFallback() {
 export function init() {
   const container = document.getElementById("writing-cards");
   if (!container) return;
-
-  showLoading(container);
-
-  (async () => {
-    const [substack, hashnode] = await Promise.allSettled([
-      fetchSubstack(),
-      fetchHashnode(),
-    ]);
-    const items = [];
-    if (substack.status === "fulfilled" && substack.value?.length) {
-      items.push(...substack.value);
-    }
-    if (hashnode.status === "fulfilled" && hashnode.value?.length) {
-      items.push(...hashnode.value);
-    }
-    items.push(...getHardcodedYouTube());
-    items.push(...getHardcodedGoodGrow());
-    if (items.length > 0) {
-      renderCards(container, items);
-    } else {
-      const fallback = loadFallback();
-      if (fallback.length) {
-        renderCards(container, fallback);
-      } else {
-        container.classList.remove("writing-cards--loading");
-        container.innerHTML = '<p class="writing-feed-fallback">Writing feed unavailable</p>';
-      }
-    }
-  })();
+  renderCards(container, getHardcodedYouTube());
 }
 
 if (document.readyState === "loading") {

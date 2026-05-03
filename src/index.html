@@ -51,7 +51,7 @@
     crossorigin="anonymous">
 
   <style>
-    /* ── Design tokens (taste-skill: single accent, off-black, no AI purple) ── */
+    /* ── Design tokens ── */
     :root {
       --c-text:          rgba(255, 255, 255, 0.92);
       --c-secondary:     rgba(255, 255, 255, 0.58);
@@ -59,9 +59,15 @@
       --c-border:        rgba(255, 255, 255, 0.07);
       --c-surface:       rgba(255, 255, 255, 0.04);
       --c-surface-hover: rgba(255, 255, 255, 0.07);
-      /* Single accent — warm cream pulled from original h1 gradient, desaturated per taste-skill */
-      --c-accent:        hsl(27, 72%, 83%);
-      --c-accent-dim:    rgba(247, 207, 180, 0.14);
+      /* Primary accent: cyan — links, hover states, active UI */
+      --c-accent:        #abf8fe;
+      --c-accent-dim:    rgba(171, 248, 254, 0.12);
+      --c-accent-glow:   rgba(171, 248, 254, 0.20);
+      /* Secondary: magenta — subtle glows, gradients, background depth only */
+      --c-magenta:       #ed6ff5;
+      --c-magenta-dim:   rgba(237, 111, 245, 0.10);
+      /* Highlight: yellow — rare emphasis, badges only */
+      --c-yellow:        #ffff91;
       --gap-section:     5.5rem;
       --radius-card:     12px;
     }
@@ -70,6 +76,18 @@
     body {
       font-family: 'Cabinet Grotesk', 'Host Grotesk', sans-serif !important;
     }
+
+    /* ── Live clock (NYC / GMT±) ── */
+    .site-clock {
+      font-size: 0.7rem;
+      color: rgba(255, 255, 255, 0.32);
+      letter-spacing: 0.08em;
+      user-select: none;
+      pointer-events: none;
+      white-space: nowrap;
+      transition: color 0.3s ease;
+    }
+    @media (max-width: 600px) { .site-clock { display: none; } }
 
     /* ── Hero: asymmetric, left text / right terminal                      ── */
     /* taste-skill DESIGN_VARIANCE 8: centered hero sections are BANNED      */
@@ -171,13 +189,13 @@
       font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
       font-size: 0.37rem;
       line-height: 1.12;
-      color: rgba(220, 210, 195, 0.3);
+      color: rgba(200, 215, 215, 0.28);
       white-space: pre;
       padding: 0.3rem 0.4rem;
       margin: 0;
       animation: asciiBreath 4.5s ease-in-out infinite;
     }
-    /* scanline sweep overlay */
+    /* scanline sweep overlay — cyan tint */
     .ascii-portrait-bg::after {
       content: '';
       position: absolute;
@@ -185,9 +203,9 @@
       background: linear-gradient(
         to bottom,
         transparent 0%,
-        rgba(247, 207, 180, 0.045) 45%,
-        rgba(247, 207, 180, 0.08) 50%,
-        rgba(247, 207, 180, 0.045) 55%,
+        rgba(171, 248, 254, 0.03) 45%,
+        rgba(171, 248, 254, 0.055) 50%,
+        rgba(171, 248, 254, 0.03) 55%,
         transparent 100%
       );
       background-size: 100% 300%;
@@ -258,8 +276,9 @@
     }
     .terminal-dock-btn:hover {
       background: rgba(30, 30, 30, 0.96);
-      border-color: rgba(255, 255, 255, 0.28);
-      color: rgba(255, 255, 255, 0.95);
+      border-color: rgba(171, 248, 254, 0.35);
+      color: var(--c-accent);
+      box-shadow: 0 0 14px rgba(171, 248, 254, 0.12), 0 4px 20px rgba(0,0,0,0.4);
     }
 
     /* mobile: fluid width, show art at a height that reveals the image */
@@ -273,6 +292,13 @@
         height: 26rem;
         max-height: none;
       }
+    }
+
+    /* ── Hero: subtle cyan + magenta radial atmosphere (max 90% monochrome rule) ── */
+    .hero-section {
+      background-image:
+        radial-gradient(ellipse 65% 45% at 68% 30%, rgba(171, 248, 254, 0.028) 0%, transparent 60%),
+        radial-gradient(ellipse 45% 55% at 18% 78%, rgba(237, 111, 245, 0.022) 0%, transparent 60%);
     }
 
     /* ── Home sections below hero ── */
@@ -295,7 +321,7 @@
       font-weight: 500;
       text-transform: uppercase;
       letter-spacing: 0.2em;
-      color: rgba(255, 255, 255, 0.38);
+      color: rgba(171, 248, 254, 0.40);
       margin: 0;
     }
     .home-section-link {
@@ -306,7 +332,7 @@
       letter-spacing: 0.02em;
       transition: color 0.2s;
     }
-    .home-section-link:hover { color: rgba(255, 255, 255, 0.85); }
+    .home-section-link:hover { color: var(--c-accent); }
 
     /* ── Line reveal ── */
     .reveal-line {
@@ -440,6 +466,33 @@
       color: rgba(255,255,255,0.5);
       -webkit-line-clamp: 4;
     }
+    .home-writing-grid .writing-card .card-label {
+      display: block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 0.25rem;
+    }
+    .home-writing-grid .writing-card .card-cta {
+      display: inline-block;
+      margin-top: 0.5rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.75);
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 6px;
+      padding: 0.35rem 0.75rem;
+      transition: background 0.22s, border-color 0.22s, color 0.22s, box-shadow 0.22s;
+    }
+    .home-writing-grid .writing-card:hover .card-cta {
+      background: rgba(171,248,254,0.07);
+      border-color: rgba(171,248,254,0.25);
+      color: var(--c-accent);
+      box-shadow: 0 0 10px rgba(171,248,254,0.10);
+    }
     /* Close btn overlays top-right */
     .home-writing-grid .writing-card .card-close {
       background: rgba(0, 0, 0, 0.38);
@@ -475,27 +528,29 @@
         width: min(360px, 88%);
       }
       .home-writing-grid .writing-card .writing-card-inner {
-        flex-direction: column;
-        min-height: 0;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        gap: 0 !important;
       }
       .home-writing-grid .writing-card .card-thumb {
-        width: 100%;
-        height: 170px;
-        min-height: 170px;
-        border-radius: 12px 12px 0 0;
+        width: 100% !important;
+        height: 200px !important;
+        min-height: 200px !important;
+        border-radius: 10px 10px 0 0 !important;
       }
       .home-writing-grid .writing-card .card-thumb--placeholder {
-        width: 100%;
-        min-height: 170px;
-        border-radius: 12px 12px 0 0;
+        width: 100% !important;
+        min-height: 200px !important;
+        border-radius: 10px 10px 0 0 !important;
       }
       .home-writing-grid .writing-card .card-video-container {
-        width: 100%;
-        height: 170px;
-        border-radius: 12px 12px 0 0;
+        width: 100% !important;
+        height: 200px !important;
+        border-radius: 10px 10px 0 0 !important;
       }
       .home-writing-grid .writing-card .card-body {
-        padding: 1rem 1.25rem 1.25rem;
+        padding: 1rem 1.25rem 1.25rem !important;
       }
       .home-writing-grid .writing-card-skeleton {
         flex-direction: column;
@@ -541,9 +596,9 @@
       line-height: 1;
     }
     .carousel-btn:hover:not(:disabled) {
-      background: rgba(255, 255, 255, 0.11);
-      border-color: rgba(255, 255, 255, 0.22);
-      color: rgba(255, 255, 255, 0.95);
+      background: rgba(171, 248, 254, 0.07);
+      border-color: rgba(171, 248, 254, 0.28);
+      color: var(--c-accent);
     }
     .carousel-btn:disabled { opacity: 0.28; cursor: default; }
 
@@ -947,10 +1002,11 @@
 <body data-barba="wrapper">
   <div class="container">
 
-    <!-- Header: logo + nav links; social links moved to footer -->
+    <!-- Header: logo + clock + nav links -->
     <header class="header">
       <div class="header-inner">
         <a href="index.html" class="header-logo logo word font-kihim">aj91</a>
+        <span id="site-clock" class="site-clock font-mono" aria-live="off" aria-label="Current time in New York"></span>
         <nav class="header-nav navigation" aria-label="Main">
           <ul>
             <li><a class="font-mono" href="blog.html">Blog</a></li>
@@ -1161,6 +1217,31 @@
   <script type="module" src="./hero-globe.js"></script>
   <script type="module" src="./js/writing.js"></script>
   <script type="module" src="loader.js"></script>
+  <script>
+    (function () {
+      var clockEl = document.getElementById('site-clock');
+      if (!clockEl) return;
+      function tick() {
+        var now = new Date();
+        var parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'America/New_York',
+          hour: '2-digit', minute: '2-digit', second: '2-digit',
+          hour12: false
+        }).formatToParts(now);
+        var h = parts.find(function(p){ return p.type === 'hour'; }).value;
+        var m = parts.find(function(p){ return p.type === 'minute'; }).value;
+        var s = parts.find(function(p){ return p.type === 'second'; }).value;
+        // Compute UTC offset for America/New_York (-4 EDT or -5 EST)
+        var nyMs  = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' })).getTime();
+        var utcMs = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' })).getTime();
+        var off   = Math.round((nyMs - utcMs) / 3600000);
+        var offStr = off >= 0 ? 'GMT+' + off : 'GMT' + off;
+        clockEl.textContent = h + ':' + m + ':' + s + ' ' + offStr;
+      }
+      tick();
+      setInterval(tick, 1000);
+    })();
+  </script>
 </body>
 
 </html>

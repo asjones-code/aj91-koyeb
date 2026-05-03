@@ -14,162 +14,388 @@
       setVh();
       if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', setVh);
-        window.visualViewport.addEventListener('scroll', setVh);
       }
       window.addEventListener('resize', setVh);
-      window.addEventListener('orientationchange', function () { setTimeout(setVh, 100); });
       document.addEventListener('DOMContentLoaded', setVh);
-      setTimeout(setVh, 500);
     })();
   </script>
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,600,700,800&display=swap">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
   <style>
-    .blog-page { max-width: 42rem; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
-    .blog-page a { color: rgba(255,255,255,0.9); text-decoration: underline; text-underline-offset: 0.2em; }
-    .blog-page a:hover { color: #fff; }
-    .blog-back { display: inline-block; color: rgba(255,255,255,0.8); text-decoration: none; font-size: 0.9rem; margin-bottom: 2rem; }
-    .blog-back:hover { color: #fff; }
-    .blog-list { list-style: none; }
-    .blog-list li { margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.1); }
-    .blog-list li:last-child { border-bottom: none; }
-    .blog-list a { text-decoration: none; }
-    .blog-list a:hover { text-decoration: underline; }
-    .blog-list h2 { font-size: 1.25rem; margin-bottom: 0.5rem; }
-    .blog-list .blog-meta { font-size: 0.875rem; color: rgba(255,255,255,0.5); margin-bottom: 0.5rem; }
-    .blog-list .blog-excerpt { font-size: 0.9375rem; color: rgba(255,255,255,0.7); line-height: 1.5; }
-    .blog-post h1 { font-size: 1.75rem; margin-bottom: 0.5rem; }
-    .blog-post .blog-meta { font-size: 0.875rem; color: rgba(255,255,255,0.5); margin-bottom: 1.5rem; }
-    .blog-post .blog-content { color: rgba(255,255,255,0.85); line-height: 1.6; }
-    .blog-post .blog-content p { margin-bottom: 1rem; }
-    .blog-empty { color: rgba(255,255,255,0.5); font-style: italic; }
-    .blog-loading { color: rgba(255,255,255,0.6); }
-    .blog-error { color: #f87171; }
+    :root {
+      --c-accent:     #abf8fe;
+      --c-accent-dim: rgba(171,248,254,0.12);
+      --c-border:     rgba(255,255,255,0.07);
+    }
+
+    /* ── Page shell ── */
+    .blog-shell {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── List view ── */
+    .blog-index {
+      flex: 1;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 8rem 2rem 6rem;
+      width: 100%;
+    }
+    .blog-index-eyebrow {
+      font-size: 0.68rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: rgba(171,248,254,0.42);
+      font-family: ui-monospace, monospace;
+      margin-bottom: 1.25rem;
+    }
+    .blog-index-title {
+      font-size: clamp(2.5rem, 6vw, 4.5rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 0.95;
+      color: rgba(255,255,255,0.95);
+      margin-bottom: 3.5rem;
+    }
+    .blog-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .blog-list-item {
+      padding: 2rem 0;
+      border-bottom: 1px solid var(--c-border);
+      transition: border-color 0.2s;
+    }
+    .blog-list-item:first-child { border-top: 1px solid var(--c-border); }
+    .blog-list-link {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      transition: opacity 0.2s;
+    }
+    .blog-list-link:hover { opacity: 0.8; }
+    .blog-list-link:hover .blog-list-h { color: var(--c-accent); }
+    .blog-list-meta {
+      font-size: 0.72rem;
+      font-family: ui-monospace, monospace;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.06em;
+      margin-bottom: 0.5rem;
+    }
+    .blog-list-h {
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.92);
+      margin: 0 0 0.4rem;
+      line-height: 1.3;
+      letter-spacing: -0.02em;
+      transition: color 0.2s;
+    }
+    .blog-list-excerpt {
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.52);
+      line-height: 1.55;
+      margin: 0;
+    }
+    .blog-list-arrow {
+      display: inline-block;
+      margin-top: 0.75rem;
+      font-size: 0.78rem;
+      font-family: ui-monospace, monospace;
+      color: rgba(171,248,254,0.5);
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Article view ── */
+    .blog-article-wrap {
+      flex: 1;
+      width: 100%;
+    }
+
+    /* Big header zone */
+    .blog-article-hero {
+      width: 100%;
+      padding: 9rem 2rem 4rem;
+      border-bottom: 1px solid var(--c-border);
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .blog-article-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      font-family: ui-monospace, monospace;
+      color: rgba(255,255,255,0.35);
+      text-decoration: none;
+      letter-spacing: 0.06em;
+      margin-bottom: 2.5rem;
+      transition: color 0.2s;
+    }
+    .blog-article-back:hover { color: var(--c-accent); }
+    .blog-article-eyebrow {
+      font-size: 0.68rem;
+      font-family: ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: rgba(171,248,254,0.42);
+      margin-bottom: 1.25rem;
+    }
+    .blog-article-title {
+      font-size: clamp(2rem, 5.5vw, 4rem);
+      font-weight: 700;
+      letter-spacing: -0.035em;
+      line-height: 1.05;
+      color: rgba(255,255,255,0.95);
+      margin: 0 0 1.5rem;
+      max-width: 22ch;
+    }
+    .blog-article-meta {
+      font-size: 0.75rem;
+      font-family: ui-monospace, monospace;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.06em;
+    }
+
+    /* Body content */
+    .blog-article-body {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 4rem 2rem 8rem;
+    }
+    .blog-content {
+      font-size: 1.0625rem;
+      line-height: 1.78;
+      color: rgba(255,255,255,0.78);
+    }
+    .blog-content p { margin: 0 0 1.4rem; }
+    .blog-content p:last-child { margin-bottom: 0; }
+    .blog-content h1, .blog-content h2, .blog-content h3 {
+      color: rgba(255,255,255,0.95);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin: 2.5rem 0 0.75rem;
+      line-height: 1.25;
+    }
+    .blog-content h1 { font-size: 1.75rem; }
+    .blog-content h2 { font-size: 1.35rem; }
+    .blog-content h3 { font-size: 1.1rem; }
+    .blog-content a {
+      color: var(--c-accent);
+      text-decoration: underline;
+      text-decoration-color: rgba(171,248,254,0.35);
+      text-underline-offset: 0.25em;
+      transition: text-decoration-color 0.2s;
+    }
+    .blog-content a:hover { text-decoration-color: var(--c-accent); }
+    .blog-content blockquote {
+      border-left: 2px solid rgba(171,248,254,0.3);
+      padding: 0.25rem 0 0.25rem 1.5rem;
+      margin: 1.75rem 0;
+      color: rgba(255,255,255,0.55);
+      font-style: italic;
+    }
+    .blog-content pre, .blog-content code {
+      font-family: ui-monospace, 'Cascadia Code', Menlo, monospace;
+      font-size: 0.875rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px;
+    }
+    .blog-content code { padding: 0.1em 0.4em; }
+    .blog-content pre {
+      padding: 1.25rem 1.5rem;
+      overflow-x: auto;
+      margin: 1.5rem 0;
+      line-height: 1.6;
+    }
+    .blog-content pre code { background: none; border: none; padding: 0; }
+    .blog-content img {
+      width: 100%;
+      border-radius: 8px;
+      margin: 1.75rem 0;
+      display: block;
+    }
+    .blog-content hr {
+      border: none;
+      border-top: 1px solid var(--c-border);
+      margin: 2.5rem 0;
+    }
+    .blog-content ul, .blog-content ol {
+      padding-left: 1.4rem;
+      margin: 0 0 1.4rem;
+      color: rgba(255,255,255,0.75);
+    }
+    .blog-content li { margin-bottom: 0.4rem; }
+
+    /* States */
+    .blog-status {
+      padding: 2rem 0;
+      font-size: 0.9rem;
+      color: rgba(255,255,255,0.45);
+      font-family: ui-monospace, monospace;
+    }
+    .blog-status--error { color: #f87171; }
+    .blog-status--empty { font-style: italic; }
+
+    /* Back link (index) */
+    .blog-back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      font-family: ui-monospace, monospace;
+      color: rgba(255,255,255,0.35);
+      text-decoration: none;
+      letter-spacing: 0.06em;
+      transition: color 0.2s;
+    }
+    .blog-back-link:hover { color: var(--c-accent); }
+
+    @media (max-width: 640px) {
+      .blog-index { padding: 6rem 1.25rem 4rem; }
+      .blog-article-hero { padding: 7rem 1.25rem 3rem; }
+      .blog-article-body { padding: 3rem 1.25rem 6rem; }
+    }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="container blog-shell">
+
     <header class="header">
       <div class="header-inner">
         <a href="/" class="header-logo logo word font-kihim">aj91</a>
         <nav class="header-nav navigation" aria-label="Main">
           <ul>
-            <li><a class="font-mono" href="https://www.linkedin.com/in/asjones91/" aria-label="LinkedIn"><i class="fa-brands fa-linkedin" aria-hidden="true"></i><span class="nav-text">Linkedin</span></a></li>
-            <li><a class="font-mono" href="https://aj91.substack.com/" aria-label="Substack"><i class="fa-solid fa-newspaper" aria-hidden="true"></i><span class="nav-text">Substack</span></a></li>
+            <li><a class="font-mono" href="work.html">Work</a></li>
+            <li><a class="font-mono" href="about.html">About</a></li>
           </ul>
         </nav>
-        <button class="menuToggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="menu-panel" aria-label="Toggle menu">
-          <div class="hamburger"><span></span><span></span><span></span></div>
-          <div class="cross"><span></span><span></span></div>
-        </button>
       </div>
     </header>
 
-    <main class="blog-page">
-      <a href="/" class="blog-back font-mono">← Back</a>
-      <div id="blog-list-view">
-        <h1>Blog</h1>
-        <p id="blog-list-status" class="blog-loading">Loading…</p>
+    <main id="blog-main">
+
+      <!-- ── List view ── -->
+      <div id="blog-list-view" class="blog-index">
+        <p class="blog-index-eyebrow font-mono">Writing</p>
+        <h1 class="blog-index-title">Ideas &amp;<br>Notes</h1>
+        <p id="blog-list-status" class="blog-status">Loading…</p>
         <ul id="blog-list" class="blog-list" style="display:none"></ul>
       </div>
-      <div id="blog-post-view" style="display:none">
-        <p id="blog-post-status" class="blog-loading" style="display:none"></p>
-        <article class="blog-post">
-          <h1 id="blog-post-title"></h1>
-          <p id="blog-post-meta" class="blog-meta"></p>
+
+      <!-- ── Article view ── -->
+      <div id="blog-post-view" class="blog-article-wrap" style="display:none">
+        <div class="blog-article-hero">
+          <a href="blog.html" class="blog-article-back">← All posts</a>
+          <p class="blog-article-eyebrow font-mono">Writing</p>
+          <h1 id="blog-post-title" class="blog-article-title"></h1>
+          <p id="blog-post-meta" class="blog-article-meta"></p>
+        </div>
+        <div class="blog-article-body">
+          <p id="blog-post-status" class="blog-status" style="display:none"></p>
           <div id="blog-post-content" class="blog-content"></div>
-        </article>
+        </div>
       </div>
+
     </main>
   </div>
+
   <script>
     (function () {
       if (window.location.port === "1234") window.API_ORIGIN = "http://localhost:3000";
-      const API = (window.API_ORIGIN || window.location.origin);
-
-      const params = new URLSearchParams(window.location.search);
-      const slug = params.get("slug");
+      var API = (window.API_ORIGIN || window.location.origin);
+      var params = new URLSearchParams(window.location.search);
+      var slug = params.get("slug");
 
       function formatDate(s) {
         if (!s) return "";
-        const d = new Date(s);
+        var d = new Date(s);
         return isNaN(d) ? s : d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
       }
 
+      function escapeHtml(s) {
+        var div = document.createElement("div");
+        div.textContent = s || "";
+        return div.innerHTML;
+      }
+
       if (slug) {
+        /* ── Single post ── */
         document.getElementById("blog-list-view").style.display = "none";
         document.getElementById("blog-post-view").style.display = "block";
-        const postView = document.getElementById("blog-post-view");
-        const article = document.querySelector(".blog-post");
-        let status = document.getElementById("blog-post-status");
-        if (!status) {
-          status = document.createElement("p");
-          status.id = "blog-post-status";
-          postView.insertBefore(status, article);
-        }
-        status.className = "blog-loading";
-        status.textContent = "Loading…";
-        status.style.display = "block";
+        var statusEl = document.getElementById("blog-post-status");
+        statusEl.textContent = "Loading…";
+        statusEl.style.display = "block";
+
         fetch(API + "/api/posts/" + encodeURIComponent(slug))
-          .then((r) => r.json())
-          .then((data) => {
-            status.style.display = "none";
+          .then(function(r){ return r.json(); })
+          .then(function(data){
+            statusEl.style.display = "none";
             if (data.error) {
-              status.textContent = data.error || "Post not found.";
-              status.className = "blog-error";
-              status.style.display = "block";
+              statusEl.textContent = data.error || "Post not found.";
+              statusEl.className = "blog-status blog-status--error";
+              statusEl.style.display = "block";
               return;
             }
-            const p = data.post;
+            var p = data.post;
             document.title = (p.title || "Post") + " — AJ91";
             document.getElementById("blog-post-title").textContent = p.title || "Untitled";
             document.getElementById("blog-post-meta").textContent = formatDate(p.created_at);
             document.getElementById("blog-post-content").innerHTML = p.content || "<p>No content.</p>";
           })
-          .catch(() => {
-            status.textContent = "Failed to load post.";
-            status.className = "blog-error";
-            status.style.display = "block";
+          .catch(function(){
+            statusEl.textContent = "Failed to load post.";
+            statusEl.className = "blog-status blog-status--error";
+            statusEl.style.display = "block";
           });
-      } else {
-        fetch(API + "/api/posts")
-          .then((r) => r.json())
-          .then((data) => {
-            const statusEl = document.getElementById("blog-list-status");
-            const listEl = document.getElementById("blog-list");
-            if (data.error) {
-              statusEl.textContent = data.error || "Failed to load posts.";
-              statusEl.className = "blog-error";
-              return;
-            }
-            const posts = data.posts || [];
-            if (posts.length === 0) {
-              statusEl.textContent = "No posts yet.";
-              statusEl.className = "blog-empty";
-              return;
-            }
-            statusEl.style.display = "none";
-            listEl.style.display = "block";
-            listEl.innerHTML = posts.map((p) => `
-              <li>
-                <a href="blog.html?slug=${encodeURIComponent(p.slug)}">
-                  <h2>${escapeHtml(p.title || "Untitled")}</h2>
-                  <p class="blog-meta">${formatDate(p.created_at)}</p>
-                  ${p.excerpt ? `<p class="blog-excerpt">${escapeHtml(p.excerpt)}</p>` : ""}
-                </a>
-              </li>
-            `).join("");
-          })
-          .catch(() => {
-            document.getElementById("blog-list-status").textContent = "Failed to load posts.";
-            document.getElementById("blog-list-status").className = "blog-error";
-          });
-      }
 
-      function escapeHtml(s) {
-        const div = document.createElement("div");
-        div.textContent = s || "";
-        return div.innerHTML;
+      } else {
+        /* ── Post list ── */
+        var statusIndex = document.getElementById("blog-list-status");
+        var listEl = document.getElementById("blog-list");
+
+        fetch(API + "/api/posts")
+          .then(function(r){ return r.json(); })
+          .then(function(data){
+            var NO_DB_MSGS = ["Database not configured.", "Database not available."];
+            if (data.error) {
+              if (NO_DB_MSGS.indexOf(data.error) !== -1) {
+                statusIndex.textContent = "No posts yet.";
+                statusIndex.className = "blog-status blog-status--empty";
+              } else {
+                statusIndex.textContent = data.error;
+                statusIndex.className = "blog-status blog-status--error";
+              }
+              return;
+            }
+            var posts = data.posts || [];
+            if (posts.length === 0) {
+              statusIndex.textContent = "No posts yet.";
+              statusIndex.className = "blog-status blog-status--empty";
+              return;
+            }
+            statusIndex.style.display = "none";
+            listEl.style.display = "block";
+            listEl.innerHTML = posts.map(function(p){
+              return '<li class="blog-list-item">'
+                + '<a href="blog.html?slug=' + encodeURIComponent(p.slug) + '" class="blog-list-link">'
+                + '<p class="blog-list-meta">' + escapeHtml(formatDate(p.created_at)) + '</p>'
+                + '<h2 class="blog-list-h">' + escapeHtml(p.title || "Untitled") + '</h2>'
+                + (p.excerpt ? '<p class="blog-list-excerpt">' + escapeHtml(p.excerpt) + '</p>' : '')
+                + '<span class="blog-list-arrow font-mono">Read →</span>'
+                + '</a></li>';
+            }).join("");
+          })
+          .catch(function(){
+            statusIndex.textContent = "No posts yet.";
+            statusIndex.className = "blog-status blog-status--empty";
+          });
       }
     })();
   </script>
