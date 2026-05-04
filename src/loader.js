@@ -769,11 +769,36 @@ function initEmailCaptureCard() {
 	}
 }
 
+function initClock() {
+	const clockEl = document.getElementById('site-clock');
+	if (!clockEl) return;
+	if (window.__clockInterval) clearInterval(window.__clockInterval);
+	function tick() {
+		const now = new Date();
+		const parts = new Intl.DateTimeFormat('en-US', {
+			timeZone: 'America/New_York',
+			hour: '2-digit', minute: '2-digit', second: '2-digit',
+			hour12: false
+		}).formatToParts(now);
+		const h = parts.find(p => p.type === 'hour').value;
+		const m = parts.find(p => p.type === 'minute').value;
+		const s = parts.find(p => p.type === 'second').value;
+		const nyMs  = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' })).getTime();
+		const utcMs = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' })).getTime();
+		const off   = Math.round((nyMs - utcMs) / 3600000);
+		const offStr = off >= 0 ? `GMT+${off}` : `GMT${off}`;
+		clockEl.textContent = `${h}:${m}:${s} ${offStr}`;
+	}
+	tick();
+	window.__clockInterval = setInterval(tick, 1000);
+}
+
 function runPageInit() {
 	initStickyHeader();
 	initMenuToggle();
 	initNavIndicator();
 	initEmailCaptureCard();
+	initClock();
 }
 
 barba.init({
