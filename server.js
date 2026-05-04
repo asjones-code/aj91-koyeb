@@ -44,7 +44,17 @@ async function initDatabase() {
 				anonymized_email TEXT NOT NULL,
 				message TEXT NOT NULL
 			);
-			CREATE TABLE IF NOT EXISTS live_visitors (
+			CREATE TABLE IF NOT EXISTS career_dots (
+				id         SERIAL PRIMARY KEY,
+				lat        DOUBLE PRECISION NOT NULL,
+				lng        DOUBLE PRECISION NOT NULL,
+				label      TEXT NOT NULL,
+				year       TEXT,
+				text       TEXT,
+				sort_order INTEGER NOT NULL DEFAULT 0,
+				created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+			);
+			CREATE TABLE IF NOT EXISTS visitors (
 				session_id UUID PRIMARY KEY,
 				latitude DOUBLE PRECISION NOT NULL,
 				longitude DOUBLE PRECISION NOT NULL,
@@ -247,11 +257,11 @@ async function saveMessage(ip, anonymizedEmail, message) {
 	}
 }
 
-async function upsertLiveVisitor(sessionId, lat, lng, accuracy, userAgent, country = null, region = null) {
+async function upsertVisitor(sessionId, lat, lng, accuracy, userAgent, country = null, region = null) {
 	if (!dbPool) return;
 	try {
 		await dbPool.query(
-			`INSERT INTO live_visitors (session_id, latitude, longitude, accuracy_meters, user_agent, country, region, connected_at, last_seen_at, is_active)
+			`INSERT INTO visitors (session_id, latitude, longitude, accuracy_meters, user_agent, country, region, connected_at, last_seen_at, is_active)
 			 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW(), TRUE)
 			 ON CONFLICT (session_id) DO UPDATE SET
 			   latitude = EXCLUDED.latitude,
@@ -263,40 +273,40 @@ async function upsertLiveVisitor(sessionId, lat, lng, accuracy, userAgent, count
 			[sessionId, lat, lng, accuracy ?? null, userAgent || null, country, region]
 		);
 	} catch (err) {
-		console.error("[db] Upsert live_visitor error:", err.message);
+		console.error("[db] Upsert visitor error:", err.message);
 	}
 }
 
-async function setLiveVisitorInactive(sessionId) {
+async function setVisitorInactive(sessionId) {
 	if (!dbPool) return;
 	try {
-		await dbPool.query("UPDATE live_visitors SET is_active = FALSE WHERE session_id = $1", [sessionId]);
+		await dbPool.query("UPDATE visitors SET is_active = FALSE WHERE session_id = $1", [sessionId]);
 	} catch (err) {
-		console.error("[db] Set live_visitor inactive error:", err.message);
+		console.error("[db] Set visitor inactive error:", err.message);
 	}
 }
 
-async function touchLiveVisitorsLastSeen(sessionIds) {
+async function touchVisitorsLastSeen(sessionIds) {
 	if (!dbPool || sessionIds.length === 0) return;
 	try {
 		await dbPool.query(
-			"UPDATE live_visitors SET last_seen_at = NOW() WHERE session_id = ANY($1::uuid[])",
+			"UPDATE visitors SET last_seen_at = NOW() WHERE session_id = ANY($1::uuid[])",
 			[sessionIds]
 		);
 	} catch (err) {
-		console.error("[db] Touch live_visitors error:", err.message);
+		console.error("[db] Touch visitors error:", err.message);
 	}
 }
 
-async function pruneStaleLiveVisitors() {
+async function pruneStaleVisitors() {
 	if (!dbPool) return;
 	try {
 		const r = await dbPool.query(
-			"DELETE FROM live_visitors WHERE last_seen_at < NOW() - INTERVAL '60 seconds'"
+			"DELETE FROM visitors WHERE last_seen_at < NOW() - INTERVAL '60 seconds'"
 		);
 		if (r.rowCount > 0) console.log("[live] Pruned", r.rowCount, "stale visitors");
 	} catch (err) {
-		console.error("[db] Prune live_visitors error:", err.message);
+		console.error("[db] Prune visitors error:", err.message);
 	}
 }
 
@@ -1353,7 +1363,7 @@ wss.on("connection", (ws, req) => {
 			client.lng = msg.lng;
 			client.lastSeenAt = Date.now();
 			const acc = typeof msg.accuracy === "number" ? Math.round(msg.accuracy) : null;
-			upsertLiveVisitor(
+			upsertVisitor(
 				sessionId,
 				msg.lat,
 				msg.lng,
@@ -1391,7 +1401,7 @@ wss.on("connection", (ws, req) => {
 	});
 
 	ws.on("close", () => {
-		setLiveVisitorInactive(sessionId).catch(() => {});
+		setVisitorInactive(sessionId).catch(() => {});
 		liveClients.delete(id);
 		broadcastLocations();
 	});
@@ -1405,22 +1415,22 @@ setInterval(() => {
 		.filter((c) => c.sessionId && c.lat != null)
 		.map((c) => c.sessionId);
 	if (sessionIds.length > 0) {
-		touchLiveVisitorsLastSeen(sessionIds).catch(() => {});
+		touchVisitorsLastSeen(sessionIds).catch(() => {});
 		liveClients.forEach((c) => {
 			if (c.lat != null) c.lastSeenAt = Date.now();
 		});
 		broadcastLocations();
 	}
 }, LIVE_TOUCH_INTERVAL_MS);
-setInterval(() => pruneStaleLiveVisitors(), LIVE_PRUNE_INTERVAL_MS);
+setInterval(() => pruneStaleVisitors(), LIVE_PRUNE_INTERVAL_MS);
 
 const server = http.createServer(async (req, res) => {
 	const method = req.method || "GET";
 	const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
 	const pathname = url.pathname;
 
-	// CMS: /api/posts, /api/projects (public) and /api/admin/* (protected)
-	if (pathname.startsWith("/api/posts") || pathname.startsWith("/api/projects") || pathname.startsWith("/api/admin/")) {
+	// CMS: /api/posts, /api/projects, /api/career-dots (public) and /api/admin/* (protected)
+	if (pathname.startsWith("/api/posts") || pathname.startsWith("/api/projects") || pathname === "/api/career-dots" || pathname.startsWith("/api/admin/")) {
 		const handled = await cms.handle(req, res, pathname, method, () => collectBody(req));
 		if (handled) return;
 	}

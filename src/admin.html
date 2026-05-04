@@ -20,8 +20,14 @@
     .btn-danger { background: #dc2626; color: white; }
     .error { color: #f87171; font-size: 0.875rem; margin-bottom: 1rem; }
     .success { color: #4ade80; font-size: 0.875rem; margin-bottom: 1rem; }
-    #login-view, #posts-view, #projects-view, #edit-view, #edit-project-view { display: none; }
-    #login-view.active, #posts-view.active, #projects-view.active, #edit-view.active, #edit-project-view.active { display: block; }
+    #login-view, #posts-view, #projects-view, #edit-view, #edit-project-view, #dots-view, #edit-dot-view { display: none; }
+    #login-view.active, #posts-view.active, #projects-view.active, #edit-view.active, #edit-project-view.active, #dots-view.active, #edit-dot-view.active { display: block; }
+    .dot-list { list-style: none; }
+    .dot-list li { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; border: 1px solid #404040; border-radius: 6px; margin-bottom: 0.5rem; background: #262626; gap: 1rem; }
+    .dot-list li .dot-info { flex: 1; }
+    .dot-list li .dot-label { font-weight: 600; }
+    .dot-list li .dot-meta { font-size: 0.75rem; color: #737373; margin-top: 0.15rem; }
+    .coord { font-size: 0.75rem; color: #737373; font-family: monospace; }
     .post-list, .project-list { list-style: none; }
     .post-list li, .project-list li { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; border: 1px solid #404040; border-radius: 6px; margin-bottom: 0.5rem; background: #262626; }
     .post-list li span, .project-list li span { flex: 1; }
@@ -58,6 +64,7 @@
     <div class="tabs">
       <button type="button" class="active" data-tab="posts">Posts</button>
       <button type="button" data-tab="projects">Projects</button>
+      <button type="button" data-tab="dots">Globe Dots</button>
     </div>
     <p id="posts-error" class="error" style="display:none"></p>
     <p id="posts-success" class="success" style="display:none"></p>
@@ -71,12 +78,50 @@
     <div class="tabs">
       <button type="button" data-tab="posts">Posts</button>
       <button type="button" class="active" data-tab="projects">Projects</button>
+      <button type="button" data-tab="dots">Globe Dots</button>
     </div>
     <p id="projects-error" class="error" style="display:none"></p>
     <p id="projects-success" class="success" style="display:none"></p>
     <button type="button" class="btn-primary" id="new-project">New project</button>
     <h2>All projects</h2>
     <ul id="project-list" class="project-list"></ul>
+  </div>
+
+  <div id="dots-view">
+    <h1>Globe Dots <span class="logout" id="logout-dots">Sign out</span></h1>
+    <div class="tabs">
+      <button type="button" data-tab="posts">Posts</button>
+      <button type="button" data-tab="projects">Projects</button>
+      <button type="button" class="active" data-tab="dots">Globe Dots</button>
+    </div>
+    <p id="dots-error" class="error" style="display:none"></p>
+    <p id="dots-success" class="success" style="display:none"></p>
+    <button type="button" class="btn-primary" id="new-dot">Add dot</button>
+    <h2>All dots</h2>
+    <ul id="dot-list" class="dot-list"></ul>
+  </div>
+
+  <div id="edit-dot-view">
+    <h1 id="edit-dot-title">New dot</h1>
+    <p id="edit-dot-error" class="error" style="display:none"></p>
+    <form id="edit-dot-form">
+      <input type="hidden" id="edit-dot-id">
+      <label for="edit-dot-label">Label (city name)</label>
+      <input type="text" id="edit-dot-label" required placeholder="New York, NY">
+      <label for="edit-dot-lat">Latitude</label>
+      <input type="number" id="edit-dot-lat" required step="any" placeholder="40.7128">
+      <label for="edit-dot-lng">Longitude</label>
+      <input type="number" id="edit-dot-lng" required step="any" placeholder="-74.0060">
+      <p class="help">Tip: find lat/lng at <a href="https://www.latlong.net" target="_blank" style="color:#3b82f6">latlong.net</a></p>
+      <label for="edit-dot-year">Year / period</label>
+      <input type="text" id="edit-dot-year" placeholder="2019–2021">
+      <label for="edit-dot-text">Tooltip text</label>
+      <textarea id="edit-dot-text" placeholder="What happened here?"></textarea>
+      <label for="edit-dot-order">Sort order</label>
+      <input type="number" id="edit-dot-order" value="0" step="1">
+      <button type="submit" class="btn-primary">Save</button>
+      <button type="button" class="btn-secondary" id="edit-dot-cancel">Cancel</button>
+    </form>
   </div>
 
   <div id="edit-view">
@@ -148,7 +193,7 @@
     }
 
     function showView(name) {
-      document.querySelectorAll("#login-view, #posts-view, #projects-view, #edit-view, #edit-project-view").forEach((v) => v.classList.remove("active"));
+      document.querySelectorAll("#login-view, #posts-view, #projects-view, #edit-view, #edit-project-view, #dots-view, #edit-dot-view").forEach((v) => v.classList.remove("active"));
       document.getElementById(name + "-view").classList.add("active");
     }
 
@@ -174,13 +219,9 @@
       btn.addEventListener("click", () => {
         document.querySelectorAll(".tabs button").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
-        if (btn.dataset.tab === "posts") {
-          showView("posts");
-          loadPosts();
-        } else {
-          showView("projects");
-          loadProjects();
-        }
+        if (btn.dataset.tab === "posts") { showView("posts"); loadPosts(); }
+        else if (btn.dataset.tab === "projects") { showView("projects"); loadProjects(); }
+        else if (btn.dataset.tab === "dots") { showView("dots"); loadDots(); }
       });
     });
 
@@ -491,6 +532,91 @@
 
     document.getElementById("edit-cancel").addEventListener("click", () => showView("posts"));
     document.getElementById("edit-project-cancel").addEventListener("click", () => showView("projects"));
+    document.getElementById("edit-dot-cancel").addEventListener("click", () => showView("dots"));
+
+    document.getElementById("logout-dots").addEventListener("click", () => {
+      token = null; sessionStorage.removeItem("cms_token"); showView("login");
+    });
+
+    // ── Globe Dots ────────────────────────────────────────────────────────────
+    async function loadDots() {
+      showError("dots-error"); showSuccess("dots-success");
+      try {
+        const r = await fetch(API + "/api/career-dots");
+        const data = await r.json();
+        if (data.error) { showError("dots-error", data.error); return; }
+        const list = document.getElementById("dot-list");
+        list.innerHTML = (data.dots || []).map((d) => `
+          <li>
+            <div class="dot-info">
+              <div class="dot-label">${escapeHtml(d.label)}</div>
+              <div class="dot-meta">${escapeHtml(d.year || "")}${d.year && d.text ? " · " : ""}${escapeHtml((d.text || "").slice(0, 60))}${(d.text || "").length > 60 ? "…" : ""}</div>
+              <div class="coord">${d.lat}, ${d.lng} · order ${d.sort_order}</div>
+            </div>
+            <span class="actions">
+              <button type="button" class="btn-secondary" data-dot-edit="${d.id}">Edit</button>
+              <button type="button" class="btn-danger" data-dot-delete="${d.id}">Delete</button>
+            </span>
+          </li>
+        `).join("");
+        list.querySelectorAll("[data-dot-edit]").forEach((btn) => btn.addEventListener("click", () => openEditDot(btn.dataset.dotEdit, data.dots)));
+        list.querySelectorAll("[data-dot-delete]").forEach((btn) => btn.addEventListener("click", () => deleteDot(btn.dataset.dotDelete)));
+      } catch { showError("dots-error", "Request failed."); }
+    }
+
+    function openEditDot(id, dots) {
+      const d = dots ? dots.find((x) => String(x.id) === String(id)) : null;
+      document.getElementById("edit-dot-id").value = d ? d.id : "";
+      document.getElementById("edit-dot-label").value = d ? d.label : "";
+      document.getElementById("edit-dot-lat").value = d ? d.lat : "";
+      document.getElementById("edit-dot-lng").value = d ? d.lng : "";
+      document.getElementById("edit-dot-year").value = d ? (d.year || "") : "";
+      document.getElementById("edit-dot-text").value = d ? (d.text || "") : "";
+      document.getElementById("edit-dot-order").value = d ? d.sort_order : 0;
+      document.getElementById("edit-dot-title").textContent = d ? "Edit dot" : "New dot";
+      showError("edit-dot-error");
+      showView("edit-dot");
+    }
+
+    document.getElementById("new-dot").addEventListener("click", () => openEditDot(null, null));
+
+    document.getElementById("edit-dot-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      showError("edit-dot-error");
+      const id = document.getElementById("edit-dot-id").value;
+      const body = {
+        label:      document.getElementById("edit-dot-label").value.trim(),
+        lat:        parseFloat(document.getElementById("edit-dot-lat").value),
+        lng:        parseFloat(document.getElementById("edit-dot-lng").value),
+        year:       document.getElementById("edit-dot-year").value.trim(),
+        text:       document.getElementById("edit-dot-text").value.trim(),
+        sort_order: parseInt(document.getElementById("edit-dot-order").value, 10) || 0,
+      };
+      if (!body.label || isNaN(body.lat) || isNaN(body.lng)) {
+        showError("edit-dot-error", "Label, lat, and lng are required."); return;
+      }
+      try {
+        const url    = id ? API + "/api/admin/career-dots/" + id : API + "/api/admin/career-dots";
+        const method = id ? "PUT" : "POST";
+        const r = await fetch(url, { method, headers: apiHeaders(), body: JSON.stringify(body) });
+        const data = await r.json();
+        if (data.error) { showError("edit-dot-error", data.error); return; }
+        showView("dots");
+        showSuccess("dots-success", id ? "Dot updated." : "Dot added.");
+        loadDots();
+      } catch { showError("edit-dot-error", "Request failed."); }
+    });
+
+    async function deleteDot(id) {
+      if (!confirm("Delete this dot?")) return;
+      try {
+        const r = await fetch(API + "/api/admin/career-dots/" + id, { method: "DELETE", headers: apiHeaders() });
+        const data = await r.json();
+        if (data.error) { showError("dots-error", data.error); return; }
+        showSuccess("dots-success", "Dot deleted.");
+        loadDots();
+      } catch { showError("dots-error", "Request failed."); }
+    }
 
     if (token) {
       showView("posts");

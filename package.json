@@ -18,6 +18,8 @@
     "start": "node server.js",
     "cms:create-admin": "node -r dotenv/config cms/scripts/create-admin.js",
     "cms:reset-admin": "node cms/scripts/reset-admin.js",
+    "db:migrate-002": "psql $DATABASE_URL -f cms/migrations/002_rename_live_visitors.sql",
+    "db:migrate-003": "psql $DATABASE_URL -f cms/migrations/003_career_dots.sql",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

@@ -81,6 +81,13 @@ export async function handle(req, res, pathname, method, collectBody) {
 		return true;
 	}
 
+	// Public: GET /api/career-dots
+	if (pathname === "/api/career-dots" && method === "GET") {
+		const result = await routes.handleListCareerDots();
+		jsonResponse(res, result.error ? result.status || 500 : 200, result.error ? { error: result.error } : result);
+		return true;
+	}
+
 	// Admin routes
 	if (!pathname.startsWith("/api/admin/")) return false;
 
@@ -253,6 +260,33 @@ export async function handle(req, res, pathname, method, collectBody) {
 		} else {
 			jsonResponse(res, 200, result, cors);
 		}
+		return true;
+	}
+
+	// POST /api/admin/career-dots
+	if (pathname === "/api/admin/career-dots" && method === "POST") {
+		let body;
+		try { body = await collectBody(); } catch { jsonResponse(res, 500, { error: "Request failed." }); return true; }
+		const result = await routes.handleCreateCareerDot(req, body);
+		jsonResponse(res, result.error ? result.status || 500 : 201, result.error ? { error: result.error } : result);
+		return true;
+	}
+
+	// PUT /api/admin/career-dots/:id
+	const putDotMatch = pathname.match(/^\/api\/admin\/career-dots\/(\d+)$/);
+	if (putDotMatch && method === "PUT") {
+		let body;
+		try { body = await collectBody(); } catch { jsonResponse(res, 500, { error: "Request failed." }); return true; }
+		const result = await routes.handleUpdateCareerDot(req, body, putDotMatch[1]);
+		jsonResponse(res, result.error ? result.status || 500 : 200, result.error ? { error: result.error } : result);
+		return true;
+	}
+
+	// DELETE /api/admin/career-dots/:id
+	const deleteDotMatch = pathname.match(/^\/api\/admin\/career-dots\/(\d+)$/);
+	if (deleteDotMatch && method === "DELETE") {
+		const result = await routes.handleDeleteCareerDot(req, deleteDotMatch[1]);
+		jsonResponse(res, result.error ? result.status || 500 : 200, result.error ? { error: result.error } : result);
 		return true;
 	}
 

@@ -47,23 +47,29 @@ const flyShader = {
   `
 };
 
-// Module-level interaction state — persists across RAF frames, reset on re-init
+// Fallback data used when the API is unreachable
+const CAREER_DOTS_FALLBACK = [
+  { lat: 40.7128,  lng: -74.0060,  label: "New York, NY",   year: "2017–present", text: "Home base. Built products at Meta, Barrel, and Gotham Greens." },
+  { lat: 37.4847,  lng: -122.1471, label: "Menlo Park, CA", year: "2021–2022",    text: "Meta — Implementation Manager, global ads infrastructure." },
+  { lat: 37.3382,  lng: -121.8863, label: "San José, CA",   year: "2022–2023",    text: "Assembled — Implementation Manager, workforce management." },
+  { lat: 42.3601,  lng: -71.0589,  label: "Boston, MA",     year: "2019–2021",    text: "Sendwave — Director of Growth, global fintech remittance." },
+];
+
+// Module-level interaction state
 let scrollVelocity = 0;
 let dragMomX = 0;
 let dragMomY = 0;
 let isDragging = false;
 let _prevDragX = 0;
 let _prevDragY = 0;
-let _cleanup = null; // removes event listeners from previous init
+let _cleanup = null;
 
 function initHeroGlobe() {
-  // Remove listeners from any previous initialisation (Barba re-mount)
   if (_cleanup) { _cleanup(); _cleanup = null; }
 
   const container = document.querySelector(".hero-globe-wrap");
   if (!container) return;
 
-  // Clear any previous canvas left behind
   while (container.firstChild) container.removeChild(container.firstChild);
 
   const scene = new THREE.Scene();
@@ -99,12 +105,9 @@ function initHeroGlobe() {
   );
   scene.add(atmosphere);
 
-  // ── Location dots ────────────────────────────────────────────────────────
-  const locationDots = new Map();
-  const FADE_TTL_MS = 60000;
-
+  // ── Helpers ───────────────────────────────────────────────────────────────
   function latLngToPosition(lat, lng, radius = 1.62) {
-    const phi = (90 - lat) * (Math.PI / 180);
+    const phi   = (90 - lat) * (Math.PI / 180);
     const theta = (lng + 180) * (Math.PI / 180);
     return new THREE.Vector3(
       -radius * Math.sin(phi) * Math.cos(theta),
@@ -112,6 +115,60 @@ function initHeroGlobe() {
        radius * Math.sin(phi) * Math.sin(theta)
     );
   }
+
+  // ── Career dots — green, pulsing, loaded from API ─────────────────────────
+  const careerDotMeshes = [];
+  const pulseMeshes     = [];
+  let tooltipActive     = false;
+
+  function buildCareerDots(dotsData) {
+    // Clear any existing
+    careerDotMeshes.forEach(m => globe.remove(m));
+    careerDotMeshes.length = 0;
+    pulseMeshes.forEach(({ mesh }) => globe.remove(mesh));
+    pulseMeshes.length = 0;
+
+    dotsData.forEach((data) => {
+      const pos = latLngToPosition(data.lat, data.lng);
+
+      const dot = new THREE.Mesh(
+        new THREE.SphereGeometry(0.010, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0x22c55e })
+      );
+      dot.position.copy(pos);
+      dot.userData.careerData = data;
+      globe.add(dot);
+      careerDotMeshes.push(dot);
+
+      const pulse = new THREE.Mesh(
+        new THREE.SphereGeometry(0.010, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0 })
+      );
+      pulse.position.copy(pos);
+      globe.add(pulse);
+      pulseMeshes.push({ mesh: pulse, phase: Math.random() });
+    });
+  }
+
+  // Load from API, fall back to hardcoded
+  const apiBase = (typeof window !== "undefined" && window.API_ORIGIN) || "";
+  fetch(`${apiBase}/api/career-dots`)
+    .then(r => r.ok ? r.json() : Promise.reject())
+    .then(data => buildCareerDots(data.dots || []))
+    .catch(() => buildCareerDots(CAREER_DOTS_FALLBACK));
+
+  function updatePulseRings() {
+    const t = Date.now() / 1000;
+    pulseMeshes.forEach(({ mesh, phase }) => {
+      const cycle = ((t * 0.38 + phase) % 1);
+      mesh.scale.setScalar(1 + cycle * 6);
+      mesh.material.opacity = Math.max(0, 0.55 * (1 - cycle));
+    });
+  }
+
+  // ── Live visitor dots — cyan, fade over 60 s ──────────────────────────────
+  const locationDots = new Map();
+  const FADE_TTL_MS = 60000;
 
   function setLocationDots(locations) {
     const now = Date.now();
@@ -128,8 +185,8 @@ function initHeroGlobe() {
         dot.userData.lastSeenAt = lastSeen;
       } else {
         const dot = new THREE.Mesh(
-          new THREE.SphereGeometry(0.035, 16, 16),
-          new THREE.MeshBasicMaterial({ color: 0xff6b00, transparent: true, opacity: 1 })
+          new THREE.SphereGeometry(0.028, 16, 16),
+          new THREE.MeshBasicMaterial({ color: 0xabf8fe, transparent: true, opacity: 1 })
         );
         dot.position.copy(latLngToPosition(lat, lng));
         dot.userData.lastSeenAt = lastSeen;
@@ -150,6 +207,81 @@ function initHeroGlobe() {
     toRemove.forEach(id => { const m = locationDots.get(id); if (m) globe.remove(m); locationDots.delete(id); });
   }
 
+  // ── Tooltip ───────────────────────────────────────────────────────────────
+  const tooltip = document.createElement("div");
+  tooltip.className = "globe-dot-tooltip";
+  document.body.appendChild(tooltip);
+
+  function showTooltip(x, y, dotsData) {
+    // dotsData is always an array; render stacked entries for clusters
+    tooltip.innerHTML = dotsData.map((d, i) =>
+      `<div class="${i > 0 ? "globe-dot-tooltip-entry" : ""}">` +
+        `<div class="globe-dot-tooltip-label">${d.label}</div>` +
+        `<div class="globe-dot-tooltip-year">${d.year || ""}</div>` +
+        `<div class="globe-dot-tooltip-text">${d.text || ""}</div>` +
+      `</div>`
+    ).join('<div class="globe-dot-tooltip-divider"></div>');
+    const pad = 16;
+    const tw  = 230;
+    const left = x + pad + tw > window.innerWidth ? x - tw - pad : x + pad;
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top  = `${y + 8}px`;
+    tooltip.classList.add("is-visible");
+    tooltipActive = true;
+  }
+
+  function hideTooltip() {
+    tooltip.classList.remove("is-visible");
+    tooltipActive = false;
+  }
+
+  // ── Raycaster ─────────────────────────────────────────────────────────────
+  const raycaster = new THREE.Raycaster();
+  raycaster.params.Points = { threshold: 0.04 };
+  const mouse = new THREE.Vector2(-9999, -9999);
+
+  // Returns all career dots hit (handles clusters of close dots)
+  function pickCareerDots(clientX, clientY) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((clientX - rect.left) / rect.width)  *  2 - 1;
+    mouse.y = ((clientY - rect.top)  / rect.height) * -2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects(careerDotMeshes);
+    // Deduplicate by careerData label in case the same dot is hit multiple times
+    const seen = new Set();
+    return hits
+      .map(h => h.object.userData.careerData)
+      .filter(d => d && !seen.has(d.label) && seen.add(d.label));
+  }
+
+  const heroEl    = container.closest(".hero-section");
+  const isDesktop = window.matchMedia("(pointer: fine)").matches;
+
+  const onGlobeMouseMove = (e) => {
+    if (isDragging) { hideTooltip(); return; }
+    const hits = pickCareerDots(e.clientX, e.clientY);
+    if (hits.length) {
+      showTooltip(e.clientX, e.clientY, hits);
+      if (heroEl) heroEl.style.cursor = "pointer";
+    } else {
+      hideTooltip();
+      if (heroEl) heroEl.style.cursor = "grab";
+    }
+  };
+
+  let tapOpen = false;
+  const onGlobeClick = (e) => {
+    if (isDragging) return;
+    const hits = pickCareerDots(e.clientX, e.clientY);
+    if (hits.length) {
+      showTooltip(e.clientX, e.clientY, hits);
+      tapOpen = true;
+    } else if (tapOpen) {
+      hideTooltip();
+      tapOpen = false;
+    }
+  };
+
   // ── Post-processing ───────────────────────────────────────────────────────
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
@@ -169,7 +301,6 @@ function initHeroGlobe() {
     const parent = container.parentElement;
     if (!parent) return;
     let w = parent.offsetWidth, h = parent.offsetHeight;
-    // On mobile hero-img may report 0 height before layout completes — fall back
     if (h <= 0) {
       const hero = container.closest(".hero-section") || container.closest(".hero-zone");
       h = hero ? hero.offsetHeight : (window.visualViewport ? window.visualViewport.height : window.innerHeight);
@@ -187,7 +318,6 @@ function initHeroGlobe() {
     bloom.resolution.set(w * renderer.getPixelRatio(), h * renderer.getPixelRatio());
   }
 
-  // Defer one frame so mobile layout has been computed before we read dimensions
   requestAnimationFrame(setSize);
   const ro = new ResizeObserver(setSize);
   ro.observe(container.parentElement);
@@ -197,21 +327,21 @@ function initHeroGlobe() {
   function animate() {
     rafId = requestAnimationFrame(animate);
 
-    if (isDragging) {
-      // While dragging: apply live delta, no base rotation
-      globe.rotation.y += dragMomX;
-      globe.rotation.x = Math.max(-0.45, Math.min(0.45, globe.rotation.x + dragMomY));
-    } else {
-      // After release: decay momentum, blend into base rotation
-      dragMomX *= 0.94;
-      dragMomY *= 0.94;
-      // Scroll influence: faster scroll = faster spin, capped so it never looks wrong
-      const scrollBoost = Math.sign(scrollVelocity) * Math.min(Math.abs(scrollVelocity) * 0.000035, 0.003);
-      scrollVelocity *= 0.90;
-      globe.rotation.y += 0.0007 + scrollBoost + dragMomX;
-      globe.rotation.x = Math.max(-0.45, Math.min(0.45, globe.rotation.x + dragMomY));
+    if (!tooltipActive) {
+      if (isDragging) {
+        globe.rotation.y += dragMomX;
+        globe.rotation.x = Math.max(-0.45, Math.min(0.45, globe.rotation.x + dragMomY));
+      } else {
+        dragMomX *= 0.94;
+        dragMomY *= 0.94;
+        const scrollBoost = Math.sign(scrollVelocity) * Math.min(Math.abs(scrollVelocity) * 0.000035, 0.003);
+        scrollVelocity *= 0.90;
+        globe.rotation.y += 0.0007 + scrollBoost + dragMomX;
+        globe.rotation.x = Math.max(-0.45, Math.min(0.45, globe.rotation.x + dragMomY));
+      }
     }
 
+    updatePulseRings();
     updateDotOpacity();
     composer.render();
   }
@@ -225,10 +355,6 @@ function initHeroGlobe() {
   });
   window.addEventListener("resize", setSize);
 
-  // Mouse drag — desktop only, on the hero background (not over interactive children)
-  const heroEl = container.closest(".hero-section");
-  const isDesktop = window.matchMedia("(pointer: fine)").matches;
-
   const onMouseDown = (e) => {
     if (e.target.closest("#terminal, button, a, input")) return;
     isDragging = true;
@@ -237,6 +363,7 @@ function initHeroGlobe() {
     _prevDragX = e.clientX;
     _prevDragY = e.clientY;
     if (heroEl) heroEl.style.cursor = "grabbing";
+    hideTooltip();
     e.preventDefault();
   };
   const onMouseMove = (e) => {
@@ -257,20 +384,24 @@ function initHeroGlobe() {
     heroEl.addEventListener("mousedown", onMouseDown);
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
+    heroEl.addEventListener("mousemove", onGlobeMouseMove);
   }
+  if (heroEl) heroEl.addEventListener("click", onGlobeClick);
 
-  // Store cleanup for next re-init
   _cleanup = () => {
     cancelAnimationFrame(rafId);
     ro.disconnect();
+    if (tooltip.parentNode) tooltip.parentNode.removeChild(tooltip);
     window.removeEventListener("globe-scroll-velocity", onScrollVelocity);
     window.removeEventListener("resize", setSize);
     if (heroEl && isDesktop) {
       heroEl.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
+      heroEl.removeEventListener("mousemove", onGlobeMouseMove);
       heroEl.style.cursor = "";
     }
+    if (heroEl) heroEl.removeEventListener("click", onGlobeClick);
   };
 }
 

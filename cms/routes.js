@@ -4,6 +4,7 @@
 import * as postModel from "./models/post.js";
 import * as projectModel from "./models/project.js";
 import * as adminModel from "./models/admin.js";
+import * as careerDotModel from "./models/careerDot.js";
 import { createToken, requireAuth } from "./middleware.js";
 
 export async function handleLogin(body) {
@@ -148,6 +149,42 @@ export async function handleDeleteProject(req, projectId) {
 	const auth = requireAuth(req);
 	if (auth.error) return auth;
 	const result = await projectModel.remove(projectId);
+	if (result.error) return { error: result.error, status: result.status || 500 };
+	return result;
+}
+
+// ── Career dot handlers ───────────────────────────────────────────────────
+
+export async function handleListCareerDots() {
+	const result = await careerDotModel.findAll();
+	if (result.error) return { error: result.error, status: 500 };
+	return result;
+}
+
+export async function handleCreateCareerDot(req, body) {
+	const auth = requireAuth(req);
+	if (auth.error) return auth;
+	let parsed;
+	try { parsed = JSON.parse(body); } catch { return { error: "Invalid JSON.", status: 400 }; }
+	const result = await careerDotModel.create(parsed);
+	if (result.error) return { error: result.error, status: result.status || 500 };
+	return result;
+}
+
+export async function handleUpdateCareerDot(req, body, id) {
+	const auth = requireAuth(req);
+	if (auth.error) return auth;
+	let parsed;
+	try { parsed = JSON.parse(body); } catch { return { error: "Invalid JSON.", status: 400 }; }
+	const result = await careerDotModel.update(id, parsed);
+	if (result.error) return { error: result.error, status: result.status || 500 };
+	return result;
+}
+
+export async function handleDeleteCareerDot(req, id) {
+	const auth = requireAuth(req);
+	if (auth.error) return auth;
+	const result = await careerDotModel.remove(id);
 	if (result.error) return { error: result.error, status: result.status || 500 };
 	return result;
 }

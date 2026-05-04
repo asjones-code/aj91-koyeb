@@ -2037,23 +2037,73 @@ html {
   left: 50%;
   transform: translateX(-50%);
   z-index: 2;
-  padding: 0.5rem 1rem;
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 0.6rem 1.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: #fff;
+  background: rgba(34, 197, 94, 0.82);
+  border: 1px solid rgba(34, 197, 94, 0.55);
   border-radius: 2rem;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s;
+  text-decoration: none;
+  display: inline-block;
+  box-shadow: 0 0 22px rgba(34, 197, 94, 0.38);
+  transition: background 0.25s, border-color 0.25s, box-shadow 0.28s, transform 0.2s;
+  white-space: nowrap;
 }
 .globe-opt-in-btn:hover {
-  background: rgba(0, 0, 0, 0.6);
-  border-color: rgba(171, 248, 254, 0.45);
-  color: var(--c-accent);
+  background: rgba(34, 197, 94, 1);
+  border-color: rgba(34, 197, 94, 0.9);
+  box-shadow: 0 0 38px rgba(34, 197, 94, 0.6), 0 0 10px rgba(34, 197, 94, 0.25);
+  transform: translateX(-50%) translateY(-2px);
+  color: #fff;
 }
-.globe-opt-in-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+
+/* Career dot tooltip */
+.globe-dot-tooltip {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  background: rgba(5, 8, 14, 0.9);
+  border: 1px solid rgba(34, 197, 94, 0.28);
+  border-radius: 10px;
+  padding: 0.7rem 0.95rem;
+  width: 210px;
+  box-shadow: 0 0 24px rgba(34, 197, 94, 0.12), 0 6px 24px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.globe-dot-tooltip.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.globe-dot-tooltip-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #22c55e;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-family: ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace;
+  margin-bottom: 0.1rem;
+}
+.globe-dot-tooltip-year {
+  font-size: 0.63rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-family: ui-monospace, 'Cascadia Code', Menlo, Consolas, monospace;
+  margin-bottom: 0.38rem;
+}
+.globe-dot-tooltip-text {
+  font-size: 0.77rem;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.55;
+}
+.globe-dot-tooltip-divider {
+  border-top: 1px solid rgba(34, 197, 94, 0.15);
+  margin: 0.5rem 0;
 }
 
 .hero-content {
