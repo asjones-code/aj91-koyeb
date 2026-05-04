@@ -2406,8 +2406,8 @@ html {
   .hero-section {
     min-height: var(--vh, 100svh);
     height: auto;
-    padding-top: calc(72px + 2.0rem);
-    justify-content: flex-start;
+    padding-top: 0;
+    justify-content: flex-end;
   }
 
   .hero-content {
@@ -2429,9 +2429,9 @@ html {
   .content-cta.term #terminal,
   .content-cta.term .term {
     width: 100%;
-    min-width: 0; /* allow shrinking so 92% works */
+    min-width: 0;
     max-width: none;
-    height: 26rem;
+    height: 15rem;
     max-height: none;
   }
 

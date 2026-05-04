@@ -117,29 +117,36 @@ function initHeroGlobe() {
   }
 
   // ── Career dots — green, pulsing, loaded from API ─────────────────────────
-  const careerDotMeshes = [];
-  const pulseMeshes     = [];
-  let tooltipActive     = false;
+  const hitMeshes   = [];  // invisible, 30% bigger — used for raycasting
+  const pulseMeshes = [];
+  let tooltipActive = false;
 
   function buildCareerDots(dotsData) {
-    // Clear any existing
-    careerDotMeshes.forEach(m => globe.remove(m));
-    careerDotMeshes.length = 0;
-    pulseMeshes.forEach(({ mesh }) => globe.remove(mesh));
-    pulseMeshes.length = 0;
+    hitMeshes.forEach(m => globe.remove(m));   hitMeshes.length = 0;
+    pulseMeshes.forEach(({ mesh }) => globe.remove(mesh)); pulseMeshes.length = 0;
 
     dotsData.forEach((data) => {
       const pos = latLngToPosition(data.lat, data.lng);
 
+      // Visible core dot
       const dot = new THREE.Mesh(
         new THREE.SphereGeometry(0.010, 16, 16),
         new THREE.MeshBasicMaterial({ color: 0x22c55e })
       );
       dot.position.copy(pos);
-      dot.userData.careerData = data;
       globe.add(dot);
-      careerDotMeshes.push(dot);
 
+      // Invisible hit sphere — 30% bigger so easier to hover
+      const hit = new THREE.Mesh(
+        new THREE.SphereGeometry(0.013, 8, 8),
+        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
+      );
+      hit.position.copy(pos);
+      hit.userData.careerData = data;
+      globe.add(hit);
+      hitMeshes.push(hit);
+
+      // Pulse ring
       const pulse = new THREE.Mesh(
         new THREE.SphereGeometry(0.010, 16, 16),
         new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0 })
@@ -246,7 +253,7 @@ function initHeroGlobe() {
     mouse.x = ((clientX - rect.left) / rect.width)  *  2 - 1;
     mouse.y = ((clientY - rect.top)  / rect.height) * -2 + 1;
     raycaster.setFromCamera(mouse, camera);
-    const hits = raycaster.intersectObjects(careerDotMeshes);
+    const hits = raycaster.intersectObjects(hitMeshes);
     // Deduplicate by careerData label in case the same dot is hit multiple times
     const seen = new Set();
     return hits
@@ -379,6 +386,32 @@ function initHeroGlobe() {
     if (heroEl) heroEl.style.cursor = "grab";
   };
 
+  // Touch rotation — works on all devices
+  const onTouchStart = (e) => {
+    if (e.target.closest("#terminal, button, a, input")) return;
+    if (e.touches.length !== 1) return;
+    isDragging = true;
+    dragMomX = 0;
+    dragMomY = 0;
+    _prevDragX = e.touches[0].clientX;
+    _prevDragY = e.touches[0].clientY;
+    hideTooltip();
+  };
+  const onTouchMove = (e) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    dragMomX = (e.touches[0].clientX - _prevDragX) * 0.0045;
+    dragMomY = (e.touches[0].clientY - _prevDragY) * 0.002;
+    _prevDragX = e.touches[0].clientX;
+    _prevDragY = e.touches[0].clientY;
+  };
+  const onTouchEnd = () => { isDragging = false; };
+
+  if (heroEl) {
+    heroEl.addEventListener("touchstart", onTouchStart, { passive: true });
+    heroEl.addEventListener("touchmove",  onTouchMove,  { passive: true });
+    heroEl.addEventListener("touchend",   onTouchEnd);
+  }
+
   if (heroEl && isDesktop) {
     heroEl.style.cursor = "grab";
     heroEl.addEventListener("mousedown", onMouseDown);
@@ -394,6 +427,11 @@ function initHeroGlobe() {
     if (tooltip.parentNode) tooltip.parentNode.removeChild(tooltip);
     window.removeEventListener("globe-scroll-velocity", onScrollVelocity);
     window.removeEventListener("resize", setSize);
+    if (heroEl) {
+      heroEl.removeEventListener("touchstart", onTouchStart);
+      heroEl.removeEventListener("touchmove",  onTouchMove);
+      heroEl.removeEventListener("touchend",   onTouchEnd);
+    }
     if (heroEl && isDesktop) {
       heroEl.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("mousemove", onMouseMove);
