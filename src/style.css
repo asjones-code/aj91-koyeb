@@ -219,8 +219,8 @@ button {
   -webkit-backdrop-filter: none;
 }
 
-/* Non-work pages: pill + blur from scroll progress (JS sets --nav-pill-p on .header) */
-body:not(.page-is-work) .header {
+/* Pill + blur from scroll progress (JS sets --nav-pill-p on .header) */
+.header {
   opacity: calc(0.95 + 0.05 * var(--nav-pill-p, 0));
   margin-top: calc(10px * var(--nav-pill-p, 0));
   background: rgba(18, 17, 15, calc(0.82 * var(--nav-pill-p, 0)));
@@ -261,45 +261,6 @@ body:not(.page-is-work) .header {
   box-sizing: border-box;
 }
 
-/* Work page: one variable --work-header-pinch (0→1) drives pinch + pill fade (set by JS) */
-body.page-is-work .header {
-  --work-header-pinch: 0;
-  left: 50%;
-  right: auto;
-  width: 100%;
-  max-width: calc(100% - 50% * var(--work-header-pinch, 0));
-  transform: translate(-50%, calc(-8px + 8px * var(--work-header-pinch, 0)));
-  margin-top: calc(12px * var(--work-header-pinch, 0));
-  box-shadow: 0 4px 24px rgba(0, 0, 0, calc(0.2 * var(--work-header-pinch, 0)));
-  background: transparent;
-}
-body.page-is-work .header::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  border-radius: 10px;
-  background: rgba(18, 17, 15, 0.82);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.06);
-  border: 1px solid rgba(255,255,255,0.07);
-  opacity: var(--work-header-pinch, 0);
-  transition: none;
-}
-
-/* Work page: header text white */
-body.page-is-work .header .header-logo.logo,
-body.page-is-work .header .header-nav a {
-  color: rgba(255, 255, 255, 0.95);
-}
-body.page-is-work .header .header-nav a:hover {
-  color: rgba(255, 255, 255, 0.8);
-}
-body.page-is-work .header .hamburger span,
-body.page-is-work .header .cross span {
-  background: rgba(255, 255, 255, 0.9);
-}
 
 .header-logo.logo {
   font-weight: 700;
@@ -363,11 +324,6 @@ body.page-is-work .header .cross span {
   }
   .header-nav a {
     padding: 0.4rem 0.5rem;
-  }
-  /* Work page header pill blur (iOS) */
-  body.page-is-work .header::before {
-    -webkit-backdrop-filter: blur(12px);
-    backdrop-filter: blur(12px);
   }
 }
 

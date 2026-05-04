@@ -581,7 +581,6 @@ function navTransientFromVelocity(velocityPxPerSec) {
  * Header y = slide (-8 → 0 when scrolled) + baseline.y + transient.y. quickSetter = no double smoothing.
  */
 function navTick() {
-	if (document.body.classList.contains("page-is-work")) return; // work page uses its own header transform (pinch)
 	const inner = document.querySelector(".header-inner");
 	if (!inner) return;
 
@@ -650,8 +649,6 @@ function navTick() {
 function initNavIndicator() {
 	const inner = document.querySelector(".header-inner");
 	if (!inner) return;
-	if (document.body.classList.contains("page-is-work")) return; // work page header transform is separate
-
 	navPrevScroll = lenis.scroll;
 	navPrevTime = performance.now();
 	navSmoothedP = Math.max(0, Math.min(1, lenis.scroll / NAV_SCROLL_END_PX));
