@@ -306,6 +306,7 @@
     </main>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
   <script>
     (function () {
       if (window.location.port === "1234") window.API_ORIGIN = "http://localhost:3000";
@@ -347,7 +348,7 @@
             document.title = (p.title || "Post") + " — AJ91";
             document.getElementById("blog-post-title").textContent = p.title || "Untitled";
             document.getElementById("blog-post-meta").textContent = formatDate(p.created_at);
-            document.getElementById("blog-post-content").innerHTML = p.content || "<p>No content.</p>";
+            document.getElementById("blog-post-content").innerHTML = (typeof marked !== "undefined" ? marked.parse(p.content || "") : p.content) || "<p>No content.</p>";
           })
           .catch(function(){
             statusEl.textContent = "Failed to load post.";
