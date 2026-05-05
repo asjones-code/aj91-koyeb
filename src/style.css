@@ -252,14 +252,7 @@ button {
   backface-visibility: hidden;
 }
 
-/* is-scrolled: only affects color of logo/links (non-work). Visuals like opacity/background/backdrop set by JS in navTick from same progress – no transitions. */
-.header.is-scrolled {
-  left: 0;
-  right: 0;
-  width: 100%;
-  max-width: 100vw;
-  box-sizing: border-box;
-}
+/* is-scrolled: color of logo/links; pill visuals driven by --nav-pill-p via navTick */
 
 
 .header-logo.logo {

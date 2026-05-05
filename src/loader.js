@@ -24,14 +24,12 @@ if (typeof window.visualViewport !== "undefined") {
 }
 window.addEventListener("resize", setViewportHeightVar);
 
-// Lenis smooth scroll – keeps scroll-linked effects (e.g. work header pinch) from jittering
+// Lenis smooth scroll – keeps scroll-linked effects from jittering
 const lenis = new Lenis({
 	lerp: 0.11,       // 0.08 felt laggy/jerky; 0.11 is snappier while still smooth
 	smoothWheel: true,
 	anchors: true
 });
-// Work header pinch: smoothed progress (module-level so Lenis callback can update it)
-let workHeaderSmoothedP = 0;
 
 // Ease progress so resize velocity → 0 at start/end (no jump at min/max width)
 function smoothstep(t) {
@@ -45,16 +43,6 @@ lenis.on("scroll", (e) => {
 	if (document.querySelector(".hero-globe-wrap")) {
 		window.dispatchEvent(new CustomEvent("globe-scroll-velocity", { detail: e.velocity }));
 	}
-	// Work page: drive header pinch and is-scrolled from smoothed progress (no instant toggle)
-	if (!document.body.classList.contains("page-is-work")) return;
-	const header = document.querySelector(".header");
-	if (!header) return;
-	const raw = Math.max(0, Math.min(1, e.scroll / WORK_HEADER_SCROLL_END_PX));
-	const lerp = raw > workHeaderSmoothedP ? 0.2 : 0.07; // responsive down, heavy damp up
-	workHeaderSmoothedP += (raw - workHeaderSmoothedP) * lerp;
-	const p = smoothstep(workHeaderSmoothedP);
-	header.style.setProperty("--work-header-pinch", String(p));
-	header.classList.toggle("is-scrolled", p > 0.02);
 });
 gsap.ticker.add((time) => lenis.raf(time * 1000));
 gsap.ticker.lagSmoothing(0);
@@ -260,38 +248,7 @@ function initGlobeOptIn() {
 	});
 }
 
-// Resize in real time: progress 0→1 over this scroll distance (driven by Lenis in scroll callback)
-const WORK_HEADER_SCROLL_END_PX = 120;
-
-function initStickyHeader() {
-	// is-scrolled driven by smoothed progress only (navTick non-work, Lenis callback work)
-}
-
-/**
- * Work page: sync header pinch state to current scroll when entering; pinch is driven in Lenis scroll callback.
- */
-function initWorkHeaderPinch() {
-	const header = document.querySelector(".header");
-	if (!header || !document.body.classList.contains("page-is-work")) return;
-	const raw = Math.max(0, Math.min(1, lenis.scroll / WORK_HEADER_SCROLL_END_PX));
-	workHeaderSmoothedP = raw;
-	header.style.setProperty("--work-header-pinch", String(smoothstep(raw)));
-	// Clear nav pill var and any inline styles so work page CSS (pinch/::before) controls the header
-	header.style.removeProperty("--nav-pill-p");
-	header.style.removeProperty("opacity");
-	header.style.removeProperty("margin-top");
-	header.style.removeProperty("background");
-	header.style.removeProperty("backdrop-filter");
-	header.style.removeProperty("-webkit-backdrop-filter");
-	header.style.removeProperty("box-shadow");
-	header.style.removeProperty("border-radius");
-}
-
-function killWorkHeaderPinch() {
-	workHeaderSmoothedP = 0;
-	const header = document.querySelector(".header");
-	if (header) header.style.removeProperty("--work-header-pinch");
-}
+function initStickyHeader() {}
 
 function initMenuToggle() {
 	const toggle = document.getElementById("menu-toggle");
@@ -806,9 +763,6 @@ barba.init({
 				document.body.classList.remove("menu-open");
 				const layout = document.getElementById("layout-morph");
 				if (layout) layout.classList.remove("menu-open");
-				if (current.container.getAttribute("data-barba-namespace") === "work") {
-					killWorkHeaderPinch();
-				}
 				return gsap.to(current.container, { opacity: 0, duration: 0.25, ease: "power2.inOut" });
 			},
 			enter({ next }) {
@@ -833,8 +787,6 @@ barba.hooks.after((data) => {
 		});
 		// Ensure the work container is visible (transition can leave it hidden)
 		data.next.container.style.opacity = "1";
-		// Smooth scroll-linked header pinch (100% → 50% by scroll %)
-		requestAnimationFrame(() => initWorkHeaderPinch());
 	}
 	if (data.next.namespace === "projects" || data.next.namespace === "project") {
 		document.body.classList.add("page-is-projects");
@@ -880,7 +832,6 @@ window.addEventListener("load", () => {
 	runPageInit();
 	if (document.querySelector("[data-barba-namespace='work']")) {
 		document.body.classList.add("page-is-work");
-		initWorkHeaderPinch();
 	}
 	if (document.querySelector("[data-barba-namespace='projects']") || document.querySelector("[data-barba-namespace='project']")) {
 		document.body.classList.add("page-is-projects");
