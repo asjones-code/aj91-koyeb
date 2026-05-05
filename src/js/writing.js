@@ -104,7 +104,7 @@ function getHardcodedYouTube() {
   return [
     {
       source: "Goodgrow",
-      label: "OUR MODEL",
+      label: "SOCIAL VENTURE",
       title: "What is Goodgrow?",
       excerpt: "Discover how Goodgrow is building a fairer, more transparent marketplace — connecting artisans, farmers, and conscious consumers through regenerative supply chains.",
       url: "https://goodgrow.io",

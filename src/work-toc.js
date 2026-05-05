@@ -119,7 +119,11 @@ export function generateTableOfContents() {
       const target = document.getElementById(id);
       if (target) {
         e.preventDefault();
-        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (window.lenis) {
+          window.lenis.scrollTo(target, { offset: -80 });
+        } else {
+          target.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
         history.replaceState(null, "", `#${id}`);
         document.body.classList.remove("sidebar-visible");
       }

@@ -30,6 +30,7 @@ const lenis = new Lenis({
 	smoothWheel: true,
 	anchors: true
 });
+window.lenis = lenis;
 
 // Ease progress so resize velocity → 0 at start/end (no jump at min/max width)
 function smoothstep(t) {
@@ -760,9 +761,10 @@ barba.init({
 		{
 			name: "default",
 			leave({ current }) {
-				document.body.classList.remove("menu-open");
+				document.body.classList.remove("menu-open", "sidebar-visible");
 				const layout = document.getElementById("layout-morph");
 				if (layout) layout.classList.remove("menu-open");
+				lenis.scrollTo(0, { immediate: true });
 				return gsap.to(current.container, { opacity: 0, duration: 0.25, ease: "power2.inOut" });
 			},
 			enter({ next }) {
@@ -781,10 +783,8 @@ barba.hooks.after((data) => {
 	document.body.classList.remove("page-is-work", "page-is-projects", "page-is-project-detail");
 	if (data.next.namespace === "work") {
 		document.body.classList.add("page-is-work");
-		// TOC is only in work.html; when we arrive via Barba the script didn’t run, so generate it
-		requestAnimationFrame(() => {
-			import("./work-toc.js").then((m) => m.generateTableOfContents?.());
-		});
+		// Generate TOC immediately (no rAF delay) so toggle listener is ready before user interacts
+		import("./work-toc.js").then((m) => m.generateTableOfContents?.());
 		// Ensure the work container is visible (transition can leave it hidden)
 		data.next.container.style.opacity = "1";
 	}
