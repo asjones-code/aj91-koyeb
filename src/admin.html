@@ -44,6 +44,57 @@
     .tabs button { padding: 0.5rem 1rem; background: #404040; color: #e5e5e5; }
     .tabs button.active { background: #3b82f6; color: white; }
     .help { font-size: 0.75rem; color: #737373; margin-top: -0.5rem; margin-bottom: 1rem; }
+
+    /* ── Writer ─────────────────────────────────────────────────────────── */
+    body.writing { padding: 0; overflow: hidden; }
+    #edit-view.active { display: flex !important; flex-direction: column; position: fixed; inset: 0; background: #0d0c0a; z-index: 50; height: 100vh; }
+    .wr-bar { display: flex; align-items: center; gap: 0.75rem; padding: 0.45rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 0.78rem; font-family: ui-monospace, monospace; flex-shrink: 0; }
+    .wr-back { background: none; border: none; color: rgba(255,255,255,0.35); cursor: pointer; font: inherit; padding: 0; }
+    .wr-back:hover { color: #abf8fe; }
+    .wr-filename { color: rgba(255,255,255,0.4); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wr-savestatus { color: rgba(255,255,255,0.25); transition: color 0.2s; }
+    .wr-savestatus.saving { color: #fcd34d; }
+    .wr-savestatus.error { color: #f87171; }
+    .wr-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1.25rem; padding: 0.65rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
+    .wr-title-inp { background: none; border: none; color: rgba(255,255,255,0.88); font-size: 1rem; font-weight: 600; padding: 0; outline: none; min-width: 200px; flex: 1; }
+    .wr-title-inp::placeholder { color: rgba(255,255,255,0.18); }
+    .wr-mf { display: flex; align-items: center; gap: 0.35rem; }
+    .wr-mf label { font-size: 0.68rem; color: rgba(255,255,255,0.28); font-family: ui-monospace, monospace; white-space: nowrap; }
+    .wr-mf input { background: none; border: none; border-bottom: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); font-size: 0.78rem; padding: 0.1rem 0.2rem; outline: none; width: 140px; font-family: ui-monospace, monospace; margin: 0; }
+    .wr-mf input:focus { border-bottom-color: rgba(171,248,254,0.5); color: rgba(255,255,255,0.9); }
+    .wr-mf input#edit-thumbnail { width: 200px; }
+    .wr-toolbar { display: flex; align-items: center; gap: 1px; padding: 0.3rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
+    .wr-t { background: none; border: none; color: rgba(255,255,255,0.32); cursor: pointer; font-family: ui-monospace, monospace; font-size: 0.72rem; padding: 0.22rem 0.4rem; border-radius: 3px; transition: color 0.12s, background 0.12s; }
+    .wr-t:hover { color: #abf8fe; background: rgba(171,248,254,0.06); }
+    .wr-t.wr-italic { font-style: italic; }
+    .wr-div { color: rgba(255,255,255,0.1); padding: 0 0.3rem; user-select: none; font-size: 0.8rem; }
+    .wr-sp { flex: 1; }
+    .wr-pub { display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; font-family: ui-monospace, monospace; color: rgba(255,255,255,0.32); cursor: pointer; }
+    .wr-pub input { width: auto; margin: 0; accent-color: #abf8fe; }
+    .wr-pub.live { color: #86efac; }
+    .wr-t.wr-save-btn { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.65); padding: 0.22rem 0.8rem; }
+    .wr-t.wr-save-btn:hover { background: rgba(171,248,254,0.1); color: #abf8fe; }
+    .wr-body { flex: 1; overflow-y: auto; display: flex; justify-content: center; padding: 2.5rem 1.5rem 4rem; }
+    .wr-editor { width: 100%; max-width: 700px; background: none; border: none; outline: none; color: rgba(255,255,255,0.8); font-size: var(--wr-fs, 1rem); line-height: var(--wr-lh, 1.85); resize: none; font-family: var(--wr-ff, ui-sans-serif, system-ui, sans-serif); min-height: 60vh; }
+    .wr-editor::placeholder { color: rgba(255,255,255,0.12); }
+    .wr-statusbar { display: flex; align-items: center; gap: 1rem; padding: 0.3rem 1.25rem; border-top: 1px solid rgba(255,255,255,0.05); font-family: ui-monospace, monospace; font-size: 0.68rem; color: rgba(255,255,255,0.28); flex-shrink: 0; }
+    .wr-gbar { display: flex; align-items: center; gap: 0.4rem; }
+    .wr-gtrack { width: 64px; height: 2px; background: rgba(255,255,255,0.08); border-radius: 1px; overflow: hidden; }
+    .wr-gfill { height: 100%; background: #abf8fe; border-radius: 1px; transition: width 0.4s; }
+    .wr-gfill.done { background: #86efac; }
+    .wr-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; z-index: 200; backdrop-filter: blur(6px); }
+    .wr-modal.hidden { display: none; }
+    .wr-modal-box { background: #18170f; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 1.4rem; width: 360px; font-family: ui-monospace, monospace; }
+    .wr-modal-box h3 { font-size: 0.7rem; color: rgba(255,255,255,0.35); margin-bottom: 1rem; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; }
+    .wr-modal-box input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 5px; color: rgba(255,255,255,0.85); padding: 0.45rem 0.65rem; font-size: 0.8rem; margin-bottom: 0.65rem; font-family: inherit; outline: none; }
+    .wr-modal-box input:focus { border-color: rgba(171,248,254,0.35); }
+    .wr-modal-acts { display: flex; gap: 0.5rem; justify-content: flex-end; }
+    .wr-modal-acts button { font-family: inherit; font-size: 0.72rem; padding: 0.35rem 0.8rem; border-radius: 5px; border: none; cursor: pointer; }
+    .wr-mbtn-ok { background: rgba(171,248,254,0.1); color: #abf8fe; border: 1px solid rgba(171,248,254,0.2) !important; }
+    .wr-mbtn-ok:hover { background: rgba(171,248,254,0.18); }
+    .wr-mbtn-cancel { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.45); }
+    .wr-mbtn-cancel:hover { background: rgba(255,255,255,0.1); }
+    @media print { .wr-bar,.wr-meta,.wr-toolbar,.wr-statusbar { display:none !important; } .wr-body { padding: 0 !important; } .wr-editor { font-family: Georgia, serif !important; color: #000 !important; } }
   </style>
 </head>
 <body>
@@ -125,25 +176,75 @@
   </div>
 
   <div id="edit-view">
-    <h1 id="edit-title">New post</h1>
-    <p id="edit-error" class="error" style="display:none"></p>
-    <form id="edit-form">
-      <input type="hidden" id="edit-id">
-      <label for="edit-slug">Slug</label>
-      <input type="text" id="edit-slug" name="slug" required placeholder="my-post-slug">
-      <label for="edit-title-input">Title</label>
-      <input type="text" id="edit-title-input" name="title" required placeholder="Post title">
-      <label for="edit-excerpt">Excerpt</label>
-      <textarea id="edit-excerpt" name="excerpt" placeholder="Short summary"></textarea>
-      <label for="edit-content">Content</label>
-      <textarea id="edit-content" name="content" placeholder="Full content (HTML supported)"></textarea>
-      <div class="checkbox-wrap">
-        <input type="checkbox" id="edit-published" name="published">
-        <label for="edit-published">Published</label>
+    <!-- top bar -->
+    <div class="wr-bar">
+      <button class="wr-back" id="wr-back">← posts</button>
+      <span class="wr-filename" id="wr-filename">untitled.md</span>
+      <span class="wr-savestatus" id="wr-savestatus"></span>
+    </div>
+    <!-- meta fields -->
+    <div class="wr-meta">
+      <input class="wr-title-inp" id="edit-title-input" placeholder="Post title">
+      <div class="wr-mf"><label>slug</label><input id="edit-slug" placeholder="my-post-slug"></div>
+      <div class="wr-mf"><label>excerpt</label><input id="edit-excerpt" placeholder="Short summary"></div>
+      <div class="wr-mf"><label>thumbnail</label><input id="edit-thumbnail" type="url" placeholder="https://res.cloudinary.com/..."><button class="wr-t" id="wr-thumb-btn" title="Pick from Cloudinary">☁</button></div>
+    </div>
+    <!-- toolbar -->
+    <div class="wr-toolbar">
+      <button class="wr-t" data-md="bold" title="Bold">B</button>
+      <button class="wr-t wr-italic" data-md="italic" title="Italic">I</button>
+      <button class="wr-t" data-md="h2">H2</button>
+      <button class="wr-t" data-md="h3">H3</button>
+      <span class="wr-div">|</span>
+      <button class="wr-t" data-md="quote" title="Blockquote">"</button>
+      <button class="wr-t" data-md="code" title="Code">`</button>
+      <button class="wr-t" data-md="hr" title="Divider">—</button>
+      <span class="wr-div">|</span>
+      <button class="wr-t" data-md="link" title="Link">link</button>
+      <button class="wr-t" id="wr-img-btn" title="Insert image">img</button>
+      <span class="wr-div">|</span>
+      <button class="wr-t" id="wr-export-md" title="Download .md">md↓</button>
+      <button class="wr-t" id="wr-export-pdf" title="Print to PDF">pdf</button>
+      <span class="wr-div">|</span>
+      <span class="wr-div">font</span>
+      <button class="wr-t" data-ff="sans">sans</button>
+      <button class="wr-t" data-ff="mono">mono</button>
+      <button class="wr-t" data-ff="serif">serif</button>
+      <span class="wr-sp"></span>
+      <label class="wr-pub" id="wr-pub-wrap">
+        <input type="checkbox" id="edit-published"> <span id="wr-pub-lbl">draft</span>
+      </label>
+      <button class="wr-t wr-save-btn" id="wr-save-btn">save</button>
+    </div>
+    <!-- editor -->
+    <div class="wr-body">
+      <textarea class="wr-editor" id="edit-content" placeholder="start writing... (markdown supported)"></textarea>
+    </div>
+    <!-- status bar -->
+    <div class="wr-statusbar">
+      <span id="wr-wc">0 words</span>
+      <div class="wr-gbar">
+        <div class="wr-gtrack"><div class="wr-gfill" id="wr-gfill" style="width:0%"></div></div>
+        <span id="wr-glabel"></span>
       </div>
-      <button type="submit" class="btn-primary">Save</button>
-      <button type="button" class="btn-secondary" id="edit-cancel">Cancel</button>
-    </form>
+      <span class="wr-sp"></span>
+      <span id="wr-autosave"></span>
+      <button class="wr-t" id="wr-goal-set" style="color:rgba(255,255,255,0.2);font-size:0.62rem">goal</button>
+    </div>
+    <!-- image insert dialog -->
+    <div class="wr-modal hidden" id="wr-modal">
+      <div class="wr-modal-box">
+        <h3>insert image</h3>
+        <input type="url" id="wr-img-url" placeholder="https://res.cloudinary.com/...">
+        <input type="text" id="wr-img-alt" placeholder="alt text (optional)">
+        <div class="wr-modal-acts">
+          <button class="wr-mbtn-cancel" id="wr-modal-cancel">cancel</button>
+          <button class="wr-mbtn-ok" id="wr-modal-ok">insert</button>
+        </div>
+      </div>
+    </div>
+    <input type="hidden" id="edit-id">
+    <p id="edit-error" class="error" style="display:none;position:fixed;bottom:2.5rem;left:50%;transform:translateX(-50%);background:#1a1916;padding:.5rem 1rem;border-radius:6px;border:1px solid #f87171;"></p>
   </div>
 
   <div id="edit-project-view">
@@ -195,6 +296,7 @@
     function showView(name) {
       document.querySelectorAll("#login-view, #posts-view, #projects-view, #edit-view, #edit-project-view, #dots-view, #edit-dot-view").forEach((v) => v.classList.remove("active"));
       document.getElementById(name + "-view").classList.add("active");
+      document.body.classList.toggle("writing", name === "edit");
     }
 
     function showError(id, msg) {
@@ -348,15 +450,7 @@
     }
 
     document.getElementById("new-post").addEventListener("click", () => {
-      document.getElementById("edit-id").value = "";
-      document.getElementById("edit-slug").value = "";
-      document.getElementById("edit-title-input").value = "";
-      document.getElementById("edit-excerpt").value = "";
-      document.getElementById("edit-content").value = "";
-      document.getElementById("edit-published").checked = false;
-      document.getElementById("edit-title").textContent = "New post";
-      showError("edit-error");
-      showView("edit");
+      wrOpenPost(null);
     });
 
     document.getElementById("new-project").addEventListener("click", () => {
@@ -382,22 +476,10 @@
       try {
         const r = await fetch(API + "/api/admin/posts/" + id, { headers: apiHeaders() });
         const data = await r.json();
-        const post = data.post;
-        if (!post) {
-          showError("edit-error", data.error || "Post not found.");
-          return;
-        }
-        document.getElementById("edit-id").value = post.id;
-        document.getElementById("edit-slug").value = post.slug;
-        document.getElementById("edit-title-input").value = post.title;
-        document.getElementById("edit-excerpt").value = post.excerpt || "";
-        document.getElementById("edit-content").value = post.content || "";
-        document.getElementById("edit-published").checked = !!post.published;
-        document.getElementById("edit-title").textContent = "Edit post";
-        showError("edit-error");
-        showView("edit");
-      } catch (err) {
-        showError("edit-error", "Request failed.");
+        if (!data.post) { showError("posts-error", data.error || "Post not found."); return; }
+        wrOpenPost(data.post);
+      } catch {
+        showError("posts-error", "Request failed.");
       }
     }
 
@@ -463,15 +545,43 @@
       }
     }
 
-    document.getElementById("edit-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
+    // ── Writer ────────────────────────────────────────────────────────────
+    const WR_GOAL_KEY = "wr_word_goal";
+    let wrAutoSaveTimer = null;
+    let wrLastSaved = null;
+
+    function wrOpenPost(post) {
+      const id = post ? post.id : "";
+      document.getElementById("edit-id").value = id;
+      document.getElementById("edit-slug").value = post ? post.slug : "";
+      document.getElementById("edit-title-input").value = post ? post.title : "";
+      document.getElementById("edit-excerpt").value = post ? (post.excerpt || "") : "";
+      document.getElementById("edit-thumbnail").value = post ? (post.thumbnail || "") : "";
+      document.getElementById("edit-content").value = post ? (post.content || "") : "";
+      document.getElementById("edit-published").checked = post ? !!post.published : false;
+      document.getElementById("wr-filename").textContent = post ? post.slug + ".md" : "untitled.md";
+      wrUpdatePubLabel();
+      wrUpdateWordCount();
+      wrSetStatus("");
       showError("edit-error");
+      showView("edit");
+      setTimeout(() => document.getElementById("edit-content").focus(), 60);
+    }
+
+    async function wrSave(isAuto) {
       const id = document.getElementById("edit-id").value;
+      const slug = document.getElementById("edit-slug").value.trim();
+      const title = document.getElementById("edit-title-input").value.trim();
+      if (!slug || !title) {
+        if (!isAuto) showError("edit-error", "Slug and title are required.");
+        return;
+      }
+      wrSetStatus("saving", "saving…");
       const body = {
-        slug: document.getElementById("edit-slug").value.trim(),
-        title: document.getElementById("edit-title-input").value.trim(),
+        slug, title,
         excerpt: document.getElementById("edit-excerpt").value.trim(),
         content: document.getElementById("edit-content").value.trim(),
+        thumbnail: document.getElementById("edit-thumbnail").value.trim() || null,
         published: document.getElementById("edit-published").checked,
       };
       try {
@@ -479,15 +589,150 @@
         const method = id ? "PUT" : "POST";
         const r = await fetch(url, { method, headers: apiHeaders(), body: JSON.stringify(body) });
         const data = await r.json();
-        if (data.error) {
-          showError("edit-error", data.error);
-          return;
-        }
-        showView("posts");
-        showSuccess("posts-success", id ? "Post updated." : "Post created.");
-        loadPosts();
-      } catch (err) {
-        showError("edit-error", "Request failed.");
+        if (data.error) { wrSetStatus("error", data.error); showError("edit-error", data.error); return; }
+        if (!id && data.post) document.getElementById("edit-id").value = data.post.id;
+        if (data.post) document.getElementById("wr-filename").textContent = data.post.slug + ".md";
+        wrLastSaved = new Date();
+        wrSetStatus("", "saved");
+        setTimeout(() => wrSetStatus(""), 2000);
+        showError("edit-error");
+      } catch {
+        wrSetStatus("error", "save failed");
+      }
+    }
+
+    function wrSetStatus(cls, text) {
+      const el = document.getElementById("wr-savestatus");
+      el.className = "wr-savestatus" + (cls ? " " + cls : "");
+      el.textContent = text || "";
+    }
+
+    function wrUpdateWordCount() {
+      const text = document.getElementById("edit-content").value;
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      document.getElementById("wr-wc").textContent = words + " word" + (words !== 1 ? "s" : "");
+      const goal = parseInt(localStorage.getItem(WR_GOAL_KEY) || "500", 10);
+      const pct = goal > 0 ? Math.min(100, Math.round(words / goal * 100)) : 0;
+      const fill = document.getElementById("wr-gfill");
+      fill.style.width = pct + "%";
+      fill.className = "wr-gfill" + (pct >= 100 ? " done" : "");
+      document.getElementById("wr-glabel").textContent = goal > 0 ? pct + "%" : "";
+    }
+
+    function wrUpdatePubLabel() {
+      const pub = document.getElementById("edit-published").checked;
+      const lbl = document.getElementById("wr-pub-lbl");
+      const wrap = document.getElementById("wr-pub-wrap");
+      lbl.textContent = pub ? "live" : "draft";
+      wrap.className = "wr-pub" + (pub ? " live" : "");
+    }
+
+    function wrInsert(before, after, placeholder) {
+      const ta = document.getElementById("edit-content");
+      const s = ta.selectionStart, e = ta.selectionEnd;
+      const sel = ta.value.slice(s, e) || placeholder || "";
+      ta.setRangeText(before + sel + after, s, e, "end");
+      if (!ta.value.slice(s, e) && placeholder) {
+        ta.setSelectionRange(s + before.length, s + before.length + placeholder.length);
+      }
+      ta.focus();
+      wrUpdateWordCount();
+    }
+
+    const MD_ACTIONS = {
+      bold: () => wrInsert("**", "**", "bold text"),
+      italic: () => wrInsert("*", "*", "italic text"),
+      h2: () => wrInsert("\n## ", "", "Heading"),
+      h3: () => wrInsert("\n### ", "", "Heading"),
+      quote: () => wrInsert("\n> ", "", "quote"),
+      code: () => wrInsert("`", "`", "code"),
+      hr: () => wrInsert("\n\n---\n\n", ""),
+      link: () => wrInsert("[", "](https://)", "link text"),
+    };
+
+    document.querySelectorAll(".wr-t[data-md]").forEach(btn => {
+      btn.addEventListener("click", () => MD_ACTIONS[btn.dataset.md]?.());
+    });
+
+    document.querySelectorAll(".wr-t[data-ff]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const map = { sans: "ui-sans-serif,system-ui,sans-serif", mono: "ui-monospace,monospace", serif: "Georgia,serif" };
+        document.getElementById("edit-content").style.fontFamily = map[btn.dataset.ff] || "";
+      });
+    });
+
+    document.getElementById("edit-content").addEventListener("input", () => {
+      wrUpdateWordCount();
+      clearTimeout(wrAutoSaveTimer);
+      wrSetStatus("saving", "…");
+      wrAutoSaveTimer = setTimeout(() => wrSave(true), 2000);
+    });
+
+    document.getElementById("edit-published").addEventListener("change", wrUpdatePubLabel);
+
+    document.getElementById("wr-save-btn").addEventListener("click", () => wrSave(false));
+
+    document.getElementById("wr-back").addEventListener("click", () => {
+      clearTimeout(wrAutoSaveTimer);
+      showView("posts");
+      loadPosts();
+    });
+
+    document.getElementById("wr-export-md").addEventListener("click", () => {
+      const title = document.getElementById("edit-title-input").value || "post";
+      const content = document.getElementById("edit-content").value;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([content], { type: "text/markdown" }));
+      a.download = title.toLowerCase().replace(/\s+/g, "-") + ".md";
+      a.click();
+    });
+
+    document.getElementById("wr-export-pdf").addEventListener("click", () => window.print());
+
+    document.getElementById("wr-goal-set").addEventListener("click", () => {
+      const cur = localStorage.getItem(WR_GOAL_KEY) || "500";
+      const val = prompt("Word count goal (0 to disable):", cur);
+      if (val !== null) { localStorage.setItem(WR_GOAL_KEY, parseInt(val, 10) || 0); wrUpdateWordCount(); }
+    });
+
+    // Image dialog
+    document.getElementById("wr-img-btn").addEventListener("click", () => {
+      document.getElementById("wr-img-url").value = "";
+      document.getElementById("wr-img-alt").value = "";
+      document.getElementById("wr-modal").classList.remove("hidden");
+      document.getElementById("wr-img-url").focus();
+    });
+    document.getElementById("wr-modal-cancel").addEventListener("click", () => document.getElementById("wr-modal").classList.add("hidden"));
+    document.getElementById("wr-modal-ok").addEventListener("click", () => {
+      const url = document.getElementById("wr-img-url").value.trim();
+      if (!url) return;
+      const alt = document.getElementById("wr-img-alt").value.trim();
+      wrInsert(`![${alt}](${url})`, "");
+      document.getElementById("wr-modal").classList.add("hidden");
+    });
+    document.getElementById("wr-modal").addEventListener("click", (e) => {
+      if (e.target === document.getElementById("wr-modal")) document.getElementById("wr-modal").classList.add("hidden");
+    });
+
+    // Cloudinary pick (thumbnail field)
+    document.getElementById("wr-thumb-btn").addEventListener("click", () => {
+      const cloudName = window.CLOUDINARY_CLOUD_NAME;
+      if (cloudName && window.cloudinary) {
+        window.cloudinary.createUploadWidget({ cloudName, uploadPreset: window.CLOUDINARY_UPLOAD_PRESET || "unsigned" }, (err, result) => {
+          if (!err && result?.event === "success") document.getElementById("edit-thumbnail").value = result.info.secure_url;
+        }).open();
+      } else {
+        const url = prompt("Paste Cloudinary URL:");
+        if (url) document.getElementById("edit-thumbnail").value = url;
+      }
+    });
+
+    // Ctrl+S to save
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "s" && document.body.classList.contains("writing")) {
+        e.preventDefault();
+        clearTimeout(wrAutoSaveTimer);
+        wrSave(false);
       }
     });
 
@@ -530,7 +775,6 @@
       }
     });
 
-    document.getElementById("edit-cancel").addEventListener("click", () => showView("posts"));
     document.getElementById("edit-project-cancel").addEventListener("click", () => showView("projects"));
     document.getElementById("edit-dot-cancel").addEventListener("click", () => showView("dots"));
 

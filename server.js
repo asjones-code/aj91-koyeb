@@ -204,6 +204,7 @@ async function initDatabase() {
 			);
 			CREATE INDEX IF NOT EXISTS idx_cms_posts_slug ON cms_posts(slug);
 			CREATE INDEX IF NOT EXISTS idx_cms_posts_published ON cms_posts(published) WHERE published = TRUE;
+			ALTER TABLE cms_posts ADD COLUMN IF NOT EXISTS thumbnail TEXT;
 			CREATE TABLE IF NOT EXISTS cms_projects (
 				id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 				slug VARCHAR(255) NOT NULL UNIQUE,

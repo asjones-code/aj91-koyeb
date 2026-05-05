@@ -1,0 +1,1 @@
+ALTER TABLE cms_posts ADD COLUMN IF NOT EXISTS thumbnail TEXT;
