@@ -75,7 +75,7 @@
     .wr-t.wr-save-btn { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.65); padding: 0.22rem 0.8rem; }
     .wr-t.wr-save-btn:hover { background: rgba(171,248,254,0.1); color: #abf8fe; }
     .wr-body { flex: 1; overflow-y: auto; display: flex; justify-content: center; padding: 2.5rem 1.5rem 4rem; }
-    .wr-editor { width: 100%; max-width: 700px; background: none; border: none; outline: none; color: rgba(255,255,255,0.8); font-size: var(--wr-fs, 1rem); line-height: var(--wr-lh, 1.85); resize: none; font-family: var(--wr-ff, ui-sans-serif, system-ui, sans-serif); min-height: 60vh; }
+    .wr-editor { width: 100%; max-width: 700px; background: none; border: none; outline: none; color: rgba(255,255,255,0.8); font-size: var(--wr-fs, 1rem); line-height: var(--wr-lh, 1.85); resize: none; font-family: var(--wr-ff, ui-monospace, 'Cascadia Code', 'Fira Code', monospace); min-height: 60vh; }
     .wr-editor::placeholder { color: rgba(255,255,255,0.12); }
     .wr-statusbar { display: flex; align-items: center; gap: 1rem; padding: 0.3rem 1.25rem; border-top: 1px solid rgba(255,255,255,0.05); font-family: ui-monospace, monospace; font-size: 0.68rem; color: rgba(255,255,255,0.28); flex-shrink: 0; }
     .wr-gbar { display: flex; align-items: center; gap: 0.4rem; }
@@ -207,8 +207,8 @@
       <button class="wr-t" id="wr-export-pdf" title="Print to PDF">pdf</button>
       <span class="wr-div">|</span>
       <span class="wr-div">font</span>
+      <button class="wr-t" data-ff="mono" style="color:rgba(171,248,254,0.7)">mono</button>
       <button class="wr-t" data-ff="sans">sans</button>
-      <button class="wr-t" data-ff="mono">mono</button>
       <button class="wr-t" data-ff="serif">serif</button>
       <span class="wr-sp"></span>
       <label class="wr-pub" id="wr-pub-wrap">
