@@ -4,6 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Blog — AJ91</title>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-LPE99LYE4W"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-LPE99LYE4W');
+  </script>
   <script>
     (function () {
       function setVh() {
@@ -73,7 +81,10 @@
     }
     .blog-list-item:first-child { border-top: 1px solid var(--c-border); }
     .blog-list-link {
-      display: block;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      column-gap: 1.25rem;
+      align-items: start;
       text-decoration: none;
       color: inherit;
       transition: opacity 0.2s;
@@ -273,28 +284,19 @@
     .blog-back-link:hover { color: var(--c-accent); }
 
     /* ── List item thumbnail ── */
-    .blog-list-link {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      grid-template-rows: auto auto auto auto;
-      column-gap: 1.25rem;
-      align-items: start;
-    }
     .blog-list-meta, .blog-list-h, .blog-list-excerpt, .blog-list-arrow {
       grid-column: 1;
     }
     .blog-list-thumb {
       grid-column: 2;
-      grid-row: 1 / 4;
+      grid-row: 1 / 5;
       width: 100px;
       height: 68px;
       object-fit: cover;
       border-radius: 5px;
-      flex-shrink: 0;
       align-self: center;
-      display: none;
+      display: block;
     }
-    .blog-list-thumb.loaded { display: block; }
 
     /* ── Skeleton loading ── */
     @keyframes shimmer {
@@ -356,6 +358,88 @@
     }
     .blog-footer-links a:hover { color: var(--c-accent); }
 
+    /* ── Subscribe form (article footer) ── */
+    .blog-subscribe {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 0 2rem 6rem;
+    }
+    .blog-subscribe-card {
+      border: 1px solid var(--c-border);
+      border-radius: 10px;
+      padding: 2rem;
+      background: rgba(255,255,255,0.02);
+    }
+    .blog-subscribe-label {
+      font-size: 0.68rem;
+      font-family: ui-monospace, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      color: rgba(171,248,254,0.45);
+      margin-bottom: 0.5rem;
+    }
+    .blog-subscribe-heading {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: rgba(255,255,255,0.92);
+      margin: 0 0 0.35rem;
+      letter-spacing: -0.02em;
+    }
+    .blog-subscribe-desc {
+      font-size: 0.9rem;
+      color: rgba(255,255,255,0.45);
+      margin: 0 0 1.25rem;
+      line-height: 1.55;
+    }
+    .blog-subscribe-form {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .blog-subscribe-input {
+      flex: 1;
+      min-width: 200px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 6px;
+      padding: 0.6rem 0.9rem;
+      color: rgba(255,255,255,0.9);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .blog-subscribe-input:focus { border-color: rgba(171,248,254,0.4); }
+    .blog-subscribe-input::placeholder { color: rgba(255,255,255,0.25); }
+    .blog-subscribe-btn {
+      background: var(--c-accent);
+      color: #0a0a0a;
+      border: none;
+      border-radius: 6px;
+      padding: 0.6rem 1.25rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+    }
+    .blog-subscribe-btn:hover { opacity: 0.85; }
+    .blog-subscribe-btn:disabled { opacity: 0.5; cursor: default; }
+    .blog-subscribe-msg {
+      font-size: 0.82rem;
+      font-family: ui-monospace, monospace;
+      margin-top: 0.6rem;
+      display: none;
+    }
+    .blog-subscribe-msg.ok  { color: rgba(171,248,254,0.8); display: block; }
+    .blog-subscribe-msg.err { color: #f87171; display: block; }
+
+    @media (min-width: 900px) {
+      .blog-content { font-size: 1.3rem; }
+      .blog-content h1 { font-size: 2.3rem; }
+      .blog-content h2 { font-size: 1.75rem; }
+      .blog-content h3 { font-size: 1.55rem; }
+    }
+
     @media (max-width: 640px) {
       .blog-index { padding: 6rem 1.25rem 4rem; }
       .blog-article-hero { padding: 7rem 1.25rem 3rem; }
@@ -364,6 +448,7 @@
       .blog-skeleton-item { grid-template-columns: 1fr 72px; }
       .blog-skeleton-img { height: 52px; }
       .blog-footer-inner { flex-direction: column; align-items: flex-start; gap: 1rem; }
+      .blog-subscribe { padding: 0 1.25rem 4rem; }
     }
   </style>
 </head>
@@ -409,6 +494,18 @@
         <div class="blog-article-body">
           <p id="blog-post-status" class="blog-status" style="display:none"></p>
           <div id="blog-post-content" class="blog-content"></div>
+        </div>
+        <div class="blog-subscribe">
+          <div class="blog-subscribe-card">
+            <p class="blog-subscribe-label font-mono">Newsletter</p>
+            <h2 class="blog-subscribe-heading">Stay in touch</h2>
+            <p class="blog-subscribe-desc">New writing and projects, direct to your inbox.</p>
+            <form class="blog-subscribe-form" id="blog-subscribe-form">
+              <input class="blog-subscribe-input" id="blog-subscribe-input" type="email" placeholder="you@example.com" required autocomplete="email">
+              <button class="blog-subscribe-btn" type="submit">Subscribe</button>
+            </form>
+            <p class="blog-subscribe-msg" id="blog-subscribe-msg"></p>
+          </div>
         </div>
       </div>
 
@@ -529,7 +626,7 @@
             listEl.style.display = "block";
             listEl.innerHTML = posts.map(function(p){
               var thumb = p.thumbnail
-                ? '<img class="blog-list-thumb" src="' + escapeHtml(p.thumbnail) + '" alt="" loading="lazy" onload="this.classList.add(\'loaded\')">'
+                ? '<img class="blog-list-thumb" src="' + escapeHtml(p.thumbnail) + '" alt="" loading="lazy">'
                 : '';
               return '<li class="blog-list-item">'
                 + '<a href="/journal/' + encodeURIComponent(p.slug) + '" class="blog-list-link">'
@@ -548,6 +645,45 @@
             statusIndex.style.display = "block";
           });
       }
+    })();
+
+    /* ── Subscribe form ── */
+    (function () {
+      var form = document.getElementById("blog-subscribe-form");
+      if (!form) return;
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var input = document.getElementById("blog-subscribe-input");
+        var btn = form.querySelector(".blog-subscribe-btn");
+        var msg = document.getElementById("blog-subscribe-msg");
+        var email = input.value.trim();
+        if (!email) return;
+        btn.disabled = true;
+        btn.textContent = "Subscribing…";
+        fetch("/api/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.success) {
+              msg.className = "blog-subscribe-msg ok";
+              msg.textContent = "You're in. Thanks!";
+              input.value = "";
+              btn.textContent = "Subscribe";
+              btn.disabled = false;
+            } else {
+              throw new Error(data.error || "Something went wrong.");
+            }
+          })
+          .catch(function (err) {
+            msg.className = "blog-subscribe-msg err";
+            msg.textContent = err.message || "Something went wrong. Try again.";
+            btn.textContent = "Subscribe";
+            btn.disabled = false;
+          });
+      });
     })();
   </script>
   <script type="module" src="loader.js"></script>
