@@ -162,29 +162,44 @@
       letter-spacing: 0.06em;
     }
 
+    /* Hero cover image */
+    .blog-article-cover {
+      width: 100%;
+      max-height: 480px;
+      overflow: hidden;
+      display: none;
+    }
+    .blog-article-cover img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      max-height: 480px;
+    }
+
     /* Body content */
     .blog-article-body {
-      max-width: 680px;
+      max-width: 700px;
       margin: 0 auto;
       padding: 4rem 2rem 8rem;
     }
     .blog-content {
-      font-size: 1.0625rem;
-      line-height: 1.78;
-      color: rgba(255,255,255,0.78);
+      font-size: 1.125rem;
+      line-height: 1.82;
+      color: rgba(255,255,255,0.82);
     }
-    .blog-content p { margin: 0 0 1.4rem; }
+    .blog-content p { margin: 0 0 1.6rem; }
     .blog-content p:last-child { margin-bottom: 0; }
     .blog-content h1, .blog-content h2, .blog-content h3 {
-      color: rgba(255,255,255,0.95);
-      font-weight: 600;
-      letter-spacing: -0.02em;
-      margin: 2.5rem 0 0.75rem;
-      line-height: 1.25;
+      color: rgba(255,255,255,0.96);
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      margin: 3rem 0 0.85rem;
+      line-height: 1.2;
     }
-    .blog-content h1 { font-size: 1.75rem; }
-    .blog-content h2 { font-size: 1.35rem; }
-    .blog-content h3 { font-size: 1.1rem; }
+    .blog-content h1 { font-size: 2rem; }
+    .blog-content h2 { font-size: 1.5rem; }
+    .blog-content h3 { font-size: 1.2rem; }
     .blog-content a {
       color: var(--c-accent);
       text-decoration: underline;
@@ -291,8 +306,9 @@
 
       <!-- ── Article view ── -->
       <div id="blog-post-view" class="blog-article-wrap" style="display:none">
+        <div id="blog-post-cover" class="blog-article-cover"><img id="blog-post-cover-img" alt=""></div>
         <div class="blog-article-hero">
-          <a href="blog.html" class="blog-article-back">← All posts</a>
+          <a href="/journal" class="blog-article-back">← All posts</a>
           <p class="blog-article-eyebrow font-mono">Writing</p>
           <h1 id="blog-post-title" class="blog-article-title"></h1>
           <p id="blog-post-meta" class="blog-article-meta"></p>
@@ -306,6 +322,22 @@
     </main>
   </div>
 
+  <script>
+    /* Nav pill scroll effect — drives the same CSS vars as the home page */
+    (function () {
+      var header = document.querySelector('.header');
+      if (!header) return;
+      function smoothstep(t) { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); }
+      function update() {
+        var p = smoothstep(Math.min(1, window.scrollY / 80));
+        header.style.setProperty('--nav-pill-p', p.toFixed(4));
+        if (p > 0.02) header.classList.add('is-scrolled');
+        else header.classList.remove('is-scrolled');
+      }
+      window.addEventListener('scroll', update, { passive: true });
+      update();
+    })();
+  </script>
   <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
   <script>
     (function () {
@@ -350,6 +382,11 @@
             document.getElementById("blog-post-title").textContent = p.title || "Untitled";
             document.getElementById("blog-post-meta").textContent = formatDate(p.created_at);
             document.getElementById("blog-post-content").innerHTML = (typeof marked !== "undefined" ? marked.parse(p.content || "") : p.content) || "<p>No content.</p>";
+            if (p.thumbnail) {
+              var coverEl = document.getElementById("blog-post-cover");
+              document.getElementById("blog-post-cover-img").src = p.thumbnail;
+              coverEl.style.display = "block";
+            }
           })
           .catch(function(){
             statusEl.textContent = "Failed to load post.";

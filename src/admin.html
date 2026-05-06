@@ -63,6 +63,8 @@
     .wr-mf input { background: none; border: none; border-bottom: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); font-size: 0.78rem; padding: 0.1rem 0.2rem; outline: none; width: 140px; font-family: ui-monospace, monospace; margin: 0; }
     .wr-mf input:focus { border-bottom-color: rgba(171,248,254,0.5); color: rgba(255,255,255,0.9); }
     .wr-mf input#edit-thumbnail { width: 200px; }
+    .wr-thumb-preview { width: 48px; height: 32px; object-fit: cover; border-radius: 3px; border: 1px solid rgba(255,255,255,0.1); display: none; vertical-align: middle; }
+    .wr-thumb-preview.has-img { display: inline-block; }
     .wr-toolbar { display: flex; align-items: center; gap: 1px; padding: 0.3rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; }
     .wr-t { background: none; border: none; color: rgba(255,255,255,0.32); cursor: pointer; font-family: ui-monospace, monospace; font-size: 0.72rem; padding: 0.22rem 0.4rem; border-radius: 3px; transition: color 0.12s, background 0.12s; }
     .wr-t:hover { color: #abf8fe; background: rgba(171,248,254,0.06); }
@@ -187,7 +189,7 @@
       <input class="wr-title-inp" id="edit-title-input" placeholder="Post title">
       <div class="wr-mf"><label>slug</label><input id="edit-slug" placeholder="my-post-slug"></div>
       <div class="wr-mf"><label>excerpt</label><input id="edit-excerpt" placeholder="Short summary"></div>
-      <div class="wr-mf"><label>thumbnail</label><input id="edit-thumbnail" type="url" placeholder="https://res.cloudinary.com/..."><button class="wr-t" id="wr-thumb-btn" title="Pick from Cloudinary">☁</button></div>
+      <div class="wr-mf"><label>thumbnail</label><input id="edit-thumbnail" type="text" placeholder="Paste URL or click ☁"><button class="wr-t" id="wr-thumb-btn" title="Upload via Cloudinary">☁</button><img id="wr-thumb-preview" class="wr-thumb-preview" alt=""></div>
     </div>
     <!-- toolbar -->
     <div class="wr-toolbar">
@@ -557,6 +559,7 @@
       document.getElementById("edit-title-input").value = post ? post.title : "";
       document.getElementById("edit-excerpt").value = post ? (post.excerpt || "") : "";
       document.getElementById("edit-thumbnail").value = post ? (post.thumbnail || "") : "";
+      updateThumbPreview(post ? (post.thumbnail || "") : "");
       document.getElementById("edit-content").value = post ? (post.content || "") : "";
       document.getElementById("edit-published").checked = post ? !!post.published : false;
       document.getElementById("wr-filename").textContent = post ? post.slug + ".md" : "untitled.md";
@@ -714,16 +717,35 @@
       if (e.target === document.getElementById("wr-modal")) document.getElementById("wr-modal").classList.add("hidden");
     });
 
+    // Thumbnail preview helper
+    function updateThumbPreview(url) {
+      const img = document.getElementById("wr-thumb-preview");
+      if (url) {
+        img.src = url;
+        img.classList.add("has-img");
+      } else {
+        img.src = "";
+        img.classList.remove("has-img");
+      }
+    }
+    document.getElementById("edit-thumbnail").addEventListener("input", (e) => updateThumbPreview(e.target.value.trim()));
+
     // Cloudinary pick (thumbnail field)
     document.getElementById("wr-thumb-btn").addEventListener("click", () => {
       const cloudName = window.CLOUDINARY_CLOUD_NAME;
       if (cloudName && window.cloudinary) {
         window.cloudinary.createUploadWidget({ cloudName, uploadPreset: window.CLOUDINARY_UPLOAD_PRESET || "unsigned" }, (err, result) => {
-          if (!err && result?.event === "success") document.getElementById("edit-thumbnail").value = result.info.secure_url;
+          if (!err && result?.event === "success") {
+            document.getElementById("edit-thumbnail").value = result.info.secure_url;
+            updateThumbPreview(result.info.secure_url);
+          }
         }).open();
       } else {
-        const url = prompt("Paste Cloudinary URL:");
-        if (url) document.getElementById("edit-thumbnail").value = url;
+        const url = prompt("Paste image URL (Cloudinary, Unsplash, etc.):");
+        if (url) {
+          document.getElementById("edit-thumbnail").value = url;
+          updateThumbPreview(url);
+        }
       }
     });
 
