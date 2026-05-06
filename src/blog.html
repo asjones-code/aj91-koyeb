@@ -199,7 +199,7 @@
     }
     .blog-content h1 { font-size: 2rem; }
     .blog-content h2 { font-size: 1.5rem; }
-    .blog-content h3 { font-size: 1.2rem; }
+    .blog-content h3 { font-size: 1.35rem; }
     .blog-content a {
       color: var(--c-accent);
       text-decoration: underline;
@@ -272,10 +272,98 @@
     }
     .blog-back-link:hover { color: var(--c-accent); }
 
+    /* ── List item thumbnail ── */
+    .blog-list-link {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      grid-template-rows: auto auto auto auto;
+      column-gap: 1.25rem;
+      align-items: start;
+    }
+    .blog-list-meta, .blog-list-h, .blog-list-excerpt, .blog-list-arrow {
+      grid-column: 1;
+    }
+    .blog-list-thumb {
+      grid-column: 2;
+      grid-row: 1 / 4;
+      width: 100px;
+      height: 68px;
+      object-fit: cover;
+      border-radius: 5px;
+      flex-shrink: 0;
+      align-self: center;
+      display: none;
+    }
+    .blog-list-thumb.loaded { display: block; }
+
+    /* ── Skeleton loading ── */
+    @keyframes shimmer {
+      0%   { background-position: -600px 0; }
+      100% { background-position: 600px 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.05) 75%);
+      background-size: 600px 100%;
+      animation: shimmer 1.4s ease-in-out infinite;
+      border-radius: 4px;
+    }
+    .blog-skeleton-item {
+      padding: 2rem 0;
+      border-bottom: 1px solid var(--c-border);
+      display: grid;
+      grid-template-columns: 1fr 100px;
+      column-gap: 1.25rem;
+    }
+    .blog-skeleton-item:first-child { border-top: 1px solid var(--c-border); }
+    .blog-skeleton-text { grid-column: 1; display: flex; flex-direction: column; gap: 0.6rem; }
+    .blog-skeleton-img { grid-column: 2; height: 68px; border-radius: 5px; }
+
+    /* ── Footer ── */
+    .blog-footer {
+      border-top: 1px solid var(--c-border);
+      padding: 3.5rem 0;
+      margin-top: auto;
+    }
+    .blog-footer-inner {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .blog-footer-brand {
+      font-family: 'Kihim', ui-monospace, monospace;
+      font-size: 1.1rem;
+      color: rgba(255,255,255,0.6);
+    }
+    .blog-footer-links {
+      display: flex;
+      gap: 1.25rem;
+    }
+    .blog-footer-links a {
+      font-size: 0.78rem;
+      font-family: ui-monospace, monospace;
+      color: rgba(255,255,255,0.35);
+      text-decoration: none;
+      letter-spacing: 0.04em;
+      transition: color 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .blog-footer-links a:hover { color: var(--c-accent); }
+
     @media (max-width: 640px) {
       .blog-index { padding: 6rem 1.25rem 4rem; }
       .blog-article-hero { padding: 7rem 1.25rem 3rem; }
       .blog-article-body { padding: 3rem 1.25rem 6rem; }
+      .blog-list-thumb { width: 72px; height: 52px; }
+      .blog-skeleton-item { grid-template-columns: 1fr 72px; }
+      .blog-skeleton-img { height: 52px; }
+      .blog-footer-inner { flex-direction: column; align-items: flex-start; gap: 1rem; }
     }
   </style>
 </head>
@@ -300,7 +388,12 @@
       <div id="blog-list-view" class="blog-index">
         <p class="blog-index-eyebrow font-mono">Writing</p>
         <h1 class="blog-index-title">Ideas &amp;<br>Notes</h1>
-        <p id="blog-list-status" class="blog-status">Loading…</p>
+        <ul id="blog-skeleton" class="blog-list" aria-hidden="true">
+          <li class="blog-skeleton-item"><div class="blog-skeleton-text"><div class="skeleton" style="width:30%;height:10px;"></div><div class="skeleton" style="width:75%;height:18px;"></div><div class="skeleton" style="width:90%;height:13px;"></div></div><div class="blog-skeleton-img skeleton"></div></li>
+          <li class="blog-skeleton-item"><div class="blog-skeleton-text"><div class="skeleton" style="width:25%;height:10px;"></div><div class="skeleton" style="width:60%;height:18px;"></div><div class="skeleton" style="width:85%;height:13px;"></div></div><div class="blog-skeleton-img skeleton"></div></li>
+          <li class="blog-skeleton-item"><div class="blog-skeleton-text"><div class="skeleton" style="width:28%;height:10px;"></div><div class="skeleton" style="width:70%;height:18px;"></div><div class="skeleton" style="width:80%;height:13px;"></div></div><div class="blog-skeleton-img skeleton"></div></li>
+        </ul>
+        <p id="blog-list-status" class="blog-status" style="display:none"></p>
         <ul id="blog-list" class="blog-list" style="display:none"></ul>
       </div>
 
@@ -320,6 +413,21 @@
       </div>
 
     </main>
+
+    <footer class="blog-footer">
+      <div class="blog-footer-inner">
+        <span class="blog-footer-brand font-kihim">aj91</span>
+        <nav class="blog-footer-links">
+          <a href="https://www.linkedin.com/in/asjones91/" target="_blank" rel="noopener">
+            <i class="fa-brands fa-linkedin" aria-hidden="true"></i> LinkedIn
+          </a>
+          <a href="https://aj91.substack.com/" target="_blank" rel="noopener">
+            <i class="fa-solid fa-newspaper" aria-hidden="true"></i> Substack
+          </a>
+        </nav>
+      </div>
+    </footer>
+
   </div>
 
   <script>
@@ -396,44 +504,48 @@
 
       } else {
         /* ── Post list ── */
+        var skeletonEl = document.getElementById("blog-skeleton");
         var statusIndex = document.getElementById("blog-list-status");
         var listEl = document.getElementById("blog-list");
 
         fetch(API + "/api/posts")
           .then(function(r){ return r.json(); })
           .then(function(data){
+            skeletonEl.style.display = "none";
             var NO_DB_MSGS = ["Database not configured.", "Database not available."];
             if (data.error) {
-              if (NO_DB_MSGS.indexOf(data.error) !== -1) {
-                statusIndex.textContent = "No posts yet.";
-                statusIndex.className = "blog-status blog-status--empty";
-              } else {
-                statusIndex.textContent = data.error;
-                statusIndex.className = "blog-status blog-status--error";
-              }
+              statusIndex.textContent = NO_DB_MSGS.indexOf(data.error) !== -1 ? "No posts yet." : data.error;
+              statusIndex.className = "blog-status blog-status--" + (NO_DB_MSGS.indexOf(data.error) !== -1 ? "empty" : "error");
+              statusIndex.style.display = "block";
               return;
             }
             var posts = data.posts || [];
             if (posts.length === 0) {
               statusIndex.textContent = "No posts yet.";
               statusIndex.className = "blog-status blog-status--empty";
+              statusIndex.style.display = "block";
               return;
             }
-            statusIndex.style.display = "none";
             listEl.style.display = "block";
             listEl.innerHTML = posts.map(function(p){
+              var thumb = p.thumbnail
+                ? '<img class="blog-list-thumb" src="' + escapeHtml(p.thumbnail) + '" alt="" loading="lazy" onload="this.classList.add(\'loaded\')">'
+                : '';
               return '<li class="blog-list-item">'
                 + '<a href="/journal/' + encodeURIComponent(p.slug) + '" class="blog-list-link">'
                 + '<p class="blog-list-meta">' + escapeHtml(formatDate(p.created_at)) + '</p>'
                 + '<h2 class="blog-list-h">' + escapeHtml(p.title || "Untitled") + '</h2>'
                 + (p.excerpt ? '<p class="blog-list-excerpt">' + escapeHtml(p.excerpt) + '</p>' : '')
                 + '<span class="blog-list-arrow font-mono">Read →</span>'
+                + thumb
                 + '</a></li>';
             }).join("");
           })
           .catch(function(){
+            skeletonEl.style.display = "none";
             statusIndex.textContent = "No posts yet.";
             statusIndex.className = "blog-status blog-status--empty";
+            statusIndex.style.display = "block";
           });
       }
     })();
