@@ -459,7 +459,7 @@ async function sendSitemapBody(req, res, method) {
 			for (const p of postsResult.posts) {
 				if (!p.slug) continue;
 				urls.push({
-					loc: `${base}/blog?slug=${encodeURIComponent(p.slug)}`,
+					loc: `${base}/journal/${encodeURIComponent(p.slug)}`,
 					lastmod: lastmodYmd(p.updated_at),
 					changefreq: "monthly",
 					priority: "0.7",
@@ -1656,6 +1656,51 @@ const server = http.createServer(async (req, res) => {
 
 	if (pathname === "/sitemap.xml") {
 		await handleSitemap(req, res, method);
+		return;
+	}
+
+	// /journal/<slug> — serve blog.html with injected OG meta for LinkedIn/social scrapers
+	if (pathname === "/journal") {
+		const status = await serveStatic(res, "/blog.html", method);
+		if (status !== 200) {
+			res.writeHead(status === 404 ? 404 : 500, { "Content-Type": "text/plain; charset=utf-8" });
+			res.end(status === 404 ? "Not Found" : "Internal Server Error");
+		}
+		return;
+	}
+	const journalMatch = pathname.match(/^\/journal\/([^/]+)$/);
+	if (journalMatch) {
+		const slug = decodeURIComponent(journalMatch[1]);
+		const htmlFile = path.join(DIST, "blog.html");
+		try {
+			let html = await fs.readFile(htmlFile, "utf8");
+			const postResult = await postModel.findBySlug(slug);
+			if (!postResult.error) {
+				const p = postResult.post;
+				const esc = (s) => (s || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+				const ogTitle = esc(p.title);
+				const ogDesc = esc((p.excerpt || (p.content || "").replace(/[#*`>\[\]]/g, "").trim()).slice(0, 200));
+				const ogUrl = `${siteOrigin(req)}/journal/${encodeURIComponent(slug)}`;
+				const ogImage = p.thumbnail ? esc(p.thumbnail) : "";
+				const ogTags = [
+					`  <meta property="og:type" content="article">`,
+					`  <meta property="og:title" content="${ogTitle}">`,
+					`  <meta property="og:description" content="${ogDesc}">`,
+					`  <meta property="og:url" content="${ogUrl}">`,
+					ogImage ? `  <meta property="og:image" content="${ogImage}">` : "",
+					`  <meta name="twitter:card" content="summary_large_image">`,
+					`  <meta name="twitter:title" content="${ogTitle}">`,
+					`  <meta name="twitter:description" content="${ogDesc}">`,
+				].filter(Boolean).join("\n");
+				html = html.replace("</head>", ogTags + "\n</head>");
+				html = html.replace(/<title>[^<]*<\/title>/, `<title>${ogTitle} — AJ91</title>`);
+			}
+			res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+			res.end(html);
+		} catch {
+			res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+			res.end("Internal Server Error");
+		}
 		return;
 	}
 

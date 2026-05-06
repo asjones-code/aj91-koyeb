@@ -311,8 +311,9 @@
     (function () {
       if (window.location.port === "1234") window.API_ORIGIN = "http://localhost:3000";
       var API = (window.API_ORIGIN || window.location.origin);
-      var params = new URLSearchParams(window.location.search);
-      var slug = params.get("slug");
+      // Support both /journal/<slug> path and ?slug= query param (legacy)
+      var pathMatch = window.location.pathname.match(/^\/journal\/([^/]+)$/);
+      var slug = pathMatch ? decodeURIComponent(pathMatch[1]) : new URLSearchParams(window.location.search).get("slug");
 
       function formatDate(s) {
         if (!s) return "";
@@ -385,7 +386,7 @@
             listEl.style.display = "block";
             listEl.innerHTML = posts.map(function(p){
               return '<li class="blog-list-item">'
-                + '<a href="blog.html?slug=' + encodeURIComponent(p.slug) + '" class="blog-list-link">'
+                + '<a href="/journal/' + encodeURIComponent(p.slug) + '" class="blog-list-link">'
                 + '<p class="blog-list-meta">' + escapeHtml(formatDate(p.created_at)) + '</p>'
                 + '<h2 class="blog-list-h">' + escapeHtml(p.title || "Untitled") + '</h2>'
                 + (p.excerpt ? '<p class="blog-list-excerpt">' + escapeHtml(p.excerpt) + '</p>' : '')
