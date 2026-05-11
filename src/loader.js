@@ -1,5 +1,6 @@
 import barba from "@barba/core";
 import { gsap } from "gsap";
+import "./services.css";
 
 // Dev: Vite (1234) serves static; API is on Node (3000)
 if (typeof window !== "undefined" && window.location?.port === "1234") {
@@ -778,15 +779,6 @@ barba.init({
 		{
 			name: "to-studio",
 			to: { namespace: "studio" },
-			beforeLeave() {
-				// Inject CSS before the old page leaves so it's ready when the container swaps in
-				if (!document.querySelector('link[href$="services.css"]')) {
-					const link = document.createElement("link");
-					link.rel = "stylesheet";
-					link.href = "services.css";
-					document.head.appendChild(link);
-				}
-			},
 			leave({ current }) {
 				document.body.classList.remove("menu-open", "sidebar-visible");
 				const layout = document.getElementById("layout-morph");
