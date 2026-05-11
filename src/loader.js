@@ -756,8 +756,68 @@ function runPageInit() {
 	initClock();
 }
 
+function studioLoader() {
+	let el = document.getElementById("studio-loader");
+	if (!el) {
+		el = document.createElement("div");
+		el.id = "studio-loader";
+		Object.assign(el.style, {
+			position: "fixed", inset: "0", zIndex: "9998",
+			background: "#151513", display: "flex",
+			alignItems: "center", justifyContent: "center",
+			pointerEvents: "none", opacity: "0"
+		});
+		el.innerHTML = `<span class="font-kihim" style="font-size:2.2rem;color:#f0ede8;letter-spacing:-0.04em;opacity:0;" id="studio-loader-logo">aj91</span>`;
+		document.body.appendChild(el);
+	}
+	return el;
+}
+
 barba.init({
 	transitions: [
+		{
+			name: "to-studio",
+			to: { namespace: "studio" },
+			beforeLeave() {
+				// Inject CSS before the old page leaves so it's ready when the container swaps in
+				if (!document.querySelector('link[href$="services.css"]')) {
+					const link = document.createElement("link");
+					link.rel = "stylesheet";
+					link.href = "services.css";
+					document.head.appendChild(link);
+				}
+			},
+			leave({ current }) {
+				document.body.classList.remove("menu-open", "sidebar-visible");
+				const layout = document.getElementById("layout-morph");
+				if (layout) layout.classList.remove("menu-open");
+				lenis.scrollTo(0, { immediate: true });
+				const overlay = studioLoader();
+				const logo = overlay.querySelector("#studio-loader-logo");
+				return gsap.timeline()
+					.to(current.container, { opacity: 0, duration: 0.25, ease: "power2.inOut" })
+					.to(overlay, { opacity: 1, duration: 0.25, ease: "power2.inOut" }, 0)
+					.to(logo, { opacity: 1, duration: 0.3, ease: "power2.out" }, 0.15);
+			},
+			enter({ next }) {
+				gsap.set(next.container, { opacity: 0 });
+				const overlay = document.getElementById("studio-loader");
+				return gsap.timeline()
+					.to(overlay, { opacity: 0, duration: 0.35, ease: "power2.inOut", onComplete: () => overlay?.remove() })
+					.to(next.container, { opacity: 1, duration: 0.4, ease: "power2.inOut" }, 0.15);
+			},
+			afterEnter() {
+				// Replay CSS animations now that the container is fully visible
+				document.querySelectorAll(
+					".svc-anim-label, .svc-anim-t1, .svc-anim-t2, .svc-anim-sub, .svc-anim-stats"
+				).forEach(el => {
+					el.style.animation = "none";
+					void el.offsetHeight;
+					el.style.animation = "";
+				});
+				import("./js/studio-shader.js").then(m => m.initStudioShader());
+			}
+		},
 		{
 			name: "default",
 			leave({ current }) {

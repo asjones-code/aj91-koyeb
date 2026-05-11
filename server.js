@@ -1517,6 +1517,57 @@ const server = http.createServer(async (req, res) => {
 		}
 	}
 
+	if (pathname === "/api/intake") {
+		const origin = req.headers.origin;
+		const cors = corsHeaders(origin, true);
+		if (method === "OPTIONS") {
+			res.writeHead(204, { ...cors, "Access-Control-Max-Age": "86400" });
+			res.end();
+			return;
+		}
+		if (method === "POST") {
+			let body;
+			try {
+				body = await collectBody(req);
+			} catch {
+				jsonResponse(res, 500, { error: "Failed to read request." }, cors);
+				return;
+			}
+			let data;
+			try {
+				data = JSON.parse(body);
+			} catch {
+				jsonResponse(res, 400, { error: "Invalid JSON." }, cors);
+				return;
+			}
+			const { service, description, budget, timeline, name, email, company } = data;
+			if (!email) {
+				jsonResponse(res, 400, { error: "Email is required." }, cors);
+				return;
+			}
+			const html = `
+				<h2 style="margin:0 0 16px;font-family:sans-serif;">New project intake</h2>
+				<table style="font-family:sans-serif;font-size:15px;border-collapse:collapse;width:100%">
+					<tr><td style="padding:8px 12px;background:#f5f5f3;font-weight:600;width:140px;">Name</td><td style="padding:8px 12px;">${name || "—"}</td></tr>
+					<tr><td style="padding:8px 12px;background:#f5f5f3;font-weight:600;">Email</td><td style="padding:8px 12px;"><a href="mailto:${email}">${email}</a></td></tr>
+					<tr><td style="padding:8px 12px;background:#f5f5f3;font-weight:600;">Company</td><td style="padding:8px 12px;">${company || "—"}</td></tr>
+					<tr><td style="padding:8px 12px;background:#f5f5f3;font-weight:600;">Service</td><td style="padding:8px 12px;">${service || "—"}</td></tr>
+					<tr><td style="padding:8px 12px;background:#f5f5f3;font-weight:600;">Budget</td><td style="padding:8px 12px;">${budget || "—"}</td></tr>
+					<tr><td style="padding:8px 12px;background:#f5f5f3;font-weight:600;">Timeline</td><td style="padding:8px 12px;">${timeline || "—"}</td></tr>
+					<tr><td style="padding:8px 12px;background:#f5f5f3;font-weight:600;vertical-align:top;">Description</td><td style="padding:8px 12px;">${(description || "—").replace(/\n/g, "<br>")}</td></tr>
+				</table>
+			`;
+			await sendMailerSendEmail({
+				to: "asjones91@gmail.com",
+				subject: `New intake: ${name || email} — ${service || "General"}`,
+				html,
+				text: `New intake\nName: ${name}\nEmail: ${email}\nCompany: ${company}\nService: ${service}\nBudget: ${budget}\nTimeline: ${timeline}\nDescription: ${description}`,
+			});
+			jsonResponse(res, 200, { success: true }, cors);
+			return;
+		}
+	}
+
 	// PM: password-protected project management API
 	if (pathname.startsWith("/api/pm/")) {
 		const origin = req.headers.origin;
@@ -1682,15 +1733,20 @@ const server = http.createServer(async (req, res) => {
 				const ogDesc = esc((p.excerpt || (p.content || "").replace(/[#*`>\[\]]/g, "").trim()).slice(0, 200));
 				const ogUrl = `${siteOrigin(req)}/journal/${encodeURIComponent(slug)}`;
 				const ogImage = p.thumbnail ? esc(p.thumbnail) : "";
+				const publishedIso = p.created_at ? new Date(p.created_at).toISOString() : "";
 				const ogTags = [
 					`  <meta property="og:type" content="article">`,
 					`  <meta property="og:title" content="${ogTitle}">`,
 					`  <meta property="og:description" content="${ogDesc}">`,
 					`  <meta property="og:url" content="${ogUrl}">`,
 					ogImage ? `  <meta property="og:image" content="${ogImage}">` : "",
+					`  <meta property="article:author" content="AJ Jones">`,
+					publishedIso ? `  <meta property="article:published_time" content="${publishedIso}">` : "",
+					`  <meta name="author" content="AJ Jones">`,
 					`  <meta name="twitter:card" content="summary_large_image">`,
 					`  <meta name="twitter:title" content="${ogTitle}">`,
 					`  <meta name="twitter:description" content="${ogDesc}">`,
+					`  <meta name="twitter:creator" content="@aj91">`,
 				].filter(Boolean).join("\n");
 				html = html.replace("</head>", ogTags + "\n</head>");
 				html = html.replace(/<title>[^<]*<\/title>/, `<title>${ogTitle} — AJ91</title>`);

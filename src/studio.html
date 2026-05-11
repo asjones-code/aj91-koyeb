@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Studio — AJ91</title>
+  <style>html{visibility:hidden}</style>
+  <script>
+    (function () {
+      function setVh() {
+        var v = window.visualViewport;
+        var vh = (v && v.height) ? v.height : window.innerHeight;
+        document.documentElement.style.setProperty('--vh', vh + 'px');
+      }
+      setVh();
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', setVh);
+        window.visualViewport.addEventListener('scroll', setVh);
+      }
+      window.addEventListener('resize', setVh);
+      window.addEventListener('orientationchange', function () { setTimeout(setVh, 100); });
+      document.addEventListener('DOMContentLoaded', setVh);
+      setTimeout(setVh, 500);
+    })();
+  </script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-LPE99LYE4W"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-LPE99LYE4W');
+  </script>
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,600,700,800&display=swap">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Playfair+Display:ital@1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="home.css">
+  <link rel="stylesheet" href="services.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+</head>
+
+<body data-barba="wrapper">
+  <div class="container">
+
+    <header class="header">
+      <div class="header-inner">
+        <a href="index.html" class="header-logo logo word font-kihim">aj91</a>
+        <span id="site-clock" class="site-clock font-mono" aria-live="off" aria-label="Current time in New York"></span>
+        <nav class="header-nav navigation" aria-label="Main">
+          <ul>
+            <li><a class="font-mono svc-nav-active" href="studio.html">Studio</a></li>
+            <li><a class="font-mono" href="blog.html">Blog</a></li>
+            <li><a class="font-mono" href="work.html">Work</a></li>
+            <li><a class="font-mono" href="about.html">About</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main data-barba="container" data-barba-namespace="studio">
+
+      <!-- ── Hero ── -->
+      <section class="svc-hero">
+        <div class="svc-hero-shader" id="heroShader" aria-hidden="true"></div>
+
+        <div class="svc-hero-body">
+          <p class="svc-hero-label font-mono svc-anim-label">Work with me</p>
+
+          <div class="svc-hero-titles">
+            <div class="svc-title-clip">
+              <h1 class="svc-hero-t1 svc-anim-t1">Agency capabilities.</h1>
+            </div>
+            <div class="svc-title-clip">
+              <h1 class="svc-hero-t2 svc-anim-t2">Big&#8209;tech instinct.</h1>
+            </div>
+          </div>
+
+          <p class="svc-hero-sub svc-anim-sub">I design solutions, build custom software, and surface business intelligence — for teams that need to move fast and build right.</p>
+
+          <div class="svc-hero-actions svc-anim-sub">
+            <a href="intake.html" class="svc-cta-btn">
+              Start a project →
+            </a>
+          </div>
+        </div>
+
+        <div class="svc-hero-stats-bar svc-anim-stats">
+          <div class="wrapper">
+            <div class="svc-hero-stats">
+              <div class="svc-stat">
+                <span class="svc-stat-num">10+</span>
+                <span class="svc-stat-label font-mono">Years in tech</span>
+              </div>
+              <div class="svc-stat">
+                <span class="svc-stat-num">$100M+</span>
+                <span class="svc-stat-label font-mono">Programs delivered</span>
+              </div>
+              <div class="svc-stat">
+                <span class="svc-stat-num">6</span>
+                <span class="svc-stat-label font-mono">Selected clients</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Client Logo Marquee ── -->
+      <section class="svc-marquee-section" aria-label="Selected clients">
+        <p class="svc-marquee-label font-mono wrapper">Selected clients</p>
+        <div class="svc-marquee-wrap">
+
+          <!-- Row 1: forward -->
+          <div class="svc-marquee-row">
+            <div class="svc-marquee-inner svc-marquee-forward" aria-hidden="true">
+              <div class="client-logo-item">
+                <img src="https://api.iconify.design/simple-icons/twilio.svg?color=%23ffffff" alt="Twilio" loading="lazy">
+              </div>
+              <div class="client-logo-item client-logo-item--coinbase">
+                <img src="https://api.iconify.design/simple-icons/coinbase.svg?color=%23ffffff" alt="Coinbase" loading="lazy">
+              </div>
+              <div class="client-logo-item">
+                <img src="https://cdn.shopify.com/s/files/1/0573/4884/9821/files/logo-box.svg?v=1627529406" alt="HelloVisionist" loading="lazy" class="client-logo-dark">
+              </div>
+              <div class="client-logo-item">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/a/aa/Etsy_logo_lg_rgb.png" alt="Etsy" loading="lazy" class="client-logo-dark">
+              </div>
+              <div class="client-logo-item">
+                <img src="https://substack.com/img/substack.png" alt="Substack" loading="lazy" class="client-logo-dark">
+              </div>
+              <div class="client-logo-item">
+                <img src="https://cdn.prod.website-files.com/64dc6871ffef202bc75b418a/65a7fd2f7314b84be3276a90_B8saYdxN14IrjdU1fgBpvvDFFVPryRnndwzhKKE8VUk.png" alt="Chazki" loading="lazy" class="client-logo-dark">
+              </div>
+              <div class="client-logo-item">
+                <img src="https://www.themarmarahotels.com/hubfs/logo-white.png" alt="The Marmara Group" loading="lazy">
+              </div>
+              <div class="client-logo-item client-wordmark-wrap">
+                <span class="client-wordmark">FiftySix NY</span>
+              </div>
+              <div class="client-logo-item">
+                <img src="https://images.squarespace-cdn.com/content/v1/61b26b9fa5b73076eb97f754/8bd44b21-70b6-4ca6-9f2c-38c4663a5096/Oura_Logo_RGB_Black.png" alt="Oura" loading="lazy" class="client-logo-dark">
+              </div>
+              <!-- duplicate set for seamless loop -->
+              <div class="client-logo-item">
+                <img src="https://api.iconify.design/simple-icons/twilio.svg?color=%23ffffff" alt="" loading="lazy">
+              </div>
+              <div class="client-logo-item client-logo-item--coinbase">
+                <img src="https://api.iconify.design/simple-icons/coinbase.svg?color=%23ffffff" alt="" loading="lazy">
+              </div>
+              <div class="client-logo-item">
+                <img src="https://cdn.shopify.com/s/files/1/0573/4884/9821/files/logo-box.svg?v=1627529406" alt="" loading="lazy" class="client-logo-dark">
+              </div>
+              <div class="client-logo-item">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/a/aa/Etsy_logo_lg_rgb.png" alt="" loading="lazy" class="client-logo-dark">
+              </div>
+              <div class="client-logo-item">
+                <img src="https://substack.com/img/substack.png" alt="" loading="lazy" class="client-logo-dark">
+              </div>
+              <div class="client-logo-item">
+                <img src="https://cdn.prod.website-files.com/64dc6871ffef202bc75b418a/65a7fd2f7314b84be3276a90_B8saYdxN14IrjdU1fgBpvvDFFVPryRnndwzhKKE8VUk.png" alt="" loading="lazy" class="client-logo-dark">
+              </div>
+              <div class="client-logo-item">
+                <img src="https://www.themarmarahotels.com/hubfs/logo-white.png" alt="" loading="lazy">
+              </div>
+              <div class="client-logo-item client-wordmark-wrap">
+                <span class="client-wordmark">FiftySix NY</span>
+              </div>
+              <div class="client-logo-item">
+                <img src="https://images.squarespace-cdn.com/content/v1/61b26b9fa5b73076eb97f754/8bd44b21-70b6-4ca6-9f2c-38c4663a5096/Oura_Logo_RGB_Black.png" alt="" loading="lazy" class="client-logo-dark">
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ── What I Build ── -->
+      <section class="svc-section" id="services">
+        <div class="wrapper">
+          <p class="svc-section-label font-mono">What I build</p>
+          <div class="svc-cards">
+
+            <div class="svc-card">
+              <div class="svc-card-icon">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m9 10 2 2 4-4"/><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M12 17v4"/><path d="M8 21h8"/>
+                </svg>
+              </div>
+              <p class="svc-card-num font-mono">01</p>
+              <h3 class="svc-card-title">Custom Software</h3>
+              <p class="svc-card-desc">Bespoke tools built around your workflows — not the other way around. From internal dashboards to full-stack web applications, scoped and shipped to spec.</p>
+            </div>
+
+            <div class="svc-card">
+              <div class="svc-card-icon">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M9 13a4.5 4.5 0 0 0 3-4"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M12 13h4"/><path d="M12 18h6a2 2 0 0 1 2 2v1"/><path d="M12 8h8"/><path d="M16 8V5a2 2 0 0 1 2-2"/><circle cx="16" cy="13" r=".5"/><circle cx="18" cy="3" r=".5"/><circle cx="20" cy="21" r=".5"/><circle cx="20" cy="8" r=".5"/>
+                </svg>
+              </div>
+              <p class="svc-card-num font-mono">02</p>
+              <h3 class="svc-card-title">AI Strategy &amp; Implementation</h3>
+              <p class="svc-card-desc">LLM integrations, agentic systems, and AI-powered workflows that add genuine leverage. I design for adoption — not for demos.</p>
+            </div>
+
+            <div class="svc-card">
+              <div class="svc-card-icon">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M7 16h8"/><path d="M7 11h12"/><path d="M7 6h3"/>
+                </svg>
+              </div>
+              <p class="svc-card-num font-mono">03</p>
+              <h3 class="svc-card-title">Business Intelligence</h3>
+              <p class="svc-card-desc">Transform raw data into decisions. Pipelines, dashboards, and strategic intelligence derived from your data and built for action.</p>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ── The Difference ── -->
+      <section class="svc-section svc-why" id="why">
+        <div class="wrapper">
+          <div class="svc-why-split">
+            <div class="svc-why-text">
+              <p class="svc-section-label font-mono">The difference</p>
+              <h2 class="svc-why-title">An operator,<br>not an order-taker.</h2>
+              <p class="svc-why-body">I've shipped enterprise programs at Twilio and Coinbase. I've led digital transformation for global hospitality groups. I know what rigorous delivery looks like from the inside — and I bring that discipline to every engagement.</p>
+              <p class="svc-why-body">You get the agility of an independent operator with the instincts of someone who's led six-figure technical programs. No handoffs. No account managers. Just steady execution and honest counsel.</p>
+              <a href="about.html" class="svc-link">More about me →</a>
+            </div>
+            <div class="svc-why-list">
+              <ul>
+                <li>
+                  <span class="svc-check font-mono" aria-hidden="true">✓</span>
+                  <div>
+                    <strong>Enterprise-grade delivery</strong>
+                    <p>10+ years leading technical programs at scale, including Twilio and Coinbase.</p>
+                  </div>
+                </li>
+                <li>
+                  <span class="svc-check font-mono" aria-hidden="true">✓</span>
+                  <div>
+                    <strong>Agency agility</strong>
+                    <p>Fast onboarding, clear milestones, no scope creep. You see progress, not process.</p>
+                  </div>
+                </li>
+                <li>
+                  <span class="svc-check font-mono" aria-hidden="true">✓</span>
+                  <div>
+                    <strong>Full-stack capability</strong>
+                    <p>Strategy through execution. I can own the whole thing or plug into what you have.</p>
+                  </div>
+                </li>
+                <li>
+                  <span class="svc-check font-mono" aria-hidden="true">✓</span>
+                  <div>
+                    <strong>AI-native</strong>
+                    <p>Not retrofitting AI — designing systems with it from the foundation up.</p>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Process ── -->
+      <section class="svc-section svc-process" id="process">
+        <div class="wrapper">
+          <p class="svc-section-label font-mono">How it works</p>
+          <div class="svc-process-steps">
+
+            <div class="svc-process-step">
+              <div class="svc-process-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m10.065 12.493-6.18 1.318a.934.934 0 0 1-1.108-.702l-.537-2.15a1.07 1.07 0 0 1 .691-1.265l13.504-4.44"/><path d="m13.56 11.747 4.332-.924"/><path d="m16 21-3.105-6.21"/><path d="M16.485 5.94a2 2 0 0 1 1.455-2.425l1.09-.272a1 1 0 0 1 1.212.727l1.515 6.06a1 1 0 0 1-.727 1.213l-1.09.272a2 2 0 0 1-2.425-1.455z"/><path d="m6.158 8.633 1.114 4.456"/><path d="m8 21 3.105-6.21"/><circle cx="12" cy="13" r="2"/>
+                </svg>
+              </div>
+              <span class="svc-process-num font-mono">01</span>
+              <h4>Discovery</h4>
+              <p>We define the problem, scope the work, and align on what success actually looks like.</p>
+            </div>
+
+            <div class="svc-process-step">
+              <div class="svc-process-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M13 7 8.7 2.7a2.41 2.41 0 0 0-3.4 0L2.7 5.3a2.41 2.41 0 0 0 0 3.4L7 13"/><path d="m8 6 2-2"/><path d="m18 16 2-2"/><path d="m17 11 4.3 4.3c.94.94.94 2.46 0 3.4l-2.6 2.6c-.94.94-2.46.94-3.4 0L11 17"/><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>
+                </svg>
+              </div>
+              <span class="svc-process-num font-mono">02</span>
+              <h4>Design</h4>
+              <p>Architecture, prototypes, and strategy — before a line of production code is written.</p>
+            </div>
+
+            <div class="svc-process-step">
+              <div class="svc-process-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/>
+                </svg>
+              </div>
+              <span class="svc-process-num font-mono">03</span>
+              <h4>Build</h4>
+              <p>Iterative delivery with clear checkpoints. You stay in the loop; I keep the ship on course.</p>
+            </div>
+
+            <div class="svc-process-step">
+              <div class="svc-process-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09"/><path d="M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05"/>
+                </svg>
+              </div>
+              <span class="svc-process-num font-mono">04</span>
+              <h4>Ship</h4>
+              <p>Launch, handoff, and post-delivery support. The work doesn't stop at the finish line.</p>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <!-- ── CTA ── -->
+      <section class="svc-cta-section">
+        <div class="wrapper">
+          <div class="svc-cta-inner">
+            <div class="svc-cta-pixel-accent font-mono" aria-hidden="true">
+              <span class="svc-pixel-label">[ READY TO BUILD ]</span>
+            </div>
+            <h2 class="svc-cta-title">Ready to build something real?</h2>
+            <p class="svc-cta-sub">Tell me about your project — service, budget, and timeline. Takes 2 minutes. Ends with a booking link.</p>
+            <div class="svc-cta-row">
+              <a href="intake.html" class="svc-cta-btn svc-cta-btn--large">Start intake →</a>
+              <a href="mailto:asjones91@gmail.com" class="svc-link svc-cta-email">asjones91@gmail.com</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── Footer ── -->
+      <footer class="home-footer" id="contact">
+        <div class="wrapper">
+          <div class="home-footer-inner">
+            <div class="home-footer-brand">
+              <span class="home-footer-logo font-kihim">aj91</span>
+              <p class="home-footer-tagline">Humanity, Creativity, Technology.</p>
+            </div>
+            <div class="home-footer-social">
+              <a href="https://www.linkedin.com/in/asjones91/" aria-label="LinkedIn">
+                <i class="fa-brands fa-linkedin" aria-hidden="true"></i> LinkedIn
+              </a>
+              <a href="https://aj91.substack.com/" aria-label="Substack">
+                <i class="fa-solid fa-newspaper" aria-hidden="true"></i> Substack
+              </a>
+            </div>
+          </div>
+        </div>
+      </footer>
+
+    </main>
+  </div>
+
+  <script type="module" src="loader.js"></script>
+  <script type="module">
+    import { initStudioShader } from './js/studio-shader.js';
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initStudioShader);
+    } else {
+      requestAnimationFrame(initStudioShader);
+    }
+  </script>
+
+</body>
+
+</html>

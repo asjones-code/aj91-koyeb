@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Start a Project — AJ91</title>
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,600,700,800&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="home.css">
+  <style>
+    /* ── Intake Form ── */
+    .intake-page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--c-bg, #151513);
+      color: var(--c-text, #f0ede8);
+    }
+
+    .intake-header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--c-border, rgba(255,255,255,0.08));
+    }
+
+    .intake-header a {
+      font-family: var(--font-kihim, serif);
+      font-size: 1.4rem;
+      color: var(--c-text, #f0ede8);
+      text-decoration: none;
+    }
+
+    .intake-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 1.5rem;
+    }
+
+    .intake-card {
+      width: 100%;
+      max-width: 560px;
+    }
+
+    /* Progress bar */
+    .intake-progress {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 2.5rem;
+    }
+
+    .intake-progress-pip {
+      height: 3px;
+      flex: 1;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.12);
+      transition: background 0.35s ease;
+    }
+
+    .intake-progress-pip.active {
+      background: #4ade80;
+    }
+
+    /* Step */
+    .intake-step {
+      display: none;
+    }
+
+    .intake-step.is-active {
+      display: block;
+      animation: intake-fadein 0.35s ease both;
+    }
+
+    @keyframes intake-fadein {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .intake-eyebrow {
+      font-size: 0.6rem;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #4ade80;
+      font-family: 'Share Tech Mono', monospace;
+      margin: 0 0 1rem;
+    }
+
+    .intake-question {
+      font-size: clamp(1.4rem, 3vw, 2rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      color: var(--c-text, #f0ede8);
+      margin: 0 0 2rem;
+    }
+
+    /* Option buttons */
+    .intake-options {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      margin-bottom: 2rem;
+    }
+
+    .intake-option {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem 1.25rem;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .intake-option:hover {
+      border-color: rgba(74,222,128,0.4);
+      background: rgba(74,222,128,0.04);
+    }
+
+    .intake-option.selected {
+      border-color: #4ade80;
+      background: rgba(74,222,128,0.07);
+    }
+
+    .intake-option-mark {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255,255,255,0.25);
+      flex-shrink: 0;
+      transition: border-color 0.2s, background 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .intake-option.selected .intake-option-mark {
+      border-color: #4ade80;
+      background: #4ade80;
+    }
+
+    .intake-option.selected .intake-option-mark::after {
+      content: '';
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #151513;
+    }
+
+    .intake-option-label {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: var(--c-text, #f0ede8);
+    }
+
+    /* Text inputs */
+    .intake-textarea {
+      width: 100%;
+      min-height: 130px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      color: var(--c-text, #f0ede8);
+      font-family: inherit;
+      font-size: 0.95rem;
+      line-height: 1.65;
+      padding: 1rem 1.25rem;
+      resize: vertical;
+      margin-bottom: 2rem;
+      transition: border-color 0.2s;
+      box-sizing: border-box;
+    }
+
+    .intake-textarea:focus {
+      outline: none;
+      border-color: rgba(74,222,128,0.5);
+    }
+
+    .intake-textarea::placeholder {
+      color: rgba(255,255,255,0.25);
+    }
+
+    .intake-field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+    }
+
+    .intake-input {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      color: var(--c-text, #f0ede8);
+      font-family: inherit;
+      font-size: 0.95rem;
+      padding: 0.9rem 1.25rem;
+      transition: border-color 0.2s;
+      box-sizing: border-box;
+    }
+
+    .intake-input:focus {
+      outline: none;
+      border-color: rgba(74,222,128,0.5);
+    }
+
+    .intake-input::placeholder {
+      color: rgba(255,255,255,0.25);
+    }
+
+    /* Nav */
+    .intake-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .intake-btn-next {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.85em 1.75em;
+      background: #4ade80;
+      color: #151513;
+      font-weight: 700;
+      font-size: 0.9rem;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.2s;
+      font-family: inherit;
+    }
+
+    .intake-btn-next:hover {
+      opacity: 0.88;
+      transform: translateY(-1px);
+    }
+
+    .intake-btn-back {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.4);
+      font-size: 0.85rem;
+      cursor: pointer;
+      font-family: inherit;
+      padding: 0;
+      transition: color 0.2s;
+    }
+
+    .intake-btn-back:hover {
+      color: rgba(255,255,255,0.75);
+    }
+
+    /* Calendly step */
+    .intake-calendly-intro {
+      margin-bottom: 1.5rem;
+    }
+
+    .intake-calendly-intro p {
+      font-size: 0.92rem;
+      color: rgba(255,255,255,0.5);
+      line-height: 1.65;
+      margin: 0.5rem 0 0;
+    }
+
+    .calendly-inline-widget {
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    @media (max-width: 600px) {
+      .intake-wrap {
+        align-items: flex-start;
+        padding: 2rem 1rem;
+      }
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+
+<body>
+  <div class="intake-page">
+
+    <header class="intake-header">
+      <a href="studio.html">aj91</a>
+    </header>
+
+    <div class="intake-wrap">
+      <div class="intake-card">
+
+        <!-- Progress -->
+        <div class="intake-progress" id="intakeProgress">
+          <div class="intake-progress-pip active"></div>
+          <div class="intake-progress-pip"></div>
+          <div class="intake-progress-pip"></div>
+          <div class="intake-progress-pip"></div>
+          <div class="intake-progress-pip"></div>
+        </div>
+
+        <!-- Step 1: Service -->
+        <div class="intake-step is-active" data-step="1">
+          <p class="intake-eyebrow">01 / 05</p>
+          <h2 class="intake-question">What are you looking to build?</h2>
+          <div class="intake-options">
+            <label class="intake-option">
+              <span class="intake-option-mark"></span>
+              <span class="intake-option-label">Custom Software & Web Development</span>
+              <input type="radio" name="service" value="Custom Software & Web Development" hidden>
+            </label>
+            <label class="intake-option">
+              <span class="intake-option-mark"></span>
+              <span class="intake-option-label">AI Strategy & Implementation</span>
+              <input type="radio" name="service" value="AI Strategy & Implementation" hidden>
+            </label>
+            <label class="intake-option">
+              <span class="intake-option-mark"></span>
+              <span class="intake-option-label">Business Intelligence & Analytics</span>
+              <input type="radio" name="service" value="Business Intelligence & Analytics" hidden>
+            </label>
+            <label class="intake-option">
+              <span class="intake-option-mark"></span>
+              <span class="intake-option-label">Strategic Consulting</span>
+              <input type="radio" name="service" value="Strategic Consulting" hidden>
+            </label>
+            <label class="intake-option">
+              <span class="intake-option-mark"></span>
+              <span class="intake-option-label">Something else</span>
+              <input type="radio" name="service" value="Something else" hidden>
+            </label>
+          </div>
+          <div class="intake-nav">
+            <span></span>
+            <button class="intake-btn-next" onclick="intakeNext(1)">Next →</button>
+          </div>
+        </div>
+
+        <!-- Step 2: Project description -->
+        <div class="intake-step" data-step="2">
+          <p class="intake-eyebrow">02 / 05</p>
+          <h2 class="intake-question">Tell me about your project.</h2>
+          <textarea
+            class="intake-textarea"
+            id="projectDesc"
+            placeholder="What problem are you solving? Who are your users? What does success look like?"
+            rows="5"
+          ></textarea>
+          <div class="intake-nav">
+            <button class="intake-btn-back" onclick="intakeBack(2)">← Back</button>
+            <button class="intake-btn-next" onclick="intakeNext(2)">Next →</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Budget -->
+        <div class="intake-step" data-step="3">
+          <p class="intake-eyebrow">03 / 05</p>
+          <h2 class="intake-question">What's your budget range?</h2>
+          <div class="intake-options">
+            <label class="intake-option">
+              <span class="intake-option-mark"></span>
+              <span class="intake-option-label">Under $5,000</span>
+              <input type="radio" name="budget" value="Under $5,000" hidden>
+            </label>
+            <label class="intake-option">
+              <span class="intake-option-mark"></span>
+              <span class="intake-option-label">$5,000 – $15,000</span>
+              <input type="radio" name="budget" value="$5,000–$15,000" hidden>
+            </label>
+            <label class="intake-option">
+              <span class="intake-option-mark"></span>
+              <span class="intake-option-label">$15,000 – $50,000</span>
+              <input type="radio" name="budget" value="$15,000–$50,000" hidden>
+            </label>
+            <label class="intake-option">
+              <span class="intake-option-mark"></span>
+              <span class="intake-option-label">$50,000+</span>
+              <input type="radio" name="budget" value="$50,000+" hidden>
+            </label>
+            <label class="intake-option">
+              <span class="intake-option-mark"></span>
+              <span class="intake-option-label">Not sure yet</span>
+              <input type="radio" name="budget" value="Not sure yet" hidden>
+            </label>
+          </div>
+          <div class="intake-nav">
+            <button class="intake-btn-back" onclick="intakeBack(3)">← Back</button>
+            <button class="intake-btn-next" onclick="intakeNext(3)">Next →</button>
+          </div>
+        </div>
+
+        <!-- Step 4: Timeline -->
+        <div class="intake-step" data-step="4">
+          <p class="intake-eyebrow">04 / 05</p>
+          <h2 class="intake-question">What's your timeline?</h2>
+          <div class="intake-options">
+            <label class="intake-option">
+              <span class="intake-option-mark"></span>
+              <span class="intake-option-label">ASAP — within 30 days</span>
+              <input type="radio" name="timeline" value="ASAP" hidden>
+            </label>
+            <label class="intake-option">
+              <span class="intake-option-mark"></span>
+              <span class="intake-option-label">1 – 3 months</span>
+              <input type="radio" name="timeline" value="1–3 months" hidden>
+            </label>
+            <label class="intake-option">
+              <span class="intake-option-mark"></span>
+              <span class="intake-option-label">3 – 6 months</span>
+              <input type="radio" name="timeline" value="3–6 months" hidden>
+            </label>
+            <label class="intake-option">
+              <span class="intake-option-mark"></span>
+              <span class="intake-option-label">Flexible</span>
+              <input type="radio" name="timeline" value="Flexible" hidden>
+            </label>
+          </div>
+          <div class="intake-nav">
+            <button class="intake-btn-back" onclick="intakeBack(4)">← Back</button>
+            <button class="intake-btn-next" onclick="intakeNext(4)">Next →</button>
+          </div>
+        </div>
+
+        <!-- Step 5: Contact -->
+        <div class="intake-step" data-step="5">
+          <p class="intake-eyebrow">05 / 05</p>
+          <h2 class="intake-question">Last step — how do I reach you?</h2>
+          <div class="intake-field-group">
+            <input class="intake-input" id="contactName" type="text" placeholder="Your name" autocomplete="name">
+            <input class="intake-input" id="contactEmail" type="email" placeholder="Email address" autocomplete="email" required>
+            <input class="intake-input" id="contactCompany" type="text" placeholder="Company (optional)" autocomplete="organization">
+          </div>
+          <div class="intake-nav">
+            <button class="intake-btn-back" onclick="intakeBack(5)">← Back</button>
+            <button class="intake-btn-next" onclick="intakeSubmit()">Book a call →</button>
+          </div>
+        </div>
+
+        <!-- Final: Calendly -->
+        <div class="intake-step" data-step="6">
+          <div class="intake-calendly-intro">
+            <p class="intake-eyebrow">You're in</p>
+            <h2 class="intake-question">Pick a time that works for you.</h2>
+            <p>I'll review your intake before the call so we can skip the basics and get straight to your project.</p>
+          </div>
+          <!-- Calendly iframe — src is set dynamically in intakeSubmit() with prefilled name/email -->
+          <iframe
+            id="calendly-iframe"
+            src="about:blank"
+            width="100%"
+            height="700"
+            frameborder="0"
+            style="border-radius:8px;min-width:280px;"
+          ></iframe>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentStep = 1;
+    const totalSteps = 5; // Calendly is the final screen, not counted as a "step"
+
+    function showStep(n) {
+      document.querySelectorAll('.intake-step').forEach(s => s.classList.remove('is-active'));
+      const target = document.querySelector(`[data-step="${n}"]`);
+      if (target) target.classList.add('is-active');
+
+      // Update progress pips (steps 1–5 only)
+      const pips = document.querySelectorAll('.intake-progress-pip');
+      pips.forEach((pip, i) => {
+        pip.classList.toggle('active', i < Math.min(n, totalSteps));
+      });
+
+      currentStep = n;
+    }
+
+    function intakeNext(step) {
+      // Validate current step
+      if (step === 1) {
+        const selected = document.querySelector('input[name="service"]:checked');
+        if (!selected) { flashError(step, 'Please select a service.'); return; }
+      }
+      if (step === 3) {
+        const selected = document.querySelector('input[name="budget"]:checked');
+        if (!selected) { flashError(step, 'Please select a budget range.'); return; }
+      }
+      if (step === 4) {
+        const selected = document.querySelector('input[name="timeline"]:checked');
+        if (!selected) { flashError(step, 'Please select a timeline.'); return; }
+      }
+      showStep(step + 1);
+    }
+
+    function intakeBack(step) {
+      showStep(step - 1);
+    }
+
+    async function intakeSubmit() {
+      const email = document.getElementById('contactEmail').value.trim();
+      if (!email) {
+        document.getElementById('contactEmail').focus();
+        return;
+      }
+      const name     = document.getElementById('contactName').value.trim();
+      const company  = document.getElementById('contactCompany').value.trim();
+      const service  = document.querySelector('input[name="service"]:checked')?.value || '';
+      const budget   = document.querySelector('input[name="budget"]:checked')?.value || '';
+      const timeline = document.querySelector('input[name="timeline"]:checked')?.value || '';
+      const description = document.getElementById('projectDesc').value.trim();
+
+      // Prefill Calendly
+      const params = new URLSearchParams({ hide_gdpr_banner: '1' });
+      if (name)  params.set('name', name);
+      if (email) params.set('email', email);
+      document.getElementById('calendly-iframe').src =
+        `https://calendly.com/asjones91/connect?${params.toString()}`;
+
+      // Show Calendly immediately — email fires in the background
+      showStep(6);
+
+      fetch('/api/intake', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, company, service, budget, timeline, description }),
+      }).catch(() => {});
+    }
+
+    function flashError(step, msg) {
+      const stepEl = document.querySelector(`[data-step="${step}"]`);
+      let err = stepEl.querySelector('.intake-error');
+      if (!err) {
+        err = document.createElement('p');
+        err.className = 'intake-error';
+        err.style.cssText = 'color:#f87171;font-size:0.82rem;margin:-1rem 0 1rem;';
+        stepEl.querySelector('.intake-nav').before(err);
+      }
+      err.textContent = msg;
+      setTimeout(() => err.remove(), 3000);
+    }
+
+    // Radio option visual selection
+    document.querySelectorAll('.intake-option input[type="radio"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        const name = radio.name;
+        document.querySelectorAll(`input[name="${name}"]`).forEach(r => {
+          r.closest('.intake-option').classList.remove('selected');
+        });
+        radio.closest('.intake-option').classList.add('selected');
+      });
+    });
+
+    // Click on label also triggers selection
+    document.querySelectorAll('.intake-option').forEach(opt => {
+      opt.addEventListener('click', () => {
+        const radio = opt.querySelector('input[type="radio"]');
+        if (radio) {
+          radio.checked = true;
+          radio.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+    });
+  </script>
+
+</body>
+
+</html>
