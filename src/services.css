@@ -91,7 +91,7 @@
 }
 
 .svc-hero-sub {
-  font-size: clamp(0.95rem, 1.6vw, 1.15rem);
+  font-size: clamp(1.05rem, 1.8vw, 1.25rem);
   color: var(--c-secondary);
   max-width: 46ch;
   line-height: 1.7;
@@ -400,7 +400,7 @@
 }
 
 .svc-card-desc {
-  font-size: 0.88rem;
+  font-size: 0.975rem;
   color: var(--c-secondary);
   line-height: 1.68;
   margin: 0;
@@ -444,7 +444,7 @@
 }
 
 .svc-why-body {
-  font-size: 0.92rem;
+  font-size: 1.02rem;
   color: var(--c-secondary);
   line-height: 1.72;
   margin-bottom: 1rem;
@@ -489,14 +489,14 @@
 
 .svc-why-list strong {
   display: block;
-  font-size: 0.9rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--c-text);
   margin-bottom: 0.25rem;
 }
 
 .svc-why-list p {
-  font-size: 0.82rem;
+  font-size: 0.95rem;
   color: var(--c-secondary);
   line-height: 1.55;
   margin: 0;
@@ -553,7 +553,7 @@
 }
 
 .svc-process-step p {
-  font-size: 0.83rem;
+  font-size: 0.95rem;
   color: var(--c-secondary);
   line-height: 1.65;
   margin: 0;
@@ -610,7 +610,7 @@
 }
 
 .svc-cta-sub {
-  font-size: 0.95rem;
+  font-size: 1.05rem;
   color: var(--c-secondary);
   line-height: 1.68;
   margin-bottom: 2rem;
