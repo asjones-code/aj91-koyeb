@@ -39,6 +39,17 @@ function runAnimations() {
 		});
 	});
 
+	document.querySelectorAll(".project-star-item").forEach((el, i) => {
+		gsap.fromTo(el,
+			{ opacity: 0, y: 30, filter: "blur(4px)" },
+			{
+				opacity: 1, y: 0, filter: "blur(0px)",
+				scrollTrigger: { trigger: el, start: "top bottom-=80", end: "top center", scrub: false },
+				duration: 0.7, delay: i * 0.08, ease: "power2.out"
+			}
+		);
+	});
+
 	gsap.to(".project-gallery-caption", {
 		scrollTrigger: { trigger: ".project-gallery", start: "top bottom", end: "center center", scrub: true },
 		y: 0, opacity: 1, filter: "blur(0px)", duration: 1, ease: "power2.out"
@@ -83,22 +94,40 @@ export async function init(opts = {}) {
 		const heroMedia = document.getElementById("project-hero-media");
 		const heroImg = document.getElementById("project-hero-img");
 		const heroVideo = document.getElementById("project-hero-video");
-		if (p.hero_video) {
+		if (p.hero_image) {
+			heroVideo.style.display = "none";
+			heroImg.src = p.hero_image;
+			heroImg.alt = p.title;
+			heroImg.style.display = "block";
+		} else if (p.hero_video) {
 			heroImg.style.display = "none";
 			heroVideo.src = p.hero_video;
 			heroVideo.style.display = "block";
 			heroVideo.load();
 			heroVideo.play().catch(() => {});
-		} else if (p.hero_image) {
-			heroVideo.style.display = "none";
-			heroImg.src = p.hero_image;
-			heroImg.alt = p.title;
-			heroImg.style.display = "block";
 		} else {
 			heroMedia.style.display = "none";
 		}
 
 		document.getElementById("project-about").textContent = p.about_text || p.excerpt || "";
+
+		const starSection = document.getElementById("project-star");
+		const starFields = [
+			{ id: "project-star-s-text", value: p.star_situation },
+			{ id: "project-star-t-text", value: p.star_task },
+			{ id: "project-star-a-text", value: p.star_action },
+			{ id: "project-star-r-text", value: p.star_result },
+		];
+		const hasAnyStar = starFields.some(f => f.value);
+		if (hasAnyStar) {
+			starFields.forEach(f => {
+				const el = document.getElementById(f.id);
+				if (el) el.textContent = f.value || "";
+				const item = el?.closest(".project-star-item");
+				if (item) item.style.display = f.value ? "" : "none";
+			});
+			starSection.style.display = "block";
+		}
 
 		const galleryGrid = document.getElementById("project-gallery-grid");
 		const items = p.galleryImages || [];

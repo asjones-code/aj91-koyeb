@@ -3,7 +3,7 @@
  */
 import { getPool } from "../db.js";
 
-const COLS = "id, slug, title, excerpt, hero_image, hero_video, about_text, gallery_images, gallery_caption, footer_cta, footer_email, tags, published, created_at, updated_at";
+const COLS = "id, slug, title, excerpt, thumbnail, hero_image, hero_video, about_text, gallery_images, gallery_caption, footer_cta, footer_email, tags, star_situation, star_task, star_action, star_result, published, created_at, updated_at";
 
 export async function findAll(includeUnpublished = false) {
 	const p = getPool();
@@ -57,13 +57,14 @@ export async function create(data) {
 		const gallery = JSON.stringify(Array.isArray(data.galleryImages) ? data.galleryImages : (data.gallery_images || []));
 		const tags = JSON.stringify(Array.isArray(data.tags) ? data.tags : []);
 		const r = await p.query(
-			`INSERT INTO cms_projects (slug, title, excerpt, hero_image, hero_video, about_text, gallery_images, gallery_caption, footer_cta, footer_email, tags, published)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+			`INSERT INTO cms_projects (slug, title, excerpt, thumbnail, hero_image, hero_video, about_text, gallery_images, gallery_caption, footer_cta, footer_email, tags, star_situation, star_task, star_action, star_result, published)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
        RETURNING ${COLS}`,
 			[
 				data.slug.trim(),
 				data.title.trim(),
 				data.excerpt?.trim() || null,
+				data.thumbnail?.trim() || null,
 				data.hero_image?.trim() || null,
 				data.hero_video?.trim() || null,
 				data.about_text?.trim() || null,
@@ -72,6 +73,10 @@ export async function create(data) {
 				data.footer_cta?.trim() || null,
 				data.footer_email?.trim() || null,
 				tags,
+				data.star_situation?.trim() || null,
+				data.star_task?.trim() || null,
+				data.star_action?.trim() || null,
+				data.star_result?.trim() || null,
 				!!data.published,
 			]
 		);
@@ -91,12 +96,13 @@ export async function update(id, data) {
 		const gallery = JSON.stringify(Array.isArray(data.galleryImages) ? data.galleryImages : (data.gallery_images || []));
 		const tags = JSON.stringify(Array.isArray(data.tags) ? data.tags : []);
 		const r = await p.query(
-			`UPDATE cms_projects SET slug = $1, title = $2, excerpt = $3, hero_image = $4, hero_video = $5, about_text = $6, gallery_images = $7, gallery_caption = $8, footer_cta = $9, footer_email = $10, tags = $11, published = $12, updated_at = NOW()
-       WHERE id = $13 RETURNING ${COLS}`,
+			`UPDATE cms_projects SET slug = $1, title = $2, excerpt = $3, thumbnail = $4, hero_image = $5, hero_video = $6, about_text = $7, gallery_images = $8, gallery_caption = $9, footer_cta = $10, footer_email = $11, tags = $12, star_situation = $13, star_task = $14, star_action = $15, star_result = $16, published = $17, updated_at = NOW()
+       WHERE id = $18 RETURNING ${COLS}`,
 			[
 				data.slug.trim(),
 				data.title.trim(),
 				data.excerpt?.trim() || null,
+				data.thumbnail?.trim() || null,
 				data.hero_image?.trim() || null,
 				data.hero_video?.trim() || null,
 				data.about_text?.trim() || null,
@@ -105,6 +111,10 @@ export async function update(id, data) {
 				data.footer_cta?.trim() || null,
 				data.footer_email?.trim() || null,
 				tags,
+				data.star_situation?.trim() || null,
+				data.star_task?.trim() || null,
+				data.star_action?.trim() || null,
+				data.star_result?.trim() || null,
 				!!data.published,
 				id,
 			]

@@ -1495,6 +1495,188 @@ body.page-is-project-detail .project-title {
   line-height: 1.3;
 }
 
+/* ── Project cards: thumbnail + skeleton ───────────────────────────────────── */
+
+.page-projects-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.page-projects-card-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.page-projects-card-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: grayscale(100%);
+  transition: filter 0.4s ease, transform 0.4s ease;
+}
+
+.page-projects-card:hover .page-projects-card-thumb img {
+  filter: grayscale(0%);
+  transform: scale(1.03);
+}
+
+.page-projects-card-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* Remove default padding when card has thumbnail (body handles it) */
+.page-projects-card:has(.page-projects-card-thumb) {
+  padding: 0;
+}
+
+.page-projects-card-title,
+.page-projects-card-desc,
+.page-projects-card-tags,
+.page-projects-card-link {
+  /* ensure these work inside the body wrapper */
+}
+
+/* Skeleton cards */
+.page-projects-card--skeleton {
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.page-projects-card-thumb-skeleton {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.11) 50%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: projects-card-shimmer 1.4s ease-in-out infinite;
+}
+
+.page-projects-skeleton-line {
+  height: 12px;
+  border-radius: 6px;
+  margin-bottom: 0.6rem;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.11) 50%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: projects-card-shimmer 1.4s ease-in-out infinite;
+  width: 75%;
+}
+
+.page-projects-skeleton-line--title {
+  height: 16px;
+  width: 60%;
+  animation-delay: 0.1s;
+}
+
+.page-projects-skeleton-line--short {
+  width: 40%;
+  animation-delay: 0.2s;
+}
+
+@keyframes projects-card-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Project STAR description (huyml.co editorial style) ───────────────────── */
+
+.project-star {
+  padding: 5rem 0 4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.project-star-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.project-star-item {
+  display: grid;
+  grid-template-columns: 14rem 1fr;
+  gap: 2rem 4rem;
+  padding: 2.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  align-items: start;
+}
+
+.project-star-item:first-child {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.project-star-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  position: sticky;
+  top: 6rem;
+}
+
+.project-star-num {
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+  color: var(--c-accent);
+  opacity: 0.7;
+}
+
+.project-star-letter {
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+  font-size: 2.25rem;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.12);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.project-star-name {
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 0.25rem;
+}
+
+.project-star-text {
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  color: rgba(255, 255, 255, 0.78);
+  padding-top: 0.15rem;
+}
+
+@media (max-width: 768px) {
+  .project-star-item {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  .project-star-label {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0.75rem;
+    position: static;
+  }
+  .project-star-letter {
+    font-size: 1.4rem;
+  }
+}
+
 /* Work page: responsive sticky sidebar — content left, TOC right on desktop */
 .page-work.layout-morph {
   overflow: visible; /* allow sticky sidebar to work (no scroll containment) */

@@ -65,7 +65,32 @@
             <p class="page-projects-subtitle">From startups to enterprise — implementations, product, and ventures.</p>
           </header>
 
-          <p id="projects-loading" class="page-projects-subtitle">Loading…</p>
+          <div id="projects-loading" class="page-projects-grid">
+            <article class="page-projects-card page-projects-card--skeleton">
+              <div class="page-projects-card-thumb-skeleton"></div>
+              <div class="page-projects-card-body">
+                <div class="page-projects-skeleton-line page-projects-skeleton-line--title"></div>
+                <div class="page-projects-skeleton-line"></div>
+                <div class="page-projects-skeleton-line page-projects-skeleton-line--short"></div>
+              </div>
+            </article>
+            <article class="page-projects-card page-projects-card--skeleton">
+              <div class="page-projects-card-thumb-skeleton"></div>
+              <div class="page-projects-card-body">
+                <div class="page-projects-skeleton-line page-projects-skeleton-line--title"></div>
+                <div class="page-projects-skeleton-line"></div>
+                <div class="page-projects-skeleton-line page-projects-skeleton-line--short"></div>
+              </div>
+            </article>
+            <article class="page-projects-card page-projects-card--skeleton">
+              <div class="page-projects-card-thumb-skeleton"></div>
+              <div class="page-projects-card-body">
+                <div class="page-projects-skeleton-line page-projects-skeleton-line--title"></div>
+                <div class="page-projects-skeleton-line"></div>
+                <div class="page-projects-skeleton-line page-projects-skeleton-line--short"></div>
+              </div>
+            </article>
+          </div>
           <p id="projects-error" class="page-projects-subtitle" style="display:none; color:#f87171;"></p>
           <div id="page-projects-grid" class="page-projects-grid" style="display:none"></div>
         </div>
@@ -86,7 +111,7 @@
       fetch(API + "/api/projects")
         .then((r) => r.json())
         .then((data) => {
-          document.getElementById("projects-loading").style.display = "none";
+          document.getElementById("projects-loading").remove();
           if (data.error) {
             document.getElementById("projects-error").textContent = data.error || "Failed to load projects.";
             document.getElementById("projects-error").style.display = "block";
@@ -100,21 +125,26 @@
           }
           const grid = document.getElementById("page-projects-grid");
           grid.style.display = "grid";
+          const thumbSrc = (p) => p.thumbnail || p.hero_image || "";
           grid.innerHTML = projects.map((p) => {
             const tags = (p.tags || []).map((t) => `<span>${escapeHtml(t)}</span>`).join("");
             const link = p.slug ? `project.html?slug=${encodeURIComponent(p.slug)}` : "#";
+            const thumb = thumbSrc(p);
             return `
             <article class="page-projects-card">
-              <h3 class="page-projects-card-title">${escapeHtml(p.title || "Untitled")}</h3>
-              <p class="page-projects-card-desc">${escapeHtml(p.excerpt || "")}</p>
-              ${tags ? `<div class="page-projects-card-tags">${tags}</div>` : ""}
-              <a href="${link}" class="page-projects-card-link font-mono">View project →</a>
+              ${thumb ? `<a href="${link}" class="page-projects-card-thumb" tabindex="-1" aria-hidden="true"><img src="${escapeHtml(thumb)}" alt="" loading="lazy"></a>` : ""}
+              <div class="page-projects-card-body">
+                <h3 class="page-projects-card-title">${escapeHtml(p.title || "Untitled")}</h3>
+                <p class="page-projects-card-desc">${escapeHtml(p.excerpt || "")}</p>
+                ${tags ? `<div class="page-projects-card-tags">${tags}</div>` : ""}
+                <a href="${link}" class="page-projects-card-link font-mono">View project →</a>
+              </div>
             </article>
           `;
           }).join("");
         })
         .catch(() => {
-          document.getElementById("projects-loading").style.display = "none";
+          document.getElementById("projects-loading").remove();
           document.getElementById("projects-error").textContent = "Failed to load projects.";
           document.getElementById("projects-error").style.display = "block";
         });

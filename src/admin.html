@@ -260,12 +260,23 @@
       <input type="text" id="edit-project-title-input" name="title" required placeholder="Project title">
       <label for="edit-project-excerpt">Excerpt (for list card)</label>
       <textarea id="edit-project-excerpt" name="excerpt" placeholder="Short description"></textarea>
-      <label for="edit-project-hero-image">Hero image URL</label>
+      <label for="edit-project-thumbnail">Thumbnail URL (card image; falls back to hero image)</label>
+      <input type="url" id="edit-project-thumbnail" name="thumbnail" placeholder="https://...">
+      <label for="edit-project-hero-image">Hero image URL (shown on detail page; takes priority over video)</label>
       <input type="url" id="edit-project-hero-image" name="hero_image" placeholder="https://...">
-      <label for="edit-project-hero-video">Hero video URL (optional; overrides image if set)</label>
+      <label for="edit-project-hero-video">Hero video URL (used only when no hero image is set)</label>
       <input type="url" id="edit-project-hero-video" name="hero_video" placeholder="https://...mp4">
-      <label for="edit-project-about">About text (hero section)</label>
-      <textarea id="edit-project-about" name="about_text" placeholder="Longer description for hero"></textarea>
+      <label for="edit-project-about">About text (short blurb, hero section)</label>
+      <textarea id="edit-project-about" name="about_text" placeholder="One or two sentence blurb"></textarea>
+      <h2>STAR Description</h2>
+      <label for="edit-project-star-situation">Situation — what was the context?</label>
+      <textarea id="edit-project-star-situation" name="star_situation" placeholder="The client / environment / problem context..."></textarea>
+      <label for="edit-project-star-task">Task — what were you responsible for?</label>
+      <textarea id="edit-project-star-task" name="star_task" placeholder="My specific ownership and objectives..."></textarea>
+      <label for="edit-project-star-action">Action — what did you build or do?</label>
+      <textarea id="edit-project-star-action" name="star_action" placeholder="Technical approach, tools, and steps taken..."></textarea>
+      <label for="edit-project-star-result">Result — what was the outcome?</label>
+      <textarea id="edit-project-star-result" name="star_result" placeholder="Measurable impact and key outcomes..."></textarea>
       <label for="edit-project-gallery">Gallery media URLs (one per line; images or .mp4/.webm video)</label>
       <textarea id="edit-project-gallery" name="gallery_images" placeholder="https://...jpg\nhttps://...mp4"></textarea>
       <label for="edit-project-gallery-caption">Gallery caption</label>
@@ -460,9 +471,14 @@
       document.getElementById("edit-project-slug").value = "";
       document.getElementById("edit-project-title-input").value = "";
       document.getElementById("edit-project-excerpt").value = "";
+      document.getElementById("edit-project-thumbnail").value = "";
       document.getElementById("edit-project-hero-image").value = "";
       document.getElementById("edit-project-hero-video").value = "";
       document.getElementById("edit-project-about").value = "";
+      document.getElementById("edit-project-star-situation").value = "";
+      document.getElementById("edit-project-star-task").value = "";
+      document.getElementById("edit-project-star-action").value = "";
+      document.getElementById("edit-project-star-result").value = "";
       document.getElementById("edit-project-gallery").value = "";
       document.getElementById("edit-project-gallery-caption").value = "";
       document.getElementById("edit-project-footer-cta").value = "";
@@ -498,9 +514,14 @@
         document.getElementById("edit-project-slug").value = p.slug;
         document.getElementById("edit-project-title-input").value = p.title;
         document.getElementById("edit-project-excerpt").value = p.excerpt || "";
+        document.getElementById("edit-project-thumbnail").value = p.thumbnail || "";
         document.getElementById("edit-project-hero-image").value = p.hero_image || "";
         document.getElementById("edit-project-hero-video").value = p.hero_video || "";
         document.getElementById("edit-project-about").value = p.about_text || "";
+        document.getElementById("edit-project-star-situation").value = p.star_situation || "";
+        document.getElementById("edit-project-star-task").value = p.star_task || "";
+        document.getElementById("edit-project-star-action").value = p.star_action || "";
+        document.getElementById("edit-project-star-result").value = p.star_result || "";
         document.getElementById("edit-project-gallery").value = (p.galleryImages || []).join("\n");
         document.getElementById("edit-project-gallery-caption").value = p.gallery_caption || "";
         document.getElementById("edit-project-footer-cta").value = p.footer_cta || "";
@@ -770,9 +791,14 @@
         slug: document.getElementById("edit-project-slug").value.trim(),
         title: document.getElementById("edit-project-title-input").value.trim(),
         excerpt: document.getElementById("edit-project-excerpt").value.trim(),
+        thumbnail: document.getElementById("edit-project-thumbnail").value.trim() || null,
         hero_image: document.getElementById("edit-project-hero-image").value.trim() || null,
         hero_video: document.getElementById("edit-project-hero-video").value.trim() || null,
         about_text: document.getElementById("edit-project-about").value.trim() || null,
+        star_situation: document.getElementById("edit-project-star-situation").value.trim() || null,
+        star_task: document.getElementById("edit-project-star-task").value.trim() || null,
+        star_action: document.getElementById("edit-project-star-action").value.trim() || null,
+        star_result: document.getElementById("edit-project-star-result").value.trim() || null,
         galleryImages,
         gallery_caption: document.getElementById("edit-project-gallery-caption").value.trim() || null,
         footer_cta: document.getElementById("edit-project-footer-cta").value.trim() || null,
