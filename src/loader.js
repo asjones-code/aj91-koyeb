@@ -57,6 +57,7 @@ CustomEase.create(
 );
 // Sine wave shadow effect for logo text based on loading progress
 let logoProgress = 0;
+let logoRafId = null;
 
 function initLogoMouseEffect() {
 	const word = document.querySelector(".logo-text");
@@ -75,12 +76,12 @@ function initLogoMouseEffect() {
 		                         ${-y}px ${x}px 0px rgba(102, 249, 255, 0.7)`;
 	};
 
-	// Continuously update transform based on progress
+	// Continuously update transform based on progress — cancelled on preloader-complete
 	const updateLoop = () => {
 		updateTransform();
-		requestAnimationFrame(updateLoop);
+		logoRafId = requestAnimationFrame(updateLoop);
 	};
-	updateLoop();
+	logoRafId = requestAnimationFrame(updateLoop);
 }
 
 function updateLogoProgress(progress) {
@@ -222,6 +223,13 @@ if (document.readyState === "loading") {
 } else {
 	initLogoMouseEffect();
 }
+
+// When preloader finishes: stop logo RAF, boot terminal magnetic, lazy-load the globe
+window.addEventListener("preloader-complete", () => {
+	if (logoRafId !== null) { cancelAnimationFrame(logoRafId); logoRafId = null; }
+	import("./home.js").then((m) => m.initTerminalMagnetic?.());
+	import("./hero-globe.js").then((m) => m.initHeroGlobe());
+});
 
 function initTerminal() {
 	import("./tinycli.js").then((m) => m.initTinycli());
@@ -864,7 +872,7 @@ barba.hooks.after((data) => {
 		introTimeline.add(preloaderTl).add(heroTl, "-=2.4");
 		initTerminal();
 		initGlobeOptIn();
-		window.dispatchEvent(new CustomEvent("hero-globe-mount"));
+		// Globe is lazy-loaded via the preloader-complete event fired inside preloaderAnimation()
 		import("./js/writing.js").then((m) => m.init?.());
 		import("./home.js").then((m) => { m.initRevealLines(); m.initCarousel(); m.initAboutMedia(); });
 	}

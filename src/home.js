@@ -110,3 +110,65 @@ export function initCarousel() {
   new MutationObserver(refresh).observe(grid, { childList: true });
   refresh();
 }
+
+// ── Terminal magnetic pull (desktop only) ────────────────────────────────────
+// Moves .hero-terminal-anchor (never touched by GSAP/terminal-ui) toward the
+// cursor when it's within RADIUS px of the terminal center. Disabled once the
+// user drags the terminal to a fixed position.
+export function initTerminalMagnetic() {
+  if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+  const anchor  = document.querySelector('.hero-terminal-anchor');
+  const terminal = document.getElementById('terminal');
+  if (!anchor || !terminal) return;
+
+  const RADIUS     = 380;
+  const STRENGTH   = 0.18;
+  const MAX_OFFSET = 18;   // px — hard cap so it never drifts far
+  const LERP       = 0.07;
+
+  let curX = 0, curY = 0, tgtX = 0, tgtY = 0;
+  let rafId = null;
+
+  // Snapshot the resting center once (before any transform is applied).
+  // Using a fixed reference avoids the feedback loop where applying the
+  // transform shifts getBoundingClientRect() and compounds on itself.
+  let restCx = 0, restCy = 0;
+  function snapshotCenter() {
+    const r = terminal.getBoundingClientRect();
+    restCx = r.left + r.width  / 2;
+    restCy = r.top  + r.height / 2;
+  }
+  snapshotCenter();
+  // Re-snapshot on resize so the resting center stays accurate.
+  window.addEventListener('resize', snapshotCenter, { passive: true });
+
+  function clamp(v, max) { return Math.sign(v) * Math.min(Math.abs(v), max); }
+
+  function tick() {
+    if (terminal.style.position === 'fixed') { rafId = null; return; }
+    curX += (tgtX - curX) * LERP;
+    curY += (tgtY - curY) * LERP;
+    // Drive via CSS custom properties so the centering translate(-50%, -58%)
+    // defined in the stylesheet is preserved — never overwrite the full transform.
+    anchor.style.setProperty('--mag-x', `${curX.toFixed(2)}px`);
+    anchor.style.setProperty('--mag-y', `${curY.toFixed(2)}px`);
+    const settled = Math.abs(curX - tgtX) < 0.05 && Math.abs(curY - tgtY) < 0.05;
+    rafId = settled ? null : requestAnimationFrame(tick);
+  }
+
+  document.addEventListener('mousemove', (e) => {
+    if (!anchor.isConnected) return;
+    if (terminal.style.position === 'fixed') return;
+    const dx = e.clientX - restCx;
+    const dy = e.clientY - restCy;
+    const d  = Math.sqrt(dx * dx + dy * dy);
+    if (d < RADIUS) {
+      const pull = (1 - d / RADIUS) * STRENGTH;
+      tgtX = clamp(dx * pull, MAX_OFFSET);
+      tgtY = clamp(dy * pull, MAX_OFFSET);
+    } else {
+      tgtX = 0; tgtY = 0;
+    }
+    if (!rafId) rafId = requestAnimationFrame(tick);
+  }, { passive: true });
+}

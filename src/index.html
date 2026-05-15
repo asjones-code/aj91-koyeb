@@ -44,11 +44,17 @@
     });
   </script>
   <script src="https://openpanel.dev/op1.js" defer async></script>
+  <!-- Preconnect for external resources -->
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+  <link rel="preconnect" href="https://www.googletagmanager.com">
+  <link rel="preconnect" href="https://openpanel.dev">
   <!-- Cabinet Grotesk — taste-skill forbids Inter; Cabinet Grotesk has the right editorial weight -->
   <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,600,700,800&display=swap">
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-    crossorigin="anonymous">
+  <!-- Font Awesome: defer load — icons are below fold, non-blocking is safe -->
+  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" as="style" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous"></noscript>
 
   <link rel="stylesheet" href="home.css">
 </head>
@@ -271,7 +277,6 @@
     </main>
   </div><!-- /.container -->
 
-  <script type="module" src="./hero-globe.js"></script>
   <script type="module" src="./js/writing.js"></script>
   <script type="module" src="loader.js"></script>
 </body>

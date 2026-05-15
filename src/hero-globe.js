@@ -91,7 +91,7 @@ function initHeroGlobe() {
   const earthSpec = texLoader.load("https://threejs.org/examples/textures/planets/earth_specular_2048.jpg");
 
   const globe = new THREE.Mesh(
-    new THREE.SphereGeometry(1.6, 128, 128),
+    new THREE.SphereGeometry(1.6, 48, 48),
     new THREE.MeshStandardMaterial({
       map: earthMap, bumpMap: earthBump, bumpScale: 0.08,
       specularMap: earthSpec, roughness: 1, metalness: 0
@@ -100,7 +100,7 @@ function initHeroGlobe() {
   scene.add(globe);
 
   const atmosphere = new THREE.Mesh(
-    new THREE.SphereGeometry(1.65, 128, 128),
+    new THREE.SphereGeometry(1.65, 48, 48),
     new THREE.MeshBasicMaterial({ color: 0x3399ff, transparent: true, opacity: 0.06 })
   );
   scene.add(atmosphere);
@@ -443,5 +443,4 @@ function initHeroGlobe() {
   };
 }
 
-initHeroGlobe();
-window.addEventListener("hero-globe-mount", initHeroGlobe);
+export { initHeroGlobe };

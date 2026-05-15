@@ -16,18 +16,30 @@ export function initTerminalUI() {
   let isDragging = false;
   let dragOffsetX = 0;
   let dragOffsetY = 0;
+  // Rect snapshot taken at mousedown so makeFixed() uses the visual position
+  // including any magnetic transform — avoids the snap-to-original jump.
+  let pendingRect = null;
 
-  function makeFixed() {
+  function makeFixed(precomputedRect) {
     if (isFixed) return;
+    // Force transform:none (inline) on every ancestor — not just '' — so that CSS-class
+    // transforms (like the .hero-terminal-anchor centering rule) are also overridden.
+    // Any ancestor transform creates a containing block for position:fixed children,
+    // which makes left/top relative to that ancestor instead of the viewport.
     let ancestor = terminal.parentElement;
     while (ancestor && ancestor !== document.body) {
       const s = ancestor.style;
-      if (s.filter    !== undefined) s.filter    = '';
-      if (s.transform !== undefined) s.transform = '';
-      if (s.willChange !== undefined) s.willChange = '';
+      s.filter     = '';
+      s.transform  = 'none';
+      s.willChange = '';
+      // Remove magnetic CSS vars so they don't linger on the now-neutralised anchor.
+      ancestor.style.removeProperty('--mag-x');
+      ancestor.style.removeProperty('--mag-y');
       ancestor = ancestor.parentElement;
     }
-    const rect = terminal.getBoundingClientRect();
+    // Use the pre-computed rect (captured before transforms were cleared) so the
+    // terminal lands exactly where it appeared, not at the non-magnetic position.
+    const rect = precomputedRect || terminal.getBoundingClientRect();
     terminal.style.position = 'fixed';
     terminal.style.left   = rect.left   + 'px';
     terminal.style.top    = rect.top    + 'px';
@@ -41,16 +53,27 @@ export function initTerminalUI() {
   function onDragStart(e) {
     if (e.target.classList.contains('term-btn')) return;
     e.preventDefault();
-    if (!isFixed) makeFixed();
     isDragging = true;
     termBar.style.cursor      = 'grabbing';
     terminal.style.transition = 'none';
     terminal.style.boxShadow  = '0 20px 60px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.1)';
+
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    const rect = terminal.getBoundingClientRect();
-    dragOffsetX = clientX - rect.left;
-    dragOffsetY = clientY - rect.top;
+
+    if (!isFixed) {
+      // Snapshot the terminal's current visual position (includes magnetic offset).
+      // makeFixed() is deferred to the first actual mousemove so a plain click on
+      // the term-bar never triggers the snap-to-fixed behaviour.
+      pendingRect = terminal.getBoundingClientRect();
+      dragOffsetX = clientX - pendingRect.left;
+      dragOffsetY = clientY - pendingRect.top;
+    } else {
+      const rect = terminal.getBoundingClientRect();
+      dragOffsetX = clientX - rect.left;
+      dragOffsetY = clientY - rect.top;
+    }
+
     document.addEventListener('mousemove', onDragMove);
     document.addEventListener('touchmove', onDragMove, { passive: false });
     document.addEventListener('mouseup',  onDragEnd);
@@ -60,6 +83,14 @@ export function initTerminalUI() {
   function onDragMove(e) {
     if (!isDragging) return;
     if (e.cancelable) e.preventDefault();
+
+    // First actual movement: commit to fixed using the pre-snapshotted rect so
+    // the terminal doesn't jump when the magnetic transform is cleared.
+    if (pendingRect) {
+      makeFixed(pendingRect);
+      pendingRect = null;
+    }
+
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     const maxX = window.innerWidth  - terminal.offsetWidth;
@@ -70,6 +101,7 @@ export function initTerminalUI() {
 
   function onDragEnd() {
     isDragging = false;
+    pendingRect = null;
     termBar.style.cursor     = 'grab';
     terminal.style.boxShadow = '';
     document.removeEventListener('mousemove', onDragMove);
@@ -84,6 +116,7 @@ export function initTerminalUI() {
   termBar.addEventListener('touchstart', onDragStart, { passive: false });
 
   if (closeBtn) {
+    closeBtn.style.cursor = 'pointer';
     closeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       if (!isFixed) makeFixed();
@@ -100,6 +133,7 @@ export function initTerminalUI() {
   }
 
   function showDockIcon() {
+    document.querySelector('.terminal-dock-btn')?.remove();
     const btn = document.createElement('button');
     btn.className = 'terminal-dock-btn';
     btn.setAttribute('aria-label', 'Restore terminal');

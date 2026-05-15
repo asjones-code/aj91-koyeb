@@ -9,7 +9,7 @@
   visibility: hidden;
 }
 </style>
-  <script type="importmap">{"imports":{"h4ggy":"/tinycli.92d3a6e1.js","1eYvo":"/live.1453ad48.js","4zbPT":"/work-toc.d8601748.js","7TtO1":"/project-page.23ee19dd.js","aYtAr":"/writing.3e4f303d.js","971aF":"/ascii-art.1788e827.js","7HEGV":"/terminal-ui.39166e1a.js","jQOOo":"/home.90675460.js","7s1oP":"/studio-shader.64fa0bfc.js"}}</script><link rel="stylesheet" href="/studio.18f1c06e.css"><script>(function() {
+  <script type="importmap">{"imports":{"h4ggy":"/tinycli.92d3a6e1.js","1eYvo":"/live.1453ad48.js","4zbPT":"/work-toc.d8601748.js","7TtO1":"/project-page.23ee19dd.js","aYtAr":"/writing.3e4f303d.js","971aF":"/ascii-art.1788e827.js","7HEGV":"/terminal-ui.39166e1a.js","jQOOo":"/home.90675460.js","7s1oP":"/studio-shader.64fa0bfc.js","dOTnc":"/studio-shader.8d64c1ed.js","fiblX":"/hero-globe.bcfbda9c.js"}}</script><link rel="stylesheet" href="/studio.18f1c06e.css"><script>(function() {
     function setVh() {
         var v = window.visualViewport;
         var vh = v && v.height ? v.height : window.innerHeight;
@@ -65,10 +65,17 @@ window.op('init', {
 
 </script>
   <script src="https://openpanel.dev/op1.js" defer="" async=""></script>
+  <!-- Preconnect for external resources -->
+  <link rel="preconnect" href="https://api.fontshare.com" crossorigin="">
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin="">
+  <link rel="preconnect" href="https://www.googletagmanager.com">
+  <link rel="preconnect" href="https://openpanel.dev">
   <!-- Cabinet Grotesk — taste-skill forbids Inter; Cabinet Grotesk has the right editorial weight -->
   <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,600,700,800&display=swap">
   <link rel="stylesheet" href="/aj91-koyeb-main.2cdaf7bc.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+  <!-- Font Awesome: defer load — icons are below fold, non-blocking is safe -->
+  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" as="style" crossorigin="anonymous" onload="this.onload=null;this.rel='stylesheet'">
+  <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous"></noscript>
 
   <link rel="stylesheet" href="/aj91-koyeb-main.20aa8ec5.css">
 </head>
@@ -290,7 +297,6 @@ window.op('init', {
     </main>
   </div><!-- /.container -->
 
-  <script type="module" src="/aj91-koyeb-main.bcfbda9c.js"></script>
   <script type="module" src="/writing.3e4f303d.js"></script>
   <script type="module" src="/aj91-koyeb-main.a8e1416d.js"></script>
 </body>

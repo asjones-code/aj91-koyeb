@@ -829,12 +829,13 @@ body {
 
 /* ══ HIGH-END-VISUAL-DESIGN: centering, depth, spacing ══════════════════ */
 
-/* Terminal: absolute-centered over the globe */
+/* Terminal: absolute-centered over the globe.
+   --mag-x / --mag-y are set by initTerminalMagnetic(); default 0px keeps centering. */
 .hero-terminal-anchor {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -58%);
+  transform: translate(calc(-50% + var(--mag-x, 0px)), calc(-58% + var(--mag-y, 0px)));
   z-index: 10;
 }
 /* Hero text: bottom-left only (terminal removed from flow) */
