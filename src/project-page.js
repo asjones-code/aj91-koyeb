@@ -66,7 +66,7 @@ function fmtDate(str) {
 	return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-function parseRDF(xmlText) {
+function parseRSS(xmlText) {
 	const doc = new DOMParser().parseFromString(xmlText, "text/xml");
 	const items = Array.from(doc.getElementsByTagName("item"));
 	return items.slice(0, 5).map(el => {
@@ -75,7 +75,7 @@ function parseRDF(xmlText) {
 		return {
 			title: get("title"),
 			link:  get("link"),
-			date:  fmtDate(dcDate || get("pubDate")),
+			date:  fmtDate(get("pubDate") || dcDate),
 		};
 	}).filter(s => s.title);
 }
@@ -97,7 +97,7 @@ async function fetchWestAfricaStories() {
 	if (_cachedStories) return _cachedStories;
 	if (_fetchingStories) return _fetchingStories;
 
-	const RSS_URL = "https://allafrica.com/tools/headlines/rdf/westafrica/headlines.rdf";
+	const RSS_URL = "https://journaldumali.com/category/politique/securite-terrorisme/feed/";
 
 	_fetchingStories = (async () => {
 		// 1. rss2json
@@ -118,7 +118,7 @@ async function fetchWestAfricaStories() {
 		try {
 			const res  = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(RSS_URL)}`);
 			const xml  = await res.text();
-			const items = parseRDF(xml);
+			const items = parseRSS(xml);
 			if (items.length) { _cachedStories = items; return _cachedStories; }
 		} catch { /* fall through */ }
 
@@ -127,7 +127,7 @@ async function fetchWestAfricaStories() {
 			const res  = await fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(RSS_URL)}`);
 			const data = await res.json();
 			if (data.contents) {
-				const items = parseRDF(data.contents);
+				const items = parseRSS(data.contents);
 				if (items.length) { _cachedStories = items; return _cachedStories; }
 			}
 		} catch { /* fall through */ }
