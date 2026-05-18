@@ -66,6 +66,33 @@ function fmtDate(str) {
 	return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function parseRDF(xmlText) {
+	const doc = new DOMParser().parseFromString(xmlText, "text/xml");
+	const items = Array.from(doc.getElementsByTagName("item"));
+	return items.slice(0, 5).map(el => {
+		const get = tag => el.getElementsByTagName(tag)[0]?.textContent?.trim() || "";
+		const dcDate = el.getElementsByTagNameNS("http://purl.org/dc/elements/1.1/", "date")[0]?.textContent?.trim() || "";
+		return {
+			title: get("title"),
+			link:  get("link"),
+			date:  fmtDate(dcDate || get("pubDate")),
+		};
+	}).filter(s => s.title);
+}
+
+async function fetchWithTimeout(url, ms = 7000) {
+	const ctrl = new AbortController();
+	const t = setTimeout(() => ctrl.abort(), ms);
+	try {
+		const res = await fetch(url, { signal: ctrl.signal });
+		clearTimeout(t);
+		return res;
+	} catch (e) {
+		clearTimeout(t);
+		throw e;
+	}
+}
+
 async function fetchWestAfricaStories() {
 	if (_cachedStories) return _cachedStories;
 	if (_fetchingStories) return _fetchingStories;
@@ -73,23 +100,39 @@ async function fetchWestAfricaStories() {
 	const RSS_URL = "https://allafrica.com/tools/headlines/rdf/westafrica/headlines.rdf";
 
 	_fetchingStories = (async () => {
+		// 1. rss2json
 		try {
-			const url  = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(RSS_URL)}`;
-			const ctrl = new AbortController();
-			const t    = setTimeout(() => ctrl.abort(), 7000);
-			const res  = await fetch(url, { signal: ctrl.signal });
-			clearTimeout(t);
+			const res  = await fetchWithTimeout(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(RSS_URL)}`);
 			const data = await res.json();
-			if (data.status !== "ok" || !data.items?.length) return [];
-			_cachedStories = data.items.slice(0, 5).map(item => ({
-				title: item.title?.trim() || "",
-				link:  item.link?.trim()  || "",
-				date:  fmtDate(item.pubDate),
-			}));
-			return _cachedStories;
-		} catch {
-			return [];
-		}
+			if (data.status === "ok" && data.items?.length) {
+				_cachedStories = data.items.slice(0, 5).map(item => ({
+					title: item.title?.trim() || "",
+					link:  item.link?.trim()  || "",
+					date:  fmtDate(item.pubDate),
+				})).filter(s => s.title);
+				if (_cachedStories.length) return _cachedStories;
+			}
+		} catch { /* fall through */ }
+
+		// 2. allorigins /raw (returns raw XML)
+		try {
+			const res  = await fetchWithTimeout(`https://api.allorigins.win/raw?url=${encodeURIComponent(RSS_URL)}`);
+			const xml  = await res.text();
+			const items = parseRDF(xml);
+			if (items.length) { _cachedStories = items; return _cachedStories; }
+		} catch { /* fall through */ }
+
+		// 3. allorigins /get (returns JSON wrapper with .contents)
+		try {
+			const res  = await fetchWithTimeout(`https://api.allorigins.win/get?url=${encodeURIComponent(RSS_URL)}`);
+			const data = await res.json();
+			if (data.contents) {
+				const items = parseRDF(data.contents);
+				if (items.length) { _cachedStories = items; return _cachedStories; }
+			}
+		} catch { /* fall through */ }
+
+		return [];
 	})();
 
 	return _fetchingStories;
@@ -291,8 +334,8 @@ async function mountDemoGlobe(container) {
 	// ── Scene — tighter FOV, camera closer, pointed at West Africa ───────────
 	const scene  = new THREE.Scene();
 	// FOV 44 + z 4.4 → zoomed-in view of West Africa without barrel distortion
-	const camera = new THREE.PerspectiveCamera(44, 1, 0.1, 100);
-	camera.position.set(0, 0, 4.4);
+	const camera = new THREE.PerspectiveCamera(52, 1, 0.1, 100);
+	camera.position.set(0, 0, 5.0);
 
 	const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));

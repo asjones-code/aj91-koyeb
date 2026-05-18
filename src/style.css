@@ -1385,6 +1385,8 @@ body.page-is-projects .header .cross span {
   background: #020208;
   overflow: hidden;
   position: relative;
+  grid-column: 1 / -1;
+  height: 34rem;
 }
 
 /* ── Demo globe label overlay ── */
