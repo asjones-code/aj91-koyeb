@@ -1382,75 +1382,119 @@ body.page-is-projects .header .cross span {
   height: 26rem;
 }
 .project-gallery-item--demo {
-  background: #050510;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  display: flex;
-  flex-direction: column;
-  overflow: visible;
+  background: #020208;
+  overflow: hidden;
+  position: relative;
 }
+
+/* ── Demo globe label overlay ── */
 .demo-globe-label {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   z-index: 10;
-  padding: 1rem 1.25rem 0.9rem;
-  background: linear-gradient(to top, rgba(5,5,16,0.92) 60%, transparent);
+  padding: 0.9rem 1.1rem 0.85rem;
+  background: linear-gradient(to top, rgba(2,2,10,0.9) 50%, transparent);
   pointer-events: none;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.15rem;
 }
 .demo-globe-title {
   font-family: ui-monospace, "Cascadia Code", monospace;
-  font-size: 0.7rem;
-  letter-spacing: 0.14em;
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--c-accent);
-  opacity: 0.9;
 }
 .demo-globe-sub {
   font-family: ui-monospace, "Cascadia Code", monospace;
-  font-size: 0.65rem;
-  color: rgba(255,255,255,0.35);
+  font-size: 0.62rem;
+  color: rgba(255,255,255,0.3);
   letter-spacing: 0.04em;
 }
-.demo-globe-tooltip {
-  position: absolute;
-  z-index: 20;
-  background: rgba(8,8,20,0.92);
-  border: 1px solid rgba(171,248,254,0.2);
-  border-radius: 6px;
-  padding: 0.5rem 0.75rem;
+
+/* ── Geostory tooltip (appended to body, positioned fixed-ish) ── */
+.geostory-tooltip {
+  position: fixed;
+  z-index: 9000;
   pointer-events: none;
-  font-family: ui-monospace, monospace;
+  background: rgba(4, 4, 16, 0.94);
+  border: 1px solid rgba(171, 248, 254, 0.2);
+  border-radius: 8px;
+  padding: 0.85rem 1rem;
+  width: 230px;
+  font-family: ui-monospace, "Cascadia Code", "Source Code Pro", monospace;
   font-size: 0.72rem;
-  color: rgba(255,255,255,0.85);
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  min-width: 140px;
+  color: rgba(255, 255, 255, 0.75);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
-.demo-globe-tooltip strong {
+.geostory-tooltip.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.gs-region {
+  font-size: 0.9rem;
+  font-weight: 700;
   color: #fff;
-  font-size: 0.78rem;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.1rem;
 }
-.tip-bar {
-  display: block;
+.gs-capital {
+  font-size: 0.65rem;
+  color: rgba(171, 248, 254, 0.55);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+.gs-divider {
+  height: 1px;
+  background: rgba(255,255,255,0.07);
+  margin-bottom: 0.55rem;
+}
+.gs-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.3rem;
+}
+.gs-row--bar {
+  margin-bottom: 0.15rem;
+}
+.gs-label {
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+}
+.gs-val {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+.gs-bar-wrap {
   height: 3px;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.08);
   border-radius: 2px;
   overflow: hidden;
+  margin-bottom: 0.4rem;
 }
-.tip-fill {
-  display: block;
+.gs-bar-fill {
   height: 100%;
   border-radius: 2px;
-  transition: width 0.3s;
+  transition: width 0.3s ease;
 }
-.tip-val {
-  color: rgba(255,255,255,0.45);
-  font-size: 0.67rem;
+.gs-notes {
+  margin-top: 0.5rem;
+  font-size: 0.63rem;
+  color: rgba(255, 255, 255, 0.3);
+  line-height: 1.5;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  padding-top: 0.4rem;
 }
 .project-gallery-item img {
   width: 100%;

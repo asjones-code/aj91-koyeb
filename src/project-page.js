@@ -23,258 +23,503 @@ function renderStarText(el, text) {
 		.join("");
 }
 
-// ── DRC province centroids for the geostory globe demo ─────────────────────
-const DRC_PROVINCES = [
-	{ name: "Kinshasa",       lat: -4.32,  lng: 15.32,  signal: 0.92 },
-	{ name: "Kongo Central",  lat: -5.40,  lng: 14.20,  signal: 0.78 },
-	{ name: "Kwango",         lat: -6.50,  lng: 16.90,  signal: 0.54 },
-	{ name: "Kwilu",          lat: -4.50,  lng: 18.20,  signal: 0.67 },
-	{ name: "Mai-Ndombe",     lat: -2.40,  lng: 18.30,  signal: 0.45 },
-	{ name: "Équateur",       lat:  0.10,  lng: 19.50,  signal: 0.38 },
-	{ name: "Tshuapa",        lat: -0.50,  lng: 22.50,  signal: 0.29 },
-	{ name: "Mongala",        lat:  1.70,  lng: 21.50,  signal: 0.33 },
-	{ name: "Nord-Ubangi",    lat:  3.80,  lng: 22.20,  signal: 0.41 },
-	{ name: "Sud-Ubangi",     lat:  3.20,  lng: 19.90,  signal: 0.36 },
-	{ name: "Maniema",        lat: -3.20,  lng: 27.00,  signal: 0.52 },
-	{ name: "Nord-Kivu",      lat: -0.70,  lng: 29.00,  signal: 0.88 },
-	{ name: "Sud-Kivu",       lat: -3.00,  lng: 28.20,  signal: 0.83 },
-	{ name: "Ituri",          lat:  1.70,  lng: 29.00,  signal: 0.71 },
-	{ name: "Haut-Uélé",      lat:  3.80,  lng: 28.00,  signal: 0.44 },
-	{ name: "Bas-Uélé",       lat:  3.00,  lng: 25.00,  signal: 0.40 },
-	{ name: "Tshopo",         lat:  1.00,  lng: 25.50,  signal: 0.48 },
-	{ name: "Sankuru",        lat: -3.50,  lng: 24.50,  signal: 0.39 },
-	{ name: "Kasaï",          lat: -5.20,  lng: 22.00,  signal: 0.61 },
-	{ name: "Kasaï-Central",  lat: -5.90,  lng: 21.60,  signal: 0.58 },
-	{ name: "Kasaï-Oriental", lat: -6.50,  lng: 24.00,  signal: 0.63 },
-	{ name: "Lomami",         lat: -6.00,  lng: 25.00,  signal: 0.55 },
-	{ name: "Haut-Lomami",    lat: -8.50,  lng: 27.00,  signal: 0.49 },
-	{ name: "Tanganyika",     lat: -6.50,  lng: 28.50,  signal: 0.57 },
-	{ name: "Haut-Katanga",   lat: -10.50, lng: 27.50,  signal: 0.74 },
-	{ name: "Lualaba",        lat: -9.50,  lng: 25.00,  signal: 0.66 },
+// ── Fly-eye hex shader (same as hero globe) ──────────────────────────────────
+const FLY_SHADER = {
+	uniforms: {
+		tDiffuse:      { value: null },
+		resolution:    { value: null },
+		ommatidiaSize: { value: 5.0 },
+	},
+	vertexShader: `
+		varying vec2 vUv;
+		void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
+	`,
+	fragmentShader: `
+		precision highp float;
+		varying vec2 vUv;
+		uniform sampler2D tDiffuse;
+		uniform vec2 resolution;
+		uniform float ommatidiaSize;
+		vec2 hex(vec2 uv, float s) {
+			vec2 r = resolution / s;
+			uv *= r;
+			float y = floor(uv.y);
+			float x = floor(uv.x - mod(y,2.0)*0.5);
+			return vec2(x + 0.5*mod(y,2.0), y) / r;
+		}
+		float mask(vec2 uv, float s) {
+			vec2 p = fract(uv * resolution / s) - 0.5;
+			p.x *= 0.57735;
+			p = abs(p);
+			return step(max(p.x*2.0, p.y*0.866 + p.x), 0.5);
+		}
+		void main() {
+			vec2 huv = hex(vUv, ommatidiaSize);
+			vec4 col = texture2D(tDiffuse, huv);
+			gl_FragColor = col * mask(vUv, ommatidiaSize);
+		}
+	`,
+};
+
+// ── Mali region data ──────────────────────────────────────────────────────────
+const MALI_REGIONS = [
+	{
+		name: "Bamako",         capital: "Bamako",
+		lat:  12.65, lng: -8.00,
+		population: "2.5M",    radioStations: 35, broadcastCoverage: 94,
+		electionTurnout: 27,   primaryLanguage: "Bambara / French",
+		notes: "Federal capital district. Highest media density in Mali.",
+	},
+	{
+		name: "Kayes",          capital: "Kayes",
+		lat:  14.45, lng: -11.44,
+		population: "2.5M",    radioStations: 18, broadcastCoverage: 42,
+		electionTurnout: 34,   primaryLanguage: "Bambara / Soninke",
+		notes: "Border region — Senegal, Mauritania, Guinea. High remittance dependence.",
+	},
+	{
+		name: "Koulikoro",      capital: "Koulikoro",
+		lat:  13.80, lng: -7.56,
+		population: "2.7M",    radioStations: 22, broadcastCoverage: 61,
+		electionTurnout: 38,   primaryLanguage: "Bambara",
+		notes: "Surrounds Bamako. Strong agricultural broadcast coverage.",
+	},
+	{
+		name: "Sikasso",        capital: "Sikasso",
+		lat:  11.32, lng: -5.67,
+		population: "3.0M",    radioStations: 25, broadcastCoverage: 54,
+		electionTurnout: 41,   primaryLanguage: "Bambara / Minianka",
+		notes: "Most fertile region, borders Côte d'Ivoire & Burkina Faso.",
+	},
+	{
+		name: "Ségou",          capital: "Ségou",
+		lat:  13.45, lng: -6.27,
+		population: "2.7M",    radioStations: 20, broadcastCoverage: 59,
+		electionTurnout: 36,   primaryLanguage: "Bambara / Bozo",
+		notes: "Niger River delta agriculture. Strong community radio network.",
+	},
+	{
+		name: "Mopti",          capital: "Mopti",
+		lat:  14.49, lng: -4.20,
+		population: "2.6M",    radioStations: 19, broadcastCoverage: 48,
+		electionTurnout: 29,   primaryLanguage: "Fulfulde / Dogon",
+		notes: "Gateway to the Sahel. Security tensions reduced broadcast access.",
+	},
+	{
+		name: "Tombouctou",     capital: "Tombouctou",
+		lat:  16.77, lng: -3.00,
+		population: "0.7M",    radioStations: 8, broadcastCoverage: 29,
+		electionTurnout: 22,   primaryLanguage: "Songhay / Tuareg",
+		notes: "Historic Saharan crossroads. Limited infrastructure post-conflict.",
+	},
+	{
+		name: "Gao",            capital: "Gao",
+		lat:  16.27, lng:  0.00,
+		population: "0.7M",    radioStations: 10, broadcastCoverage: 33,
+		electionTurnout: 25,   primaryLanguage: "Songhay / Tuareg",
+		notes: "Eastern Sahel. Recovering from 2012 occupation.",
+	},
+	{
+		name: "Kidal",          capital: "Kidal",
+		lat:  18.44, lng:  1.41,
+		population: "0.07M",   radioStations: 4, broadcastCoverage: 18,
+		electionTurnout: 11,   primaryLanguage: "Tamashek (Tuareg)",
+		notes: "Remote northern region. Contested governance since 2012.",
+	},
+	{
+		name: "Ménaka",         capital: "Ménaka",
+		lat:  15.92, lng:  2.40,
+		population: "0.08M",   radioStations: 3, broadcastCoverage: 15,
+		electionTurnout: 14,   primaryLanguage: "Songhay / Tuareg",
+		notes: "Newly created region (2016). Minimal broadcast infrastructure.",
+	},
+	{
+		name: "Taoudénit",      capital: "Taoudénit",
+		lat:  22.67, lng: -3.98,
+		population: "0.04M",   radioStations: 2, broadcastCoverage: 10,
+		electionTurnout: 8,    primaryLanguage: "Tamashek / Hassaniya",
+		notes: "Vast Saharan region. Near-zero terrestrial broadcast coverage.",
+	},
 ];
 
-const GLOBE_R = 1.5;
+// ── Helpers ───────────────────────────────────────────────────────────────────
+async function loadTopojsonClient() {
+	if (window.topojson) return window.topojson;
+	return new Promise((resolve, reject) => {
+		const s = document.createElement("script");
+		s.src = "https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js";
+		s.onload  = () => resolve(window.topojson);
+		s.onerror = reject;
+		document.head.appendChild(s);
+	});
+}
 
-function latLngToVec3(lat, lng, r = GLOBE_R) {
-	const phi   = (90 - lat)  * (Math.PI / 180);
+function latLngToVec3(THREE, lat, lng, r) {
+	const phi   = (90 - lat) * (Math.PI / 180);
 	const theta = (lng + 180) * (Math.PI / 180);
-	return {
-		x: -r * Math.sin(phi) * Math.cos(theta),
-		y:  r * Math.cos(phi),
-		z:  r * Math.sin(phi) * Math.sin(theta),
+	return new THREE.Vector3(
+		-r * Math.sin(phi) * Math.cos(theta),
+		 r * Math.cos(phi),
+		 r * Math.sin(phi) * Math.sin(theta)
+	);
+}
+
+/** Draw GeoJSON geometry as Lines added to `parent`. */
+function addGeoLines(THREE, parent, geojsonOrGeometry, r, color, opacity) {
+	const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false });
+
+	const ring = (coords) => {
+		if (!coords || coords.length < 2) return;
+		const pts = coords.map(([lng, lat]) => latLngToVec3(THREE, lat, lng, r));
+		parent.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat.clone()));
 	};
+
+	const process = (geo) => {
+		if (!geo) return;
+		switch (geo.type) {
+			case "LineString":      ring(geo.coordinates); break;
+			case "MultiLineString": geo.coordinates.forEach(ring); break;
+			case "Polygon":         geo.coordinates.forEach(ring); break;
+			case "MultiPolygon":    geo.coordinates.forEach(p => p.forEach(ring)); break;
+		}
+	};
+
+	const g = geojsonOrGeometry;
+	if      (g.type === "FeatureCollection") g.features.forEach(f => process(f.geometry));
+	else if (g.type === "Feature")           process(g.geometry);
+	else                                     process(g);
 }
 
-/** Signal 0–1 → color between amber (low) and cyan (high) */
-function signalColor(THREE, signal) {
-	const low  = new THREE.Color(0xff8c00);
-	const high = new THREE.Color(0x00d4ff);
-	return low.lerp(high, signal);
-}
-
+// ── Geostory Globe Demo ───────────────────────────────────────────────────────
 async function mountDemoGlobe(container) {
-	const THREE = await import("three");
+	// Parallel import of Three.js post-processing + geographic data
+	const [
+		THREE,
+		{ EffectComposer },
+		{ RenderPass },
+		{ UnrealBloomPass },
+		{ ShaderPass },
+		topojson,
+		worldTopo,
+		maliADM1,
+	] = await Promise.all([
+		import("three"),
+		import("three/examples/jsm/postprocessing/EffectComposer.js"),
+		import("three/examples/jsm/postprocessing/RenderPass.js"),
+		import("three/examples/jsm/postprocessing/UnrealBloomPass.js"),
+		import("three/examples/jsm/postprocessing/ShaderPass.js"),
+		loadTopojsonClient(),
+		fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(r => r.json()),
+		fetch("https://cdn.jsdelivr.net/gh/wmgeolab/geoBoundaries@main/releaseData/CGAZ/ADM1/geoBoundaries-MLI-ADM1_simplified.geojson")
+			.then(r => r.json())
+			.catch(() => null),
+	]);
 
+	// ── Clear & scaffold container ──────────────────────────────────────────
 	container.innerHTML = "";
+	container.style.position = "relative";
+	container.style.cursor   = "grab";
 
-	const label = container.querySelector(".demo-globe-label") || (() => {
-		const d = document.createElement("div");
-		d.className = "demo-globe-label";
-		d.innerHTML = `
-			<span class="demo-globe-title">Geostory Globe</span>
-			<span class="demo-globe-sub">DRC Radio Broadcast Signals — 26 Provinces</span>
-		`;
-		container.appendChild(d);
-		return d;
-	})();
-
-	const canvasWrap = document.createElement("div");
-	canvasWrap.style.cssText = "position:absolute;inset:0;";
-	container.insertBefore(canvasWrap, label);
-
-	const tooltip = document.createElement("div");
-	tooltip.className = "demo-globe-tooltip";
-	tooltip.style.display = "none";
-	container.appendChild(tooltip);
-
-	const w = container.clientWidth  || 480;
-	const h = container.clientHeight || 480;
-
-	const scene    = new THREE.Scene();
-	const camera   = new THREE.PerspectiveCamera(42, w / h, 0.1, 100);
-	camera.position.set(0, 0.6, 5.2);
-	camera.lookAt(0, 0, 0);
+	// ── Scene ──────────────────────────────────────────────────────────────
+	const scene  = new THREE.Scene();
+	const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 100);
+	camera.position.z = 5;
 
 	const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-	renderer.setSize(w, h);
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-	canvasWrap.appendChild(renderer.domElement);
+	renderer.domElement.style.cssText = "position:absolute;inset:0;width:100%;height:100%;";
+	container.appendChild(renderer.domElement);
 
-	// Globe
-	const globeGeo = new THREE.SphereGeometry(GLOBE_R, 64, 64);
-	const globeMat = new THREE.MeshPhongMaterial({
-		color: 0x04040f,
-		emissive: 0x020208,
-		shininess: 15,
-	});
-	const globeMesh = new THREE.Mesh(globeGeo, globeMat);
-	scene.add(globeMesh);
+	// ── Globe sphere — same earth textures as hero ─────────────────────────
+	const R       = 1.6;
+	const texLoad = new THREE.TextureLoader();
+	const globe   = new THREE.Mesh(
+		new THREE.SphereGeometry(R, 48, 48),
+		new THREE.MeshStandardMaterial({
+			map:        texLoad.load("https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg"),
+			bumpMap:    texLoad.load("https://threejs.org/examples/textures/planets/earth_bump_2048.jpg"),
+			bumpScale:  0.08,
+			roughness:  1,
+			metalness:  0,
+		})
+	);
+	scene.add(globe);
 
-	// Latitude/longitude grid lines
-	const gridMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.045 });
-	for (let lat = -80; lat <= 80; lat += 20) {
-		const pts = [];
-		for (let lng = 0; lng <= 360; lng += 4) {
-			const v = latLngToVec3(lat, lng - 180, GLOBE_R + 0.003);
-			pts.push(new THREE.Vector3(v.x, v.y, v.z));
-		}
-		scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), gridMat));
-	}
-	for (let lng = 0; lng < 360; lng += 20) {
-		const pts = [];
-		for (let lat = -90; lat <= 90; lat += 4) {
-			const v = latLngToVec3(lat, lng, GLOBE_R + 0.003);
-			pts.push(new THREE.Vector3(v.x, v.y, v.z));
-		}
-		scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), gridMat));
-	}
+	// Atmosphere halo
+	scene.add(new THREE.Mesh(
+		new THREE.SphereGeometry(R * 1.03, 48, 48),
+		new THREE.MeshBasicMaterial({ color: 0x3399ff, transparent: true, opacity: 0.06, side: THREE.BackSide })
+	));
 
-	// Atmosphere glow
-	const atmGeo = new THREE.SphereGeometry(GLOBE_R * 1.1, 32, 32);
-	const atmMat = new THREE.MeshPhongMaterial({ color: 0x1a3fff, transparent: true, opacity: 0.05, side: THREE.BackSide });
-	scene.add(new THREE.Mesh(atmGeo, atmMat));
-
-	// Lights
-	scene.add(new THREE.AmbientLight(0xffffff, 0.18));
-	const sun = new THREE.DirectionalLight(0x6699ff, 1.4);
-	sun.position.set(6, 4, 5);
+	// ── Lights ──────────────────────────────────────────────────────────────
+	const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+	sun.position.set(5, 5, 5);
 	scene.add(sun);
+	scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 
-	// Province dots + pulse rings
-	const dotMeshes = [];
-	const rings     = [];
+	// ── World country borders (very faint, entire world) ───────────────────
+	const worldBorders = topojson.mesh(worldTopo, worldTopo.objects.countries, (a, b) => a !== b);
+	addGeoLines(THREE, globe, worldBorders, R + 0.002, 0xffffff, 0.06);
 
-	DRC_PROVINCES.forEach((prov, i) => {
-		const pos = latLngToVec3(prov.lat, prov.lng);
-		const vec  = new THREE.Vector3(pos.x, pos.y, pos.z);
-		const col  = signalColor(THREE, prov.signal);
+	// Coastlines slightly brighter
+	const land = topojson.feature(worldTopo, worldTopo.objects.land);
+	addGeoLines(THREE, globe, land, R + 0.001, 0xffffff, 0.09);
 
-		// Dot
-		const dotGeo = new THREE.SphereGeometry(0.022, 8, 8);
-		const dotMat = new THREE.MeshBasicMaterial({ color: col });
-		const dot    = new THREE.Mesh(dotGeo, dotMat);
-		dot.position.copy(vec);
-		dot.userData  = { province: prov };
-		scene.add(dot);
-		dotMeshes.push(dot);
+	// ── Mali country outline highlight (from world atlas, ID 466) ──────────
+	const maliCountryGeo = topojson.feature(worldTopo, {
+		type: "GeometryCollection",
+		geometries: worldTopo.objects.countries.geometries.filter(g => +g.id === 466),
+	});
+	addGeoLines(THREE, globe, maliCountryGeo, R + 0.004, 0xabf8fe, 0.5);
 
-		// Pulse ring
-		const ringGeo = new THREE.RingGeometry(0.028, 0.048, 16);
-		const ringMat = new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.7, side: THREE.DoubleSide });
-		const ring    = new THREE.Mesh(ringGeo, ringMat);
-		ring.position.copy(vec);
-		ring.lookAt(0, 0, 0);
-		ring.userData = { phase: (i / DRC_PROVINCES.length) * Math.PI * 2 };
-		scene.add(ring);
-		rings.push(ring);
+	// ── Mali ADM1 region boundaries (cyan, bright) ─────────────────────────
+	if (maliADM1) {
+		addGeoLines(THREE, globe, maliADM1, R + 0.005, 0xabf8fe, 0.75);
+	}
+
+	// ── Region data dots ───────────────────────────────────────────────────
+	const hitMeshes   = [];
+	const pulseMeshes = [];
+
+	MALI_REGIONS.forEach((region) => {
+		const pos = latLngToVec3(THREE, region.lat, region.lng, R + 0.01);
+
+		// Visible dot — cyan
+		globe.add(Object.assign(
+			new THREE.Mesh(
+				new THREE.SphereGeometry(0.012, 16, 16),
+				new THREE.MeshBasicMaterial({ color: 0xabf8fe })
+			),
+			{ position: pos.clone() }
+		));
+
+		// Invisible hit sphere (30% larger)
+		const hit = new THREE.Mesh(
+			new THREE.SphereGeometry(0.022, 8, 8),
+			new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
+		);
+		hit.position.copy(pos);
+		hit.userData.region = region;
+		globe.add(hit);
+		hitMeshes.push(hit);
+
+		// Pulse shell
+		const pulse = new THREE.Mesh(
+			new THREE.SphereGeometry(0.012, 16, 16),
+			new THREE.MeshBasicMaterial({ color: 0xabf8fe, transparent: true, opacity: 0 })
+		);
+		pulse.position.copy(pos);
+		globe.add(pulse);
+		pulseMeshes.push({ mesh: pulse, phase: Math.random() });
 	});
 
-	// Rotate globe so DRC is facing front (center: ~lat 0, lng 24)
-	const drcOffsetRad = -24 * (Math.PI / 180);
-	globeMesh.rotation.y = drcOffsetRad;
-	dotMeshes.forEach(d => { d.rotation.y = drcOffsetRad; });
-	rings.forEach(r => { r.rotation.y = drcOffsetRad; });
+	function updatePulse() {
+		const t = Date.now() / 1000;
+		pulseMeshes.forEach(({ mesh, phase }) => {
+			const cycle = (t * 0.4 + phase) % 1;
+			mesh.scale.setScalar(1 + cycle * 5.5);
+			mesh.material.opacity = Math.max(0, 0.5 * (1 - cycle));
+		});
+	}
 
-	// Raycaster for hover
+	// ── Post-processing (same as hero) ─────────────────────────────────────
+	const composer = new EffectComposer(renderer);
+	composer.addPass(new RenderPass(scene, camera));
+
+	const flyMat  = new THREE.ShaderMaterial({
+		uniforms:       {
+			tDiffuse:      { value: null },
+			resolution:    { value: new THREE.Vector2(1, 1) },
+			ommatidiaSize: { value: FLY_SHADER.uniforms.ommatidiaSize.value },
+		},
+		vertexShader:   FLY_SHADER.vertexShader,
+		fragmentShader: FLY_SHADER.fragmentShader,
+	});
+	const flyPass = new ShaderPass(flyMat);
+	composer.addPass(flyPass);
+
+	const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 1.1, 0.4, 0.0);
+	bloom.renderToScreen = true;
+	composer.addPass(bloom);
+
+	// ── Resize ─────────────────────────────────────────────────────────────
+	function resize() {
+		const w = container.clientWidth  || 480;
+		const h = container.clientHeight || 480;
+		if (w <= 0 || h <= 0) return;
+		renderer.setSize(w, h);
+		camera.aspect = w / h;
+		camera.updateProjectionMatrix();
+		composer.setSize(w, h);
+		composer.setPixelRatio(renderer.getPixelRatio());
+		flyMat.uniforms.resolution.value.set(w * renderer.getPixelRatio(), h * renderer.getPixelRatio());
+		bloom.resolution.set(w * renderer.getPixelRatio(), h * renderer.getPixelRatio());
+	}
+	const ro = new ResizeObserver(resize);
+	ro.observe(container);
+	requestAnimationFrame(resize);
+
+	// ── Tooltip ─────────────────────────────────────────────────────────────
+	const tooltip = document.createElement("div");
+	tooltip.className = "geostory-tooltip";
+	document.body.appendChild(tooltip);
+
+	function showTooltip(cx, cy, region) {
+		const cov = region.broadcastCoverage;
+		const trn = region.electionTurnout;
+		tooltip.innerHTML = `
+			<div class="gs-region">${escapeHtml(region.name)}</div>
+			<div class="gs-capital">${escapeHtml(region.capital)}</div>
+			<div class="gs-divider"></div>
+			<div class="gs-row">
+				<span class="gs-label">Population</span>
+				<span class="gs-val">${escapeHtml(region.population)}</span>
+			</div>
+			<div class="gs-row">
+				<span class="gs-label">Radio Stations</span>
+				<span class="gs-val">${region.radioStations}</span>
+			</div>
+			<div class="gs-row gs-row--bar">
+				<span class="gs-label">Broadcast Coverage</span>
+				<span class="gs-val">${cov}%</span>
+			</div>
+			<div class="gs-bar-wrap"><div class="gs-bar-fill" style="width:${cov}%;background:${cov > 55 ? "#abf8fe" : cov > 30 ? "#f59e0b" : "#ef4444"}"></div></div>
+			<div class="gs-row gs-row--bar">
+				<span class="gs-label">Election Turnout</span>
+				<span class="gs-val">${trn}%</span>
+			</div>
+			<div class="gs-bar-wrap"><div class="gs-bar-fill" style="width:${trn}%;background:rgba(171,248,254,0.5)"></div></div>
+			<div class="gs-notes">${escapeHtml(region.notes)}</div>
+		`;
+		const tw   = 230;
+		const pad  = 14;
+		const left = cx + pad + tw > window.innerWidth ? cx - tw - pad : cx + pad;
+		tooltip.style.left    = `${left}px`;
+		tooltip.style.top     = `${cy + 8}px`;
+		tooltip.classList.add("is-visible");
+	}
+
+	function hideTooltip() { tooltip.classList.remove("is-visible"); }
+
+	// ── Raycaster ───────────────────────────────────────────────────────────
 	const raycaster = new THREE.Raycaster();
-	const mouse     = new THREE.Vector2();
-	let hoveredDot  = null;
+	const mouse     = new THREE.Vector2(-9999, -9999);
 
-	canvasWrap.addEventListener("mousemove", (e) => {
-		const rect = canvasWrap.getBoundingClientRect();
-		mouse.x =  ((e.clientX - rect.left)  / rect.width)  * 2 - 1;
-		mouse.y = -((e.clientY - rect.top)   / rect.height) * 2 + 1;
-
+	function pickDots(clientX, clientY) {
+		const rect = renderer.domElement.getBoundingClientRect();
+		mouse.x =  ((clientX - rect.left) / rect.width)  * 2 - 1;
+		mouse.y = -((clientY - rect.top)  / rect.height) * 2 + 1;
 		raycaster.setFromCamera(mouse, camera);
-		const hits = raycaster.intersectObjects(dotMeshes);
-		if (hits.length > 0) {
-			const prov = hits[0].object.userData.province;
-			if (hoveredDot !== prov) {
-				hoveredDot = prov;
-				const pct = Math.round(prov.signal * 100);
-				tooltip.innerHTML = `
-					<strong>${escapeHtml(prov.name)}</strong>
-					<span class="tip-bar"><span class="tip-fill" style="width:${pct}%;background:${pct > 60 ? "#00d4ff" : "#ff8c00"}"></span></span>
-					<span class="tip-val">Signal ${pct}%</span>
-				`;
-				tooltip.style.display = "block";
-				tooltip.style.left = (e.clientX - container.getBoundingClientRect().left + 12) + "px";
-				tooltip.style.top  = (e.clientY - container.getBoundingClientRect().top  - 24) + "px";
-			}
+		const hits = raycaster.intersectObjects(hitMeshes);
+		return hits.length ? hits[0].object.userData.region : null;
+	}
+
+	// ── Drag interaction (same momentum model as hero globe) ────────────────
+	let isDragging = false, prevX = 0, prevY = 0, momX = 0, momY = 0, tooltipActive = false;
+
+	const onDown = (e) => {
+		const cx = e.touches ? e.touches[0].clientX : e.clientX;
+		const cy = e.touches ? e.touches[0].clientY : e.clientY;
+		isDragging = true;
+		prevX = cx; prevY = cy;
+		momX = 0; momY = 0;
+		hideTooltip(); tooltipActive = false;
+		container.style.cursor = "grabbing";
+		e.preventDefault && e.preventDefault();
+	};
+	const onMove = (e) => {
+		const cx = e.touches ? e.touches[0].clientX : e.clientX;
+		const cy = e.touches ? e.touches[0].clientY : e.clientY;
+		if (isDragging) {
+			momX = (cx - prevX) * 0.0045;
+			momY = (cy - prevY) * 0.002;
+			prevX = cx; prevY = cy;
 		} else {
-			hoveredDot = null;
-			tooltip.style.display = "none";
+			const hit = pickDots(cx, cy);
+			if (hit) { showTooltip(cx, cy, hit); tooltipActive = true; container.style.cursor = "pointer"; }
+			else      { hideTooltip(); tooltipActive = false; container.style.cursor = "grab"; }
 		}
-	});
-	canvasWrap.addEventListener("mouseleave", () => {
-		hoveredDot = null;
-		tooltip.style.display = "none";
-	});
+	};
+	const onUp = () => {
+		isDragging = false;
+		container.style.cursor = "grab";
+	};
+	const onClick = (e) => {
+		if (isDragging) return;
+		const hit = pickDots(e.clientX, e.clientY);
+		if (hit) { showTooltip(e.clientX, e.clientY, hit); tooltipActive = true; }
+		else      { hideTooltip(); tooltipActive = false; }
+	};
 
-	// Auto-rotate + pulse animation
+	container.addEventListener("mousedown",  onDown,  { passive: false });
+	container.addEventListener("touchstart", onDown,  { passive: false });
+	window.addEventListener("mousemove",     onMove);
+	container.addEventListener("touchmove",  onMove,  { passive: true });
+	window.addEventListener("mouseup",       onUp);
+	container.addEventListener("touchend",   onUp);
+	container.addEventListener("click",      onClick);
+	container.addEventListener("mouseleave", hideTooltip);
+
+	// ── Rotate globe to show Mali on load ───────────────────────────────────
+	// Mali center ≈ lng −2; formula: rotation.y = (lng + 90) * PI/180
+	globe.rotation.y = (-2 + 90) * (Math.PI / 180);  // ≈ 1.536 rad → Mali faces forward
+	globe.rotation.x =  12 * (Math.PI / 180);         // slight tilt northward for Mali
+
+	// ── Label overlay ───────────────────────────────────────────────────────
+	const label = document.createElement("div");
+	label.className = "demo-globe-label";
+	label.innerHTML = `
+		<span class="demo-globe-title">Geostory Globe — Mali</span>
+		<span class="demo-globe-sub">Radio broadcast signals · 11 regions · hover a dot</span>
+	`;
+	container.appendChild(label);
+
+	// ── Animate ─────────────────────────────────────────────────────────────
 	let raf;
-	let rotY = drcOffsetRad;
-
 	const animate = () => {
 		raf = requestAnimationFrame(animate);
-		const t = Date.now() * 0.001;
-
-		rotY += 0.0015;
-		globeMesh.rotation.y = rotY;
-		dotMeshes.forEach(d => { d.rotation.y = rotY; });
-		rings.forEach((ring, i) => {
-			ring.rotation.y = rotY;
-			const phase = ring.userData.phase;
-			const cycle = ((t * 0.7 + phase) % (Math.PI * 2)) / (Math.PI * 2);
-			const s     = 1 + cycle * 1.4;
-			ring.scale.setScalar(s);
-			ring.material.opacity = Math.max(0, 0.65 * (1 - cycle));
-		});
-
-		renderer.render(scene, camera);
+		if (!tooltipActive) {
+			if (isDragging) {
+				globe.rotation.y += momX;
+				globe.rotation.x  = Math.max(-0.45, Math.min(0.45, globe.rotation.x + momY));
+			} else {
+				momX *= 0.94; momY *= 0.94;
+				globe.rotation.y += 0.0007 + momX;
+				globe.rotation.x  = Math.max(-0.45, Math.min(0.45, globe.rotation.x + momY));
+			}
+		}
+		updatePulse();
+		composer.render();
 	};
 	animate();
-
-	// Resize observer
-	const ro = new ResizeObserver(() => {
-		const nw = container.clientWidth;
-		const nh = container.clientHeight;
-		camera.aspect = nw / nh;
-		camera.updateProjectionMatrix();
-		renderer.setSize(nw, nh);
-	});
-	ro.observe(container);
 
 	return () => {
 		cancelAnimationFrame(raf);
 		ro.disconnect();
+		tooltip.remove();
+		container.removeEventListener("mousedown",  onDown);
+		container.removeEventListener("touchstart", onDown);
+		window.removeEventListener("mousemove",     onMove);
+		container.removeEventListener("touchmove",  onMove);
+		window.removeEventListener("mouseup",       onUp);
+		container.removeEventListener("touchend",   onUp);
+		container.removeEventListener("click",      onClick);
+		container.removeEventListener("mouseleave", hideTooltip);
 		renderer.dispose();
 	};
 }
 
-// ── Demo module registry ────────────────────────────────────────────────────
+// ── Demo module registry ──────────────────────────────────────────────────────
 const DEMO_MODULES = {
-	globe_geojson: {
-		label: "Geostory Globe",
-		mount: mountDemoGlobe,
-	},
+	globe_geojson: { label: "Geostory Globe", mount: mountDemoGlobe },
 };
 
+// ── GSAP scroll animations ────────────────────────────────────────────────────
 function runAnimations() {
 	window.addEventListener("scroll", () => {
-		const h = document.documentElement.scrollHeight - window.innerHeight;
+		const h   = document.documentElement.scrollHeight - window.innerHeight;
 		const pct = h > 0 ? (window.scrollY / h) * 100 : 0;
-		const el = document.getElementById("scroll-indicator");
+		const el  = document.getElementById("scroll-indicator");
 		if (el) el.style.width = pct + "%";
 	});
 
@@ -317,6 +562,7 @@ function runAnimations() {
 	});
 }
 
+// ── Page init ─────────────────────────────────────────────────────────────────
 export async function init(opts = {}) {
 	const slug = opts.slug ?? new URL(opts.url || window.location.href, window.location.origin).searchParams.get("slug");
 
@@ -329,7 +575,7 @@ export async function init(opts = {}) {
 	}
 
 	try {
-		const r = await fetch(API + "/api/projects/" + encodeURIComponent(slug));
+		const r    = await fetch(API + "/api/projects/" + encodeURIComponent(slug));
 		const data = await r.json();
 
 		document.getElementById("project-loading").style.display = "none";
@@ -366,9 +612,9 @@ export async function init(opts = {}) {
 
 		document.getElementById("project-about").textContent = p.about_text || p.excerpt || "";
 
-		// ── STAR sections ────────────────────────────────────────────────────
+		// ── STAR sections ─────────────────────────────────────────────────────
 		const starSection = document.getElementById("project-star");
-		const starFields = [
+		const starFields  = [
 			{ id: "project-star-s-text", value: p.star_situation },
 			{ id: "project-star-t-text", value: p.star_task },
 			{ id: "project-star-a-text", value: p.star_action },
@@ -389,38 +635,34 @@ export async function init(opts = {}) {
 			starSection.style.display = "block";
 		}
 
-		// ── Gallery: 3 media items + optional 4th demo slot ─────────────────
-		const galleryGrid    = document.getElementById("project-gallery-grid");
-		const mediaItems     = (p.galleryImages || []).slice(0, 3);
-		const demoConfig     = p.demo_config || {};
-		const activeDemo     = Object.keys(DEMO_MODULES).find(k => demoConfig[k]);
-		const hasDemo        = !!activeDemo;
-		const hasMedia       = mediaItems.length > 0;
-		const isVideo        = (url) => /\.(mp4|webm|mov|ogg)(\?|$)/i.test(url || "");
+		// ── Gallery: up to 3 media + optional demo slot ───────────────────────
+		const galleryGrid = document.getElementById("project-gallery-grid");
+		const mediaItems  = (p.galleryImages || []).slice(0, 3);
+		const demoConfig  = p.demo_config || {};
+		const activeDemo  = Object.keys(DEMO_MODULES).find(k => demoConfig[k]);
+		const hasDemo     = !!activeDemo;
+		const isVideo     = (url) => /\.(mp4|webm|mov|ogg)(\?|$)/i.test(url || "");
 
-		if (hasMedia || hasDemo) {
-			// Use 2-column grid layout when we have 3+ media or a demo slot
+		if (mediaItems.length > 0 || hasDemo) {
 			if (mediaItems.length + (hasDemo ? 1 : 0) >= 3) {
 				galleryGrid.classList.add("project-gallery-grid--2col");
 			}
 
-			if (hasMedia) {
+			if (mediaItems.length > 0) {
 				galleryGrid.innerHTML = mediaItems.map((url) => {
 					const safe = escapeHtml(url);
-					if (isVideo(url)) {
-						return `<div class="project-gallery-item"><video src="${safe}" playsinline muted loop autoplay></video></div>`;
-					}
-					return `<div class="project-gallery-item"><img src="${safe}" alt=""></div>`;
+					return isVideo(url)
+						? `<div class="project-gallery-item"><video src="${safe}" playsinline muted loop autoplay></video></div>`
+						: `<div class="project-gallery-item"><img src="${safe}" alt=""></div>`;
 				}).join("");
-				galleryGrid.querySelectorAll("video").forEach((v) => v.play().catch(() => {}));
+				galleryGrid.querySelectorAll("video").forEach(v => v.play().catch(() => {}));
 			}
 
 			if (hasDemo) {
 				const demoItem = document.createElement("div");
 				demoItem.className = "project-gallery-item project-gallery-item--demo";
 				galleryGrid.appendChild(demoItem);
-				// Mount asynchronously so we don't block the rest of the page
-				DEMO_MODULES[activeDemo].mount(demoItem).catch(() => {});
+				DEMO_MODULES[activeDemo].mount(demoItem).catch(console.error);
 			}
 		} else {
 			document.getElementById("project-gallery").style.display = "none";
