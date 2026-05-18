@@ -1846,33 +1846,12 @@ body.page-is-projects .header .cross span {
   width: 0;
   transition: width 0.1s linear;
 }
-.project-back {
-  position: fixed;
-  top: 0;
-  left: 2rem;
-  height: 72px;
-  display: flex;
-  align-items: center;
-  z-index: 50;
-  color: rgba(255, 255, 255, 0.8);
-  text-decoration: none;
-  font-size: 0.9rem;
-}
-.project-back:hover {
-  color: var(--c-accent);
-}
-/* Hide logo on project-detail; back button occupies that header slot */
-body.page-is-project-detail .header-logo {
-  display: none;
-}
-/* Keep header + back button above the mobile slideout backdrop (z 299) */
+
+/* Keep header above the mobile slideout backdrop (z 299) */
 @media (max-width: 768px) {
   body.page-is-projects .header,
   body.page-is-project-detail .header {
     z-index: 310;
-  }
-  .project-back {
-    z-index: 320;
   }
 }
 
@@ -1921,8 +1900,10 @@ body.page-is-project-detail .header-logo {
     flex: 1;
   }
   .project-nav-link {
-    font-family: "Kihim", "Times New Roman", serif;
-    font-size: clamp(1.8rem, 7vw, 2.2rem);
+    font-family: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Consolas, monospace;
+    font-size: clamp(1.1rem, 4.5vw, 1.4rem);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
     color: rgba(255, 255, 255, 0.85);
     text-decoration: none;
     line-height: 1;
