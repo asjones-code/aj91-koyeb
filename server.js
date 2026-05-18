@@ -1766,6 +1766,47 @@ const server = http.createServer(async (req, res) => {
 		return;
 	}
 
+	// /project?slug=<slug> — serve project.html with injected OG meta for social scrapers
+	if (pathname === "/project") {
+		const slug = new URL(req.url, "http://localhost").searchParams.get("slug");
+		if (slug) {
+			const htmlFile = path.join(DIST, "project.html");
+			try {
+				let html = await fs.readFile(htmlFile, "utf8");
+				const projectResult = await projectModel.findBySlug(slug);
+				if (!projectResult.error) {
+					const p = projectResult.project;
+					const esc = (s) => (s || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+					const ogTitle = esc(p.title);
+					const ogDesc = esc((p.excerpt || (p.about_text || "").replace(/[#*`>\[\]]/g, "").trim()).slice(0, 200));
+					const ogUrl = `${siteOrigin(req)}/project?slug=${encodeURIComponent(slug)}`;
+					const ogImage = p.thumbnail ? esc(p.thumbnail) : (p.hero_image ? esc(p.hero_image) : "");
+					const ogTags = [
+						`  <meta property="og:type" content="website">`,
+						`  <meta property="og:site_name" content="AJ91">`,
+						`  <meta property="og:title" content="${ogTitle}">`,
+						ogDesc ? `  <meta property="og:description" content="${ogDesc}">` : "",
+						`  <meta property="og:url" content="${ogUrl}">`,
+						ogImage ? `  <meta property="og:image" content="${ogImage}">` : "",
+						`  <meta name="twitter:card" content="${ogImage ? "summary_large_image" : "summary"}">`,
+						`  <meta name="twitter:title" content="${ogTitle}">`,
+						ogDesc ? `  <meta name="twitter:description" content="${ogDesc}">` : "",
+						ogImage ? `  <meta name="twitter:image" content="${ogImage}">` : "",
+						`  <meta name="twitter:creator" content="@aj91">`,
+					].filter(Boolean).join("\n");
+					html = html.replace("</head>", ogTags + "\n</head>");
+					html = html.replace(/<title>[^<]*<\/title>/, `<title>${ogTitle} — AJ91</title>`);
+				}
+				res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+				res.end(html);
+			} catch {
+				res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+				res.end("Internal Server Error");
+			}
+			return;
+		}
+	}
+
 	// Clean URLs: /projects -> /projects.html, /admin -> /admin.html, /blog -> /blog.html
 	let pathToServe = pathname;
 	if (pathname === "/projects") pathToServe = "/projects.html";
