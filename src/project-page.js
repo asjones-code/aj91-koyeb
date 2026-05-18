@@ -23,44 +23,6 @@ function renderStarText(el, text) {
 		.join("");
 }
 
-// ── Fly-eye hex shader (same as hero globe) ──────────────────────────────────
-const FLY_SHADER = {
-	uniforms: {
-		tDiffuse:      { value: null },
-		resolution:    { value: null },
-		ommatidiaSize: { value: 5.0 },
-	},
-	vertexShader: `
-		varying vec2 vUv;
-		void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
-	`,
-	fragmentShader: `
-		precision highp float;
-		varying vec2 vUv;
-		uniform sampler2D tDiffuse;
-		uniform vec2 resolution;
-		uniform float ommatidiaSize;
-		vec2 hex(vec2 uv, float s) {
-			vec2 r = resolution / s;
-			uv *= r;
-			float y = floor(uv.y);
-			float x = floor(uv.x - mod(y,2.0)*0.5);
-			return vec2(x + 0.5*mod(y,2.0), y) / r;
-		}
-		float mask(vec2 uv, float s) {
-			vec2 p = fract(uv * resolution / s) - 0.5;
-			p.x *= 0.57735;
-			p = abs(p);
-			return step(max(p.x*2.0, p.y*0.866 + p.x), 0.5);
-		}
-		void main() {
-			vec2 huv = hex(vUv, ommatidiaSize);
-			vec4 col = texture2D(tDiffuse, huv);
-			gl_FragColor = col * mask(vUv, ommatidiaSize);
-		}
-	`,
-};
-
 // ── Mali region data ──────────────────────────────────────────────────────────
 const MALI_REGIONS = [
 	{
@@ -89,7 +51,7 @@ const MALI_REGIONS = [
 		lat:  11.32, lng: -5.67,
 		population: "3.0M",    radioStations: 25, broadcastCoverage: 54,
 		electionTurnout: 41,   primaryLanguage: "Bambara / Minianka",
-		notes: "Most fertile region, borders Côte d'Ivoire & Burkina Faso.",
+		notes: "Most fertile region. Borders Côte d'Ivoire & Burkina Faso.",
 	},
 	{
 		name: "Ségou",          capital: "Ségou",
@@ -108,7 +70,7 @@ const MALI_REGIONS = [
 	{
 		name: "Tombouctou",     capital: "Tombouctou",
 		lat:  16.77, lng: -3.00,
-		population: "0.7M",    radioStations: 8, broadcastCoverage: 29,
+		population: "0.7M",    radioStations: 8,  broadcastCoverage: 29,
 		electionTurnout: 22,   primaryLanguage: "Songhay / Tuareg",
 		notes: "Historic Saharan crossroads. Limited infrastructure post-conflict.",
 	},
@@ -122,38 +84,39 @@ const MALI_REGIONS = [
 	{
 		name: "Kidal",          capital: "Kidal",
 		lat:  18.44, lng:  1.41,
-		population: "0.07M",   radioStations: 4, broadcastCoverage: 18,
+		population: "0.07M",   radioStations: 4,  broadcastCoverage: 18,
 		electionTurnout: 11,   primaryLanguage: "Tamashek (Tuareg)",
 		notes: "Remote northern region. Contested governance since 2012.",
 	},
 	{
 		name: "Ménaka",         capital: "Ménaka",
 		lat:  15.92, lng:  2.40,
-		population: "0.08M",   radioStations: 3, broadcastCoverage: 15,
+		population: "0.08M",   radioStations: 3,  broadcastCoverage: 15,
 		electionTurnout: 14,   primaryLanguage: "Songhay / Tuareg",
 		notes: "Newly created region (2016). Minimal broadcast infrastructure.",
 	},
 	{
 		name: "Taoudénit",      capital: "Taoudénit",
 		lat:  22.67, lng: -3.98,
-		population: "0.04M",   radioStations: 2, broadcastCoverage: 10,
+		population: "0.04M",   radioStations: 2,  broadcastCoverage: 10,
 		electionTurnout: 8,    primaryLanguage: "Tamashek / Hassaniya",
 		notes: "Vast Saharan region. Near-zero terrestrial broadcast coverage.",
 	},
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Topojson client (UMD via script tag) ──────────────────────────────────────
 async function loadTopojsonClient() {
 	if (window.topojson) return window.topojson;
 	return new Promise((resolve, reject) => {
-		const s = document.createElement("script");
-		s.src = "https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js";
-		s.onload  = () => resolve(window.topojson);
-		s.onerror = reject;
+		const s    = document.createElement("script");
+		s.src      = "https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js";
+		s.onload   = () => resolve(window.topojson);
+		s.onerror  = reject;
 		document.head.appendChild(s);
 	});
 }
 
+// ── Lat/lng → Three.js Vector3 on a sphere ────────────────────────────────────
 function latLngToVec3(THREE, lat, lng, r) {
 	const phi   = (90 - lat) * (Math.PI / 180);
 	const theta = (lng + 180) * (Math.PI / 180);
@@ -164,14 +127,18 @@ function latLngToVec3(THREE, lat, lng, r) {
 	);
 }
 
-/** Draw GeoJSON geometry as Lines added to `parent`. */
-function addGeoLines(THREE, parent, geojsonOrGeometry, r, color, opacity) {
-	const mat = new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false });
+// ── Draw any GeoJSON geometry as THREE.Lines on `parent` ─────────────────────
+function addGeoLines(THREE, parent, geojson, r, color, opacity) {
+	const mat = new THREE.LineBasicMaterial({
+		color, transparent: opacity < 1, opacity, depthWrite: false,
+	});
 
 	const ring = (coords) => {
 		if (!coords || coords.length < 2) return;
 		const pts = coords.map(([lng, lat]) => latLngToVec3(THREE, lat, lng, r));
-		parent.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat.clone()));
+		parent.add(
+			new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat.clone())
+		);
 	};
 
 	const process = (geo) => {
@@ -184,118 +151,127 @@ function addGeoLines(THREE, parent, geojsonOrGeometry, r, color, opacity) {
 		}
 	};
 
-	const g = geojsonOrGeometry;
-	if      (g.type === "FeatureCollection") g.features.forEach(f => process(f.geometry));
-	else if (g.type === "Feature")           process(g.geometry);
-	else                                     process(g);
+	if      (geojson.type === "FeatureCollection") geojson.features.forEach(f => process(f.geometry));
+	else if (geojson.type === "Feature")            process(geojson.geometry);
+	else                                            process(geojson);
 }
 
 // ── Geostory Globe Demo ───────────────────────────────────────────────────────
 async function mountDemoGlobe(container) {
-	// Parallel import of Three.js post-processing + geographic data
+	// Three.js + post-processing (dynamic imports, only loaded when demo is on)
 	const [
 		THREE,
 		{ EffectComposer },
 		{ RenderPass },
 		{ UnrealBloomPass },
-		{ ShaderPass },
-		topojson,
-		worldTopo,
-		maliADM1,
 	] = await Promise.all([
 		import("three"),
 		import("three/examples/jsm/postprocessing/EffectComposer.js"),
 		import("three/examples/jsm/postprocessing/RenderPass.js"),
 		import("three/examples/jsm/postprocessing/UnrealBloomPass.js"),
-		import("three/examples/jsm/postprocessing/ShaderPass.js"),
+	]);
+
+	// Geographic data — load in parallel, Mali ADM1 is best-effort
+	const [topojson, worldTopo, maliADM1] = await Promise.all([
 		loadTopojsonClient(),
 		fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(r => r.json()),
-		fetch("https://cdn.jsdelivr.net/gh/wmgeolab/geoBoundaries@main/releaseData/CGAZ/ADM1/geoBoundaries-MLI-ADM1_simplified.geojson")
-			.then(r => r.json())
+		fetch("https://raw.githubusercontent.com/wmgeolab/geoBoundaries/main/releaseData/CGAZ/ADM1/geoBoundaries-MLI-ADM1_simplified.geojson")
+			.then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
 			.catch(() => null),
 	]);
 
-	// ── Clear & scaffold container ──────────────────────────────────────────
+	// ── Scaffold ──────────────────────────────────────────────────────────────
 	container.innerHTML = "";
 	container.style.position = "relative";
 	container.style.cursor   = "grab";
 
-	// ── Scene ──────────────────────────────────────────────────────────────
+	// ── Scene / camera / renderer ─────────────────────────────────────────────
 	const scene  = new THREE.Scene();
 	const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 100);
 	camera.position.z = 5;
 
 	const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 	renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-	renderer.domElement.style.cssText = "position:absolute;inset:0;width:100%;height:100%;";
+	Object.assign(renderer.domElement.style, {
+		position: "absolute", inset: "0", width: "100%", height: "100%",
+	});
 	container.appendChild(renderer.domElement);
 
-	// ── Globe sphere — same earth textures as hero ─────────────────────────
+	// ── Globe — earth colour texture only (bump 404s on some hosts) ───────────
 	const R       = 1.6;
-	const texLoad = new THREE.TextureLoader();
-	const globe   = new THREE.Mesh(
-		new THREE.SphereGeometry(R, 48, 48),
-		new THREE.MeshStandardMaterial({
-			map:        texLoad.load("https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg"),
-			bumpMap:    texLoad.load("https://threejs.org/examples/textures/planets/earth_bump_2048.jpg"),
-			bumpScale:  0.08,
-			roughness:  1,
-			metalness:  0,
-		})
-	);
+	const loader  = new THREE.TextureLoader();
+	// Load colour map; treat errors as non-fatal so globe still renders
+	const colorMap = await new Promise(res => {
+		loader.load(
+			"https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg",
+			res,
+			undefined,
+			() => res(null)   // 404 fallback — globe will render with flat colour
+		);
+	});
+
+	const globeMat = colorMap
+		? new THREE.MeshStandardMaterial({ map: colorMap, roughness: 0.9, metalness: 0 })
+		: new THREE.MeshStandardMaterial({ color: 0x0e2a4a, roughness: 0.9, metalness: 0 });
+
+	const globe = new THREE.Mesh(new THREE.SphereGeometry(R, 48, 48), globeMat);
 	scene.add(globe);
 
 	// Atmosphere halo
 	scene.add(new THREE.Mesh(
 		new THREE.SphereGeometry(R * 1.03, 48, 48),
-		new THREE.MeshBasicMaterial({ color: 0x3399ff, transparent: true, opacity: 0.06, side: THREE.BackSide })
+		new THREE.MeshBasicMaterial({
+			color: 0x3399ff, transparent: true, opacity: 0.07, side: THREE.BackSide,
+		})
 	));
 
-	// ── Lights ──────────────────────────────────────────────────────────────
+	// Lights
 	const sun = new THREE.DirectionalLight(0xffffff, 1.2);
 	sun.position.set(5, 5, 5);
 	scene.add(sun);
 	scene.add(new THREE.AmbientLight(0xffffff, 0.4));
 
-	// ── World country borders (very faint, entire world) ───────────────────
-	const worldBorders = topojson.mesh(worldTopo, worldTopo.objects.countries, (a, b) => a !== b);
-	addGeoLines(THREE, globe, worldBorders, R + 0.002, 0xffffff, 0.06);
+	// ── World borders (topojson → GeoJSON lines) ──────────────────────────────
+	// Country-to-country borders, faint
+	const countryBorders = topojson.mesh(
+		worldTopo, worldTopo.objects.countries, (a, b) => a !== b
+	);
+	addGeoLines(THREE, globe, countryBorders, R + 0.002, 0xffffff, 0.055);
 
-	// Coastlines slightly brighter
+	// Land outlines (coastlines) slightly brighter
 	const land = topojson.feature(worldTopo, worldTopo.objects.land);
 	addGeoLines(THREE, globe, land, R + 0.001, 0xffffff, 0.09);
 
-	// ── Mali country outline highlight (from world atlas, ID 466) ──────────
+	// ── Mali country highlight (ID 466 in world atlas) ────────────────────────
 	const maliCountryGeo = topojson.feature(worldTopo, {
 		type: "GeometryCollection",
 		geometries: worldTopo.objects.countries.geometries.filter(g => +g.id === 466),
 	});
 	addGeoLines(THREE, globe, maliCountryGeo, R + 0.004, 0xabf8fe, 0.5);
 
-	// ── Mali ADM1 region boundaries (cyan, bright) ─────────────────────────
+	// ── Mali ADM1 region lines (best-effort) ──────────────────────────────────
 	if (maliADM1) {
-		addGeoLines(THREE, globe, maliADM1, R + 0.005, 0xabf8fe, 0.75);
+		addGeoLines(THREE, globe, maliADM1, R + 0.006, 0xabf8fe, 0.8);
 	}
 
-	// ── Region data dots ───────────────────────────────────────────────────
+	// ── Region dots ───────────────────────────────────────────────────────────
 	const hitMeshes   = [];
 	const pulseMeshes = [];
 
 	MALI_REGIONS.forEach((region) => {
-		const pos = latLngToVec3(THREE, region.lat, region.lng, R + 0.01);
+		const pos = latLngToVec3(THREE, region.lat, region.lng, R + 0.012);
 
-		// Visible dot — cyan
-		globe.add(Object.assign(
-			new THREE.Mesh(
-				new THREE.SphereGeometry(0.012, 16, 16),
-				new THREE.MeshBasicMaterial({ color: 0xabf8fe })
-			),
-			{ position: pos.clone() }
-		));
+		// Visible core dot
+		const dot = new THREE.Mesh(
+			new THREE.SphereGeometry(0.013, 16, 16),
+			new THREE.MeshBasicMaterial({ color: 0xabf8fe })
+		);
+		dot.position.copy(pos);
+		globe.add(dot);
 
-		// Invisible hit sphere (30% larger)
+		// Invisible hit sphere (wider target)
 		const hit = new THREE.Mesh(
-			new THREE.SphereGeometry(0.022, 8, 8),
+			new THREE.SphereGeometry(0.026, 8, 8),
 			new THREE.MeshBasicMaterial({ transparent: true, opacity: 0 })
 		);
 		hit.position.copy(pos);
@@ -305,7 +281,7 @@ async function mountDemoGlobe(container) {
 
 		// Pulse shell
 		const pulse = new THREE.Mesh(
-			new THREE.SphereGeometry(0.012, 16, 16),
+			new THREE.SphereGeometry(0.013, 16, 16),
 			new THREE.MeshBasicMaterial({ color: 0xabf8fe, transparent: true, opacity: 0 })
 		);
 		pulse.position.copy(pos);
@@ -322,27 +298,13 @@ async function mountDemoGlobe(container) {
 		});
 	}
 
-	// ── Post-processing (same as hero) ─────────────────────────────────────
+	// ── Post-processing: bloom only (no ShaderPass — avoids readonly error) ───
 	const composer = new EffectComposer(renderer);
 	composer.addPass(new RenderPass(scene, camera));
-
-	const flyMat  = new THREE.ShaderMaterial({
-		uniforms:       {
-			tDiffuse:      { value: null },
-			resolution:    { value: new THREE.Vector2(1, 1) },
-			ommatidiaSize: { value: FLY_SHADER.uniforms.ommatidiaSize.value },
-		},
-		vertexShader:   FLY_SHADER.vertexShader,
-		fragmentShader: FLY_SHADER.fragmentShader,
-	});
-	const flyPass = new ShaderPass(flyMat);
-	composer.addPass(flyPass);
-
-	const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 1.1, 0.4, 0.0);
-	bloom.renderToScreen = true;
+	const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), 1.1, 0.4, 0.0);
 	composer.addPass(bloom);
 
-	// ── Resize ─────────────────────────────────────────────────────────────
+	// ── Resize ────────────────────────────────────────────────────────────────
 	function resize() {
 		const w = container.clientWidth  || 480;
 		const h = container.clientHeight || 480;
@@ -351,15 +313,12 @@ async function mountDemoGlobe(container) {
 		camera.aspect = w / h;
 		camera.updateProjectionMatrix();
 		composer.setSize(w, h);
-		composer.setPixelRatio(renderer.getPixelRatio());
-		flyMat.uniforms.resolution.value.set(w * renderer.getPixelRatio(), h * renderer.getPixelRatio());
-		bloom.resolution.set(w * renderer.getPixelRatio(), h * renderer.getPixelRatio());
 	}
 	const ro = new ResizeObserver(resize);
 	ro.observe(container);
 	requestAnimationFrame(resize);
 
-	// ── Tooltip ─────────────────────────────────────────────────────────────
+	// ── Tooltip ───────────────────────────────────────────────────────────────
 	const tooltip = document.createElement("div");
 	tooltip.className = "geostory-tooltip";
 	document.body.appendChild(tooltip);
@@ -367,6 +326,7 @@ async function mountDemoGlobe(container) {
 	function showTooltip(cx, cy, region) {
 		const cov = region.broadcastCoverage;
 		const trn = region.electionTurnout;
+		const covColor = cov > 55 ? "#abf8fe" : cov > 30 ? "#f59e0b" : "#ef4444";
 		tooltip.innerHTML = `
 			<div class="gs-region">${escapeHtml(region.name)}</div>
 			<div class="gs-capital">${escapeHtml(region.capital)}</div>
@@ -383,29 +343,35 @@ async function mountDemoGlobe(container) {
 				<span class="gs-label">Broadcast Coverage</span>
 				<span class="gs-val">${cov}%</span>
 			</div>
-			<div class="gs-bar-wrap"><div class="gs-bar-fill" style="width:${cov}%;background:${cov > 55 ? "#abf8fe" : cov > 30 ? "#f59e0b" : "#ef4444"}"></div></div>
+			<div class="gs-bar-wrap">
+				<div class="gs-bar-fill" style="width:${cov}%;background:${covColor}"></div>
+			</div>
 			<div class="gs-row gs-row--bar">
 				<span class="gs-label">Election Turnout</span>
 				<span class="gs-val">${trn}%</span>
 			</div>
-			<div class="gs-bar-wrap"><div class="gs-bar-fill" style="width:${trn}%;background:rgba(171,248,254,0.5)"></div></div>
+			<div class="gs-bar-wrap">
+				<div class="gs-bar-fill" style="width:${trn}%;background:rgba(171,248,254,0.45)"></div>
+			</div>
 			<div class="gs-notes">${escapeHtml(region.notes)}</div>
 		`;
 		const tw   = 230;
 		const pad  = 14;
 		const left = cx + pad + tw > window.innerWidth ? cx - tw - pad : cx + pad;
-		tooltip.style.left    = `${left}px`;
-		tooltip.style.top     = `${cy + 8}px`;
+		tooltip.style.left = `${left}px`;
+		tooltip.style.top  = `${cy + 8}px`;
 		tooltip.classList.add("is-visible");
 	}
 
-	function hideTooltip() { tooltip.classList.remove("is-visible"); }
+	function hideTooltip() {
+		tooltip.classList.remove("is-visible");
+	}
 
-	// ── Raycaster ───────────────────────────────────────────────────────────
+	// ── Raycaster ─────────────────────────────────────────────────────────────
 	const raycaster = new THREE.Raycaster();
 	const mouse     = new THREE.Vector2(-9999, -9999);
 
-	function pickDots(clientX, clientY) {
+	function pickDot(clientX, clientY) {
 		const rect = renderer.domElement.getBoundingClientRect();
 		mouse.x =  ((clientX - rect.left) / rect.width)  * 2 - 1;
 		mouse.y = -((clientY - rect.top)  / rect.height) * 2 + 1;
@@ -414,18 +380,20 @@ async function mountDemoGlobe(container) {
 		return hits.length ? hits[0].object.userData.region : null;
 	}
 
-	// ── Drag interaction (same momentum model as hero globe) ────────────────
-	let isDragging = false, prevX = 0, prevY = 0, momX = 0, momY = 0, tooltipActive = false;
+	// ── Drag (same momentum model as hero globe) ──────────────────────────────
+	let isDragging = false, prevX = 0, prevY = 0, momX = 0, momY = 0;
+	let tooltipActive = false;
 
 	const onDown = (e) => {
 		const cx = e.touches ? e.touches[0].clientX : e.clientX;
 		const cy = e.touches ? e.touches[0].clientY : e.clientY;
 		isDragging = true;
 		prevX = cx; prevY = cy;
-		momX = 0; momY = 0;
-		hideTooltip(); tooltipActive = false;
+		momX = 0;   momY = 0;
+		hideTooltip();
+		tooltipActive = false;
 		container.style.cursor = "grabbing";
-		e.preventDefault && e.preventDefault();
+		if (e.cancelable) e.preventDefault();
 	};
 	const onMove = (e) => {
 		const cx = e.touches ? e.touches[0].clientX : e.clientX;
@@ -435,9 +403,16 @@ async function mountDemoGlobe(container) {
 			momY = (cy - prevY) * 0.002;
 			prevX = cx; prevY = cy;
 		} else {
-			const hit = pickDots(cx, cy);
-			if (hit) { showTooltip(cx, cy, hit); tooltipActive = true; container.style.cursor = "pointer"; }
-			else      { hideTooltip(); tooltipActive = false; container.style.cursor = "grab"; }
+			const hit = pickDot(cx, cy);
+			if (hit) {
+				showTooltip(cx, cy, hit);
+				tooltipActive = true;
+				container.style.cursor = "pointer";
+			} else {
+				hideTooltip();
+				tooltipActive = false;
+				container.style.cursor = "grab";
+			}
 		}
 	};
 	const onUp = () => {
@@ -446,7 +421,7 @@ async function mountDemoGlobe(container) {
 	};
 	const onClick = (e) => {
 		if (isDragging) return;
-		const hit = pickDots(e.clientX, e.clientY);
+		const hit = pickDot(e.clientX, e.clientY);
 		if (hit) { showTooltip(e.clientX, e.clientY, hit); tooltipActive = true; }
 		else      { hideTooltip(); tooltipActive = false; }
 	};
@@ -460,12 +435,12 @@ async function mountDemoGlobe(container) {
 	container.addEventListener("click",      onClick);
 	container.addEventListener("mouseleave", hideTooltip);
 
-	// ── Rotate globe to show Mali on load ───────────────────────────────────
-	// Mali center ≈ lng −2; formula: rotation.y = (lng + 90) * PI/180
-	globe.rotation.y = (-2 + 90) * (Math.PI / 180);  // ≈ 1.536 rad → Mali faces forward
-	globe.rotation.x =  12 * (Math.PI / 180);         // slight tilt northward for Mali
+	// ── Initial rotation — face Mali (lng ≈ −2 → rotation.y ≈ 88°) ───────────
+	// Formula: rotation.y = (targetLng + 90) * PI/180
+	globe.rotation.y = (-2 + 90) * (Math.PI / 180);
+	globe.rotation.x =  14 * (Math.PI / 180);  // slight northward tilt
 
-	// ── Label overlay ───────────────────────────────────────────────────────
+	// ── Label ─────────────────────────────────────────────────────────────────
 	const label = document.createElement("div");
 	label.className = "demo-globe-label";
 	label.innerHTML = `
@@ -474,7 +449,7 @@ async function mountDemoGlobe(container) {
 	`;
 	container.appendChild(label);
 
-	// ── Animate ─────────────────────────────────────────────────────────────
+	// ── Render loop ───────────────────────────────────────────────────────────
 	let raf;
 	const animate = () => {
 		raf = requestAnimationFrame(animate);
@@ -589,7 +564,6 @@ export async function init(opts = {}) {
 		const p = data.project;
 		document.title = (p.title || "Project") + " — AJ91";
 		document.getElementById("project-content").style.display = "block";
-
 		document.getElementById("project-title").textContent = p.title || "Untitled";
 
 		const heroMedia = document.getElementById("project-hero-media");
@@ -597,15 +571,13 @@ export async function init(opts = {}) {
 		const heroVideo = document.getElementById("project-hero-video");
 		if (p.hero_image) {
 			heroVideo.style.display = "none";
-			heroImg.src = p.hero_image;
-			heroImg.alt = p.title;
+			heroImg.src = p.hero_image; heroImg.alt = p.title;
 			heroImg.style.display = "block";
 		} else if (p.hero_video) {
 			heroImg.style.display = "none";
 			heroVideo.src = p.hero_video;
 			heroVideo.style.display = "block";
-			heroVideo.load();
-			heroVideo.play().catch(() => {});
+			heroVideo.load(); heroVideo.play().catch(() => {});
 		} else {
 			heroMedia.style.display = "none";
 		}
@@ -620,17 +592,12 @@ export async function init(opts = {}) {
 			{ id: "project-star-a-text", value: p.star_action },
 			{ id: "project-star-r-text", value: p.star_result },
 		];
-		const hasAnyStar = starFields.some(f => f.value);
-		if (hasAnyStar) {
+		if (starFields.some(f => f.value)) {
 			starFields.forEach(f => {
 				const el   = document.getElementById(f.id);
 				const item = el?.closest(".project-star-item");
-				if (f.value) {
-					renderStarText(el, f.value);
-					if (item) item.style.display = "";
-				} else {
-					if (item) item.style.display = "none";
-				}
+				if (f.value) { renderStarText(el, f.value); if (item) item.style.display = ""; }
+				else          { if (item) item.style.display = "none"; }
 			});
 			starSection.style.display = "block";
 		}
@@ -640,25 +607,22 @@ export async function init(opts = {}) {
 		const mediaItems  = (p.galleryImages || []).slice(0, 3);
 		const demoConfig  = p.demo_config || {};
 		const activeDemo  = Object.keys(DEMO_MODULES).find(k => demoConfig[k]);
-		const hasDemo     = !!activeDemo;
 		const isVideo     = (url) => /\.(mp4|webm|mov|ogg)(\?|$)/i.test(url || "");
 
-		if (mediaItems.length > 0 || hasDemo) {
-			if (mediaItems.length + (hasDemo ? 1 : 0) >= 3) {
+		if (mediaItems.length > 0 || activeDemo) {
+			if (mediaItems.length + (activeDemo ? 1 : 0) >= 3) {
 				galleryGrid.classList.add("project-gallery-grid--2col");
 			}
-
 			if (mediaItems.length > 0) {
-				galleryGrid.innerHTML = mediaItems.map((url) => {
-					const safe = escapeHtml(url);
+				galleryGrid.innerHTML = mediaItems.map(url => {
+					const s = escapeHtml(url);
 					return isVideo(url)
-						? `<div class="project-gallery-item"><video src="${safe}" playsinline muted loop autoplay></video></div>`
-						: `<div class="project-gallery-item"><img src="${safe}" alt=""></div>`;
+						? `<div class="project-gallery-item"><video src="${s}" playsinline muted loop autoplay></video></div>`
+						: `<div class="project-gallery-item"><img src="${s}" alt=""></div>`;
 				}).join("");
 				galleryGrid.querySelectorAll("video").forEach(v => v.play().catch(() => {}));
 			}
-
-			if (hasDemo) {
+			if (activeDemo) {
 				const demoItem = document.createElement("div");
 				demoItem.className = "project-gallery-item project-gallery-item--demo";
 				galleryGrid.appendChild(demoItem);
