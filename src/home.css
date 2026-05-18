@@ -799,8 +799,10 @@ body {
   align-items: center;
   justify-content: center;
   min-height: clamp(64px, 9vw, 110px);
-  cursor: default;
+  cursor: pointer;
   overflow: hidden;
+  text-decoration: none;
+  color: inherit;
 }
 /* Left-to-right fill sweep on hover */
 .services-row::before {

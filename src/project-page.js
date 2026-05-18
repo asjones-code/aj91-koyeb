@@ -157,7 +157,7 @@ function createGeoModal() {
 			<a class="gsm-lead-story" target="_blank" rel="noopener">
 				<div class="gsm-lead-date"></div>
 				<div class="gsm-lead-title"></div>
-				<div class="gsm-lead-source">allafrica.com →</div>
+				<div class="gsm-lead-source">journaldumali.com →</div>
 			</a>
 
 			<div class="gsm-body">
@@ -167,7 +167,7 @@ function createGeoModal() {
 					<div class="gsm-notes-text"></div>
 				</div>
 				<div class="gsm-right">
-					<div class="gsm-section-label">More Stories <span class="gsm-source-tag">West Africa</span></div>
+					<div class="gsm-section-label">More Stories <span class="gsm-source-tag">Mali</span></div>
 					<div class="gsm-stories"></div>
 				</div>
 			</div>
@@ -531,6 +531,17 @@ async function mountDemoGlobe(container) {
 
 	const onUp = () => { isDragging = false; container.style.cursor = "grab"; };
 
+	// Mobile tap: e.preventDefault() in touchstart blocks synthetic click, so handle tap here
+	const onTouchEnd = (e) => {
+		isDragging = false;
+		container.style.cursor = "grab";
+		if (!didDrag && e.changedTouches.length) {
+			const t = e.changedTouches[0];
+			const hit = pickDot(t.clientX, t.clientY);
+			if (hit) { hideTooltip(); modal.open(hit); }
+		}
+	};
+
 	const onLeave = () => { hideTooltip(); isHovering = false; };
 
 	const onClick = (e) => {
@@ -539,12 +550,12 @@ async function mountDemoGlobe(container) {
 		if (hit) { hideTooltip(); modal.open(hit); }
 	};
 
-	container.addEventListener("mousedown",  onDown,  { passive: false });
-	container.addEventListener("touchstart", onDown,  { passive: false });
+	container.addEventListener("mousedown",  onDown,      { passive: false });
+	container.addEventListener("touchstart", onDown,      { passive: false });
 	window.addEventListener("mousemove",     onMove);
-	container.addEventListener("touchmove",  onMove,  { passive: true });
+	container.addEventListener("touchmove",  onMove,      { passive: true });
 	window.addEventListener("mouseup",       onUp);
-	container.addEventListener("touchend",   onUp);
+	container.addEventListener("touchend",   onTouchEnd);
 	container.addEventListener("click",      onClick);
 	container.addEventListener("mouseleave", onLeave);
 
@@ -596,7 +607,7 @@ async function mountDemoGlobe(container) {
 		window.removeEventListener("mousemove",     onMove);
 		container.removeEventListener("touchmove",  onMove);
 		window.removeEventListener("mouseup",       onUp);
-		container.removeEventListener("touchend",   onUp);
+		container.removeEventListener("touchend",   onTouchEnd);
 		container.removeEventListener("click",      onClick);
 		container.removeEventListener("mouseleave", onLeave);
 		renderer.dispose();
