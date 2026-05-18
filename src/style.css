@@ -2243,6 +2243,37 @@ body.page-is-project-detail .project-title {
   color: rgba(171, 248, 254, 0.85);
 }
 
+/* R-content wrapper: invisible pass-through so label/text behave as normal grid items */
+.project-star-r-content {
+  display: contents;
+}
+#project-star-r .project-star-demo-slot {
+  display: none;
+}
+
+/* R + demo: two-column flex row on desktop */
+#project-star-r.has-demo {
+  grid-template-columns: 1fr 1.6fr;
+  gap: 0 3rem;
+  align-items: stretch;
+}
+#project-star-r.has-demo .project-star-r-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  align-self: start;
+  padding-top: 0.15rem;
+}
+#project-star-r.has-demo .project-star-demo-slot {
+  display: block;
+  background: #020208;
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  min-height: 32rem;
+  align-self: stretch;
+}
+
 @media (max-width: 768px) {
   .project-star-item {
     grid-template-columns: 1fr;
@@ -2256,6 +2287,24 @@ body.page-is-project-detail .project-title {
   }
   .project-star-letter {
     font-size: 1.4rem;
+  }
+  /* R + demo on mobile: stack vertically, demo goes full-bleed */
+  #project-star-r.has-demo {
+    grid-template-columns: 1fr;
+    gap: 1.5rem 0;
+  }
+  #project-star-r.has-demo .project-star-r-content {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  #project-star-r.has-demo .project-star-demo-slot {
+    /* Break out of project-star-inner's 2rem padding to go edge-to-edge */
+    width: 100vw;
+    margin-left: calc(-50vw + 50%);
+    border-radius: 0;
+    min-height: 22rem;
+    align-self: auto;
   }
 }
 
