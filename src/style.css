@@ -1632,6 +1632,47 @@ body.page-is-projects .header .cross span {
   font-size: 0.55rem;
   letter-spacing: 0.08em;
 }
+.gsm-demo-tag {
+  color: rgba(255,255,255,0.2);
+  font-size: 0.55rem;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+/* Lead story — featured headline */
+.gsm-lead-story {
+  display: block;
+  padding: 1rem 1.5rem 1.1rem;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  text-decoration: none;
+  background: rgba(171,248,254,0.025);
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.gsm-lead-story:hover { background: rgba(171,248,254,0.05); }
+.gsm-lead-date {
+  font-size: 0.62rem;
+  color: var(--c-accent, #abf8fe);
+  opacity: 0.6;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 0.35rem;
+}
+.gsm-lead-title {
+  font-size: 0.92rem;
+  color: rgba(255,255,255,0.88);
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.45rem;
+  font-weight: 600;
+  font-family: inherit;
+}
+.gsm-lead-source {
+  font-size: 0.6rem;
+  color: rgba(171,248,254,0.4);
+  letter-spacing: 0.08em;
+}
 /* Metric bars */
 .gsm-metrics {
   display: flex;
@@ -1960,6 +2001,66 @@ body.page-is-project-detail .project-title {
 }
 
 /* ── Project STAR description (huyml.co editorial style) ───────────────────── */
+
+/* ── Lead media: first gallery item, sits right above Situation ── */
+.project-lead-media {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  background: #000;
+}
+
+.project-lead-media-inner {
+  width: 100%;
+  display: block;
+}
+
+.project-lead-media-inner img {
+  width: 100%;
+  max-height: 72vh;
+  object-fit: cover;
+  display: block;
+  filter: grayscale(100%);
+  transition: filter 0.5s ease;
+}
+
+.project-lead-media-inner img:hover {
+  filter: grayscale(0%);
+}
+
+.project-lead-media-inner video {
+  width: 100%;
+  display: block;
+  max-height: 85vh;
+  object-fit: contain;
+  background: #000;
+}
+
+/* Scroll hint badge */
+.lead-scroll-hint {
+  display: none; /* shown by JS only for videos */
+  position: absolute;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.45);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 100px;
+  padding: 0.35rem 0.9rem;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.6s ease;
+}
+
+.lead-scroll-hint.is-gone {
+  opacity: 0;
+}
 
 .project-star {
   padding: 5rem 0 4rem;
