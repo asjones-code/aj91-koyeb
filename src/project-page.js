@@ -785,31 +785,34 @@ export async function init(opts = {}) {
 			leadSection.style.display = "block";
 		}
 
-		// ── Remaining items 2–3 + demo slot → gallery grid ───────────────────
+		// ── Demo → R-section slot ────────────────────────────────────────────
+		const demoConfig = p.demo_config || {};
+		const activeDemo = Object.keys(DEMO_MODULES).find(k => demoConfig[k]);
+
+		if (activeDemo) {
+			const starR    = document.getElementById("project-star-r");
+			const demoSlot = document.getElementById("project-star-demo-slot");
+			if (starR && demoSlot) {
+				starR.classList.add("has-demo");
+				DEMO_MODULES[activeDemo].mount(demoSlot).catch(console.error);
+			}
+		}
+
+		// ── Remaining items 2–3 → gallery grid ───────────────────────────────
 		const galleryGrid  = document.getElementById("project-gallery-grid");
 		const galleryItems = allMedia.slice(1, 3);
-		const demoConfig   = p.demo_config || {};
-		const activeDemo   = Object.keys(DEMO_MODULES).find(k => demoConfig[k]);
 
-		if (galleryItems.length > 0 || activeDemo) {
-			if (galleryItems.length + (activeDemo ? 1 : 0) >= 2) {
+		if (galleryItems.length > 0) {
+			if (galleryItems.length >= 2) {
 				galleryGrid.classList.add("project-gallery-grid--2col");
 			}
-			if (galleryItems.length > 0) {
-				galleryGrid.innerHTML = galleryItems.map(url => {
-					const s = escapeHtml(url);
-					return isVideo(url)
-						? `<div class="project-gallery-item"><video src="${s}" playsinline muted loop autoplay></video></div>`
-						: `<div class="project-gallery-item"><img src="${s}" alt=""></div>`;
-				}).join("");
-				galleryGrid.querySelectorAll("video").forEach(v => v.play().catch(() => {}));
-			}
-			if (activeDemo) {
-				const demoItem = document.createElement("div");
-				demoItem.className = "project-gallery-item project-gallery-item--demo";
-				galleryGrid.appendChild(demoItem);
-				DEMO_MODULES[activeDemo].mount(demoItem).catch(console.error);
-			}
+			galleryGrid.innerHTML = galleryItems.map(url => {
+				const s = escapeHtml(url);
+				return isVideo(url)
+					? `<div class="project-gallery-item"><video src="${s}" playsinline muted loop autoplay></video></div>`
+					: `<div class="project-gallery-item"><img src="${s}" alt=""></div>`;
+			}).join("");
+			galleryGrid.querySelectorAll("video").forEach(v => v.play().catch(() => {}));
 		} else {
 			document.getElementById("project-gallery").style.display = "none";
 		}
