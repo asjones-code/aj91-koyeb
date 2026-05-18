@@ -229,6 +229,7 @@ async function initDatabase() {
 			ALTER TABLE cms_projects ADD COLUMN IF NOT EXISTS star_task TEXT;
 			ALTER TABLE cms_projects ADD COLUMN IF NOT EXISTS star_action TEXT;
 			ALTER TABLE cms_projects ADD COLUMN IF NOT EXISTS star_result TEXT;
+			ALTER TABLE cms_projects ADD COLUMN IF NOT EXISTS demo_config JSONB DEFAULT '{}';
 		`);
 		console.log("[db] Database initialized");
 		return pool;

@@ -3,7 +3,7 @@
  */
 import { getPool } from "../db.js";
 
-const COLS = "id, slug, title, excerpt, thumbnail, hero_image, hero_video, about_text, gallery_images, gallery_caption, footer_cta, footer_email, tags, star_situation, star_task, star_action, star_result, published, created_at, updated_at";
+const COLS = "id, slug, title, excerpt, thumbnail, hero_image, hero_video, about_text, gallery_images, gallery_caption, footer_cta, footer_email, tags, star_situation, star_task, star_action, star_result, demo_config, published, created_at, updated_at";
 
 export async function findAll(includeUnpublished = false) {
 	const p = getPool();
@@ -56,9 +56,10 @@ export async function create(data) {
 	try {
 		const gallery = JSON.stringify(Array.isArray(data.galleryImages) ? data.galleryImages : (data.gallery_images || []));
 		const tags = JSON.stringify(Array.isArray(data.tags) ? data.tags : []);
+		const demoConfig = JSON.stringify(data.demo_config && typeof data.demo_config === "object" ? data.demo_config : {});
 		const r = await p.query(
-			`INSERT INTO cms_projects (slug, title, excerpt, thumbnail, hero_image, hero_video, about_text, gallery_images, gallery_caption, footer_cta, footer_email, tags, star_situation, star_task, star_action, star_result, published)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+			`INSERT INTO cms_projects (slug, title, excerpt, thumbnail, hero_image, hero_video, about_text, gallery_images, gallery_caption, footer_cta, footer_email, tags, star_situation, star_task, star_action, star_result, demo_config, published)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
        RETURNING ${COLS}`,
 			[
 				data.slug.trim(),
@@ -77,6 +78,7 @@ export async function create(data) {
 				data.star_task?.trim() || null,
 				data.star_action?.trim() || null,
 				data.star_result?.trim() || null,
+				demoConfig,
 				!!data.published,
 			]
 		);
@@ -95,9 +97,10 @@ export async function update(id, data) {
 	try {
 		const gallery = JSON.stringify(Array.isArray(data.galleryImages) ? data.galleryImages : (data.gallery_images || []));
 		const tags = JSON.stringify(Array.isArray(data.tags) ? data.tags : []);
+		const demoConfig = JSON.stringify(data.demo_config && typeof data.demo_config === "object" ? data.demo_config : {});
 		const r = await p.query(
-			`UPDATE cms_projects SET slug = $1, title = $2, excerpt = $3, thumbnail = $4, hero_image = $5, hero_video = $6, about_text = $7, gallery_images = $8, gallery_caption = $9, footer_cta = $10, footer_email = $11, tags = $12, star_situation = $13, star_task = $14, star_action = $15, star_result = $16, published = $17, updated_at = NOW()
-       WHERE id = $18 RETURNING ${COLS}`,
+			`UPDATE cms_projects SET slug = $1, title = $2, excerpt = $3, thumbnail = $4, hero_image = $5, hero_video = $6, about_text = $7, gallery_images = $8, gallery_caption = $9, footer_cta = $10, footer_email = $11, tags = $12, star_situation = $13, star_task = $14, star_action = $15, star_result = $16, demo_config = $17, published = $18, updated_at = NOW()
+       WHERE id = $19 RETURNING ${COLS}`,
 			[
 				data.slug.trim(),
 				data.title.trim(),
@@ -115,6 +118,7 @@ export async function update(id, data) {
 				data.star_task?.trim() || null,
 				data.star_action?.trim() || null,
 				data.star_result?.trim() || null,
+				demoConfig,
 				!!data.published,
 				id,
 			]
@@ -144,5 +148,6 @@ export async function remove(id) {
 function normalize(row) {
 	const galleryImages = Array.isArray(row.gallery_images) ? row.gallery_images : (typeof row.gallery_images === "string" ? JSON.parse(row.gallery_images || "[]") : []);
 	const tags = Array.isArray(row.tags) ? row.tags : (typeof row.tags === "string" ? JSON.parse(row.tags || "[]") : []);
-	return { ...row, galleryImages, tags };
+	const demo_config = row.demo_config && typeof row.demo_config === "object" ? row.demo_config : (typeof row.demo_config === "string" ? JSON.parse(row.demo_config || "{}") : {});
+	return { ...row, galleryImages, tags, demo_config };
 }

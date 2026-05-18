@@ -277,10 +277,24 @@
       <textarea id="edit-project-star-action" name="star_action" placeholder="Technical approach, tools, and steps taken..."></textarea>
       <label for="edit-project-star-result">Result — what was the outcome?</label>
       <textarea id="edit-project-star-result" name="star_result" placeholder="Measurable impact and key outcomes..."></textarea>
-      <label for="edit-project-gallery">Gallery media URLs (one per line; images or .mp4/.webm video)</label>
-      <textarea id="edit-project-gallery" name="gallery_images" placeholder="https://...jpg\nhttps://...mp4"></textarea>
+      <label for="edit-project-gallery">Gallery media URLs (one per line; up to 3 images or .mp4/.webm — 4th slot is the demo)</label>
+      <textarea id="edit-project-gallery" name="gallery_images" placeholder="https://...jpg&#10;https://...mp4"></textarea>
       <label for="edit-project-gallery-caption">Gallery caption</label>
       <textarea id="edit-project-gallery-caption" name="gallery_caption" placeholder="Caption below gallery"></textarea>
+      <h2>Demo Modules</h2>
+      <p class="help">Enable a live demo in the 4th gallery slot. Only one module is active at a time.</p>
+      <div class="checkbox-wrap">
+        <input type="checkbox" id="demo-globe-geojson" name="demo_globe_geojson">
+        <label for="demo-globe-geojson">Three.js Globe + GeoJSON — Geostory (DRC provinces / broadcast signals)</label>
+      </div>
+      <div class="checkbox-wrap">
+        <input type="checkbox" id="demo-d3-chart" name="demo_d3_chart" disabled>
+        <label for="demo-d3-chart" style="opacity:0.4">D3 Chart — coming soon</label>
+      </div>
+      <div class="checkbox-wrap">
+        <input type="checkbox" id="demo-terminal" name="demo_terminal" disabled>
+        <label for="demo-terminal" style="opacity:0.4">Terminal / CLI — coming soon</label>
+      </div>
       <label for="edit-project-footer-cta">Footer CTA text</label>
       <input type="text" id="edit-project-footer-cta" name="footer_cta" placeholder="Get in touch">
       <label for="edit-project-footer-email">Footer email</label>
@@ -485,6 +499,7 @@
       document.getElementById("edit-project-footer-email").value = "";
       document.getElementById("edit-project-tags").value = "";
       document.getElementById("edit-project-published").checked = false;
+      document.getElementById("demo-globe-geojson").checked = false;
       document.getElementById("edit-project-title").textContent = "New project";
       showError("edit-project-error");
       showView("edit-project");
@@ -528,6 +543,8 @@
         document.getElementById("edit-project-footer-email").value = p.footer_email || "";
         document.getElementById("edit-project-tags").value = (p.tags || []).join(", ");
         document.getElementById("edit-project-published").checked = !!p.published;
+        const dc = p.demo_config || {};
+        document.getElementById("demo-globe-geojson").checked = !!dc.globe_geojson;
         document.getElementById("edit-project-title").textContent = "Edit project";
         showError("edit-project-error");
         showView("edit-project");
@@ -787,6 +804,9 @@
       const galleryImages = galleryStr ? galleryStr.split("\n").map((s) => s.trim()).filter(Boolean) : [];
       const tagsStr = document.getElementById("edit-project-tags").value.trim();
       const tags = tagsStr ? tagsStr.split(",").map((s) => s.trim()).filter(Boolean) : [];
+      const demo_config = {
+        globe_geojson: document.getElementById("demo-globe-geojson").checked,
+      };
       const body = {
         slug: document.getElementById("edit-project-slug").value.trim(),
         title: document.getElementById("edit-project-title-input").value.trim(),
@@ -799,6 +819,7 @@
         star_task: document.getElementById("edit-project-star-task").value.trim() || null,
         star_action: document.getElementById("edit-project-star-action").value.trim() || null,
         star_result: document.getElementById("edit-project-star-result").value.trim() || null,
+        demo_config,
         galleryImages,
         gallery_caption: document.getElementById("edit-project-gallery-caption").value.trim() || null,
         footer_cta: document.getElementById("edit-project-footer-cta").value.trim() || null,
