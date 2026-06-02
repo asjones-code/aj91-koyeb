@@ -5,3 +5,6 @@ dist/
 .cache/
 .env
 .env.local
+cover-letters/HVFH_AD-LD.md
+.env.example
+.env.example
