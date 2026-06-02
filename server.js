@@ -2666,6 +2666,12 @@ Respond with ONLY valid JSON, no markdown or explanation:
 				ALPACA_KEY_ID: has("ALPACA_KEY_ID"),
 				DATABASE_URL: has("DATABASE_URL"),
 			},
+			// Actual env var NAMES the process sees (names only, NO values). JSON-encoded so
+			// trailing spaces / odd casing in a var name show up clearly as a distinct string.
+			appEnvKeys: Object.keys(process.env)
+				.filter(k => /KRAKEN|ANTHROPIC|ALPACA|MAILERSEND|SIGNAL|DATABASE|OPENAI|^PM_|^CMS_/i.test(k))
+				.sort()
+				.map(k => JSON.stringify(k)),
 			krakenAi: { enabled: cfg.enabled, mode: cfg.mode, equityPct: cfg.equityPct, maxPositions: cfg.maxPositions, minTradeUsd: cfg.minTradeUsd },
 			signalEmailHourUtc: SIGNAL_EMAIL_HOUR,
 			now: new Date().toISOString(),
