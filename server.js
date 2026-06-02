@@ -1431,6 +1431,274 @@ setInterval(() => {
 }, LIVE_TOUCH_INTERVAL_MS);
 setInterval(() => pruneStaleVisitors(), LIVE_PRUNE_INTERVAL_MS);
 
+// ── Daily recs cache (24h TTL) ────────────────────────────────────────────────
+const dailyRecCache = { data: null, expiresAt: 0, cachedAt: 0 };
+
+// ── Kraken helpers (module-scope so /api/ai/* can reuse them) ─────────────────
+const KRAKEN_BASE = "https://api.kraken.com";
+function krakenPublicGet(endpoint, params = {}) {
+	const qs = new URLSearchParams(params).toString();
+	return fetch(`${KRAKEN_BASE}${endpoint}${qs ? "?" + qs : ""}`, {
+		headers: { Accept: "application/json" },
+	});
+}
+function krakenPrivatePost(path, params = {}) {
+	const nonce = Date.now().toString();
+	const postData = new URLSearchParams({ nonce, ...params }).toString();
+	const secretBuf = Buffer.from(process.env.KRAKEN_API_SECRET, "base64");
+	const sha256 = crypto.createHash("sha256").update(nonce + postData).digest();
+	const sign = crypto.createHmac("sha512", secretBuf)
+		.update(Buffer.from(path))
+		.update(sha256)
+		.digest("base64");
+	return fetch(`${KRAKEN_BASE}${path}`, {
+		method: "POST",
+		headers: {
+			"API-Key": process.env.KRAKEN_API_KEY,
+			"API-Sign": sign,
+			"Content-Type": "application/x-www-form-urlencoded",
+		},
+		body: postData,
+	});
+}
+function normalizeAsset(raw) {
+	if (raw === "XXBT" || raw === "XBT") return "BTC";
+	if (raw.startsWith("Z") && raw.length === 4) return raw.slice(1);
+	if (raw.startsWith("X") && raw.length >= 4) return raw.slice(1);
+	return raw;
+}
+
+// ── Quant-analyst signal engine ──────────────────────────────────────────────
+// System prompt transcribed verbatim from the quant-analyst Claude Code skill
+// (.claude/skills/quant-analyst/SKILL.md) so every signal — daily auto, emailed
+// report, and premium on-demand regenerations — follows the same falsifiable,
+// conviction-ranked framework.
+const QUANT_ANALYST_SYSTEM = `You are a quantitative crypto analyst.
+
+CORE PRINCIPLE
+Every recommendation must be falsifiable. If you can't state what would invalidate the trade, it's not a trade — it's a guess. Momentum is real. Conviction requires signal + sizing + timeframe alignment.
+
+DECISION FRAMEWORK
+Step 1 — Momentum scoring (1-10 per asset):
+- 24h price change vs. recent baseline (positive = +points, negative = -points)
+- Volume trend: rising volume on up moves = +2, rising on down = -2
+- Relative strength vs. broader market: outperforming = +1, underperforming = -1
+
+Step 2 — Signal strength classification:
+- HIGH: 24h move > 2% AND aligned with 7d trend direction
+- MEDIUM: 24h move 0.5-2% OR conflicting timeframe signals
+- LOW: < 0.5% move OR trend reversal signal
+
+Step 3 — Multi-timeframe projection (Jegadeesh-Titman momentum persistence):
+- 24h: based purely on current 24h momentum and intraday pattern
+- 7D: momentum typically persists 5-10 days; decay factor ~0.6x per week
+- 30D: medium-term mean reversion risk; apply ~0.3x persistence multiplier. 30D must NOT simply be 4x the 7D — at most ~2.5x the 7D.
+
+Step 4 — Position sizing:
+- Never recommend a single position > 25% of available capital
+- LOW conviction: max 10% of capital
+- HIGH conviction with strong trend: up to 20% of capital
+- If available cash is insufficient for a meaningful entry, recommend monitoring only — no new entries
+
+Step 5 — Risk identification:
+Always name one specific invalidation signal, e.g. "Invalidated if price drops below [X] support" or "Signal fails if volume drops below 24h average on next candle".
+
+BEST PRACTICES
+- Use their exact ticker language: if data shows XRPUSD, say XRP.
+- Multi-timeframe agreement > single-timeframe strength.
+- A HOLD with a clear trigger condition beats a weak BUY.
+- Always include a market-context sentence — signals don't exist in isolation.
+
+ANTI-PATTERNS (never do these)
+- Vague sentiment ("strong buy based on positive sentiment") — instead cite concrete momentum + alignment + conviction.
+- Linear projection (30D = 4x 7D) — apply momentum decay.
+- Recommending an entry when cash is insufficient — say "monitor only".
+- Vague invalidation ("if market turns bad") — be specific about price/volume.
+- Over-fitting a single timeframe — cross-reference 24h, 7D, 30D.`;
+
+const SIGNAL_MODEL = (process.env.SIGNAL_MODEL || "claude-haiku-4-5-20251001").trim();
+const SIGNAL_EMAIL_TO = (process.env.SIGNAL_EMAIL_TO || "asjones91@gmail.com").trim();
+const SIGNAL_PREMIUM_TOKEN = (process.env.SIGNAL_PREMIUM_TOKEN || process.env.PM_PASSWORD || "test").trim();
+const SIGNAL_EMAIL_HOUR = Number(process.env.SIGNAL_EMAIL_HOUR || 13); // UTC hour for daily send
+
+// Premium gate: accept a shared signal token (X-Signal-Token) or a valid PM session.
+function isSignalPremiumAuthed(req) {
+	const t = (req.headers["x-signal-token"] || "").trim();
+	if (t && t === SIGNAL_PREMIUM_TOKEN) return true;
+	try { return isPmTokenValid(getPmToken(req)); } catch { return false; }
+}
+
+// Pull live Kraken holdings + cash and format them for the model prompt.
+async function buildKrakenHoldingLines() {
+	const FIAT = new Set(["USD", "EUR", "GBP", "JPY", "CAD"]);
+	const PAIR_MAP = {
+		BTC:"XBTUSD", ETH:"ETHUSD", SOL:"SOLUSD", XRP:"XRPUSD",
+		DOGE:"DOGEUSD", ADA:"ADAUSD", DOT:"DOTUSD", LINK:"LINKUSD",
+		AVAX:"AVAXUSD", LTC:"LTCUSD", NEAR:"NEARUSD", PAXG:"PAXGUSD",
+		TRAC:"TRACUSD", ALGO:"ALGOUSD",
+	};
+	let holdings = [];
+	let cashUsd = 0;
+	const krakenKey = process.env.KRAKEN_API_KEY;
+	const krakenSecret = process.env.KRAKEN_API_SECRET;
+	if (krakenKey && krakenSecret) {
+		const balRes  = await krakenPrivatePost("/0/private/Balance");
+		const balData = await balRes.json();
+		const balances = Object.entries(balData.result || {})
+			.map(([raw, bal]) => ({ asset: normalizeAsset(raw), balance: parseFloat(bal) }))
+			.filter(b => b.balance > 0.000001);
+		cashUsd = balances.filter(b => b.asset === "USD").reduce((s, b) => s + b.balance, 0);
+		const cryptoHoldings = balances.filter(b => !FIAT.has(b.asset));
+		const pairs = cryptoHoldings.map(b => PAIR_MAP[b.asset]).filter(Boolean).join(",");
+		if (pairs) {
+			const tkRes  = await krakenPublicGet("/0/public/Ticker", { pair: pairs });
+			const tkData = await tkRes.json();
+			const tickers = tkData.result || {};
+			holdings = cryptoHoldings.map(b => {
+				const tkKey = Object.keys(tickers).find(k =>
+					k.replace("XBT", "BTC").includes(b.asset) || k.startsWith(b.asset === "BTC" ? "XXB" : b.asset)
+				);
+				const tk      = tkKey ? tickers[tkKey] : null;
+				const last    = tk ? parseFloat(tk.c[0]) : 0;
+				const open24h = tk ? parseFloat(tk.o)    : 0;
+				const high24h = tk ? parseFloat(tk.h[1]) : 0;
+				const low24h  = tk ? parseFloat(tk.l[1]) : 0;
+				const vol24h  = tk ? parseFloat(tk.v[1]) : 0;
+				const chg24h  = open24h > 0 ? ((last - open24h) / open24h) * 100 : 0;
+				return { asset: b.asset, balance: b.balance, price: last, value: b.balance * last, chg24h, high24h, low24h, vol24h };
+			}).filter(h => h.price > 0).sort((a, b) => b.value - a.value);
+		}
+	}
+	const holdingLines = holdings.length
+		? holdings.map(h =>
+			`  ${h.asset}: qty=${h.balance.toFixed(4)} price=$${h.price.toFixed(2)} value=$${h.value.toFixed(2)} 24h=${h.chg24h >= 0 ? "+" : ""}${h.chg24h.toFixed(2)}% high24h=$${h.high24h.toFixed(2)} low24h=$${h.low24h.toFixed(2)} vol24h=${h.vol24h.toFixed(0)}`
+		  ).join("\n")
+		: "  No live holdings — generate signal based on general crypto momentum";
+	return { holdingLines, cashUsd };
+}
+
+// Generate (or serve cached) daily signal report using the quant-analyst system prompt.
+async function generateSignalReport({ force = false } = {}) {
+	const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+	if (!ANTHROPIC_KEY) return { demo: true };
+	if (!force && dailyRecCache.data && Date.now() < dailyRecCache.expiresAt) {
+		return { ...dailyRecCache.data, cached: true, cachedAt: dailyRecCache.cachedAt };
+	}
+	const { holdingLines, cashUsd } = await buildKrakenHoldingLines();
+	const userPrompt = `Apply your quant framework to this portfolio and select the SINGLE highest-conviction trade (an existing holding, or a major pair like BTC/ETH/SOL if it shows stronger signals).
+
+PORTFOLIO DATA:
+${holdingLines}
+
+Available USD cash: $${cashUsd.toFixed(2)}
+
+Respond with ONLY valid JSON, no markdown or explanation:
+{
+  "asset": "XRP",
+  "action": "BUY",
+  "conviction": "HIGH",
+  "projected_24h_pct": 2.4,
+  "projected_7d_pct": 5.8,
+  "projected_30d_pct": 11.2,
+  "time_horizon": "7D",
+  "signal_basis": "One sentence: specific signal justifying this trade.",
+  "risk_note": "One sentence: specific invalidation condition.",
+  "market_note": "One sentence: broader crypto market context."
+}`;
+	const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
+		method: "POST",
+		headers: {
+			"x-api-key": ANTHROPIC_KEY,
+			"anthropic-version": "2023-06-01",
+			"content-type": "application/json",
+		},
+		body: JSON.stringify({
+			model: SIGNAL_MODEL,
+			max_tokens: 700,
+			system: QUANT_ANALYST_SYSTEM,
+			messages: [{ role: "user", content: userPrompt }],
+		}),
+	});
+	const claudeData = await claudeRes.json();
+	let text = claudeData.content?.[0]?.text?.trim() || "{}";
+	text = text.replace(/^\`\`\`(?:json)?\s*/i, "").replace(/\s*\`\`\`\s*$/i, "").trim();
+	const rec = JSON.parse(text);
+	const result = { ...rec, cached: false, cachedAt: Date.now() };
+	dailyRecCache.data      = result;
+	dailyRecCache.expiresAt = Date.now() + 24 * 3600_000;
+	dailyRecCache.cachedAt  = Date.now();
+	return result;
+}
+
+function signalEmailHtml(rec) {
+	const pct = (v) => v == null ? "—" : (v >= 0 ? "+" : "") + Number(v).toFixed(1) + "%";
+	const color = rec.action === "BUY" ? "#1f9d55" : rec.action === "SELL" ? "#d6336c" : "#555";
+	return `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:560px;margin:0 auto;color:#111">
+	<p style="font:600 11px monospace;letter-spacing:.12em;color:#888;text-transform:uppercase;margin:0 0 4px">Daily Signal · Quant-Analyst</p>
+	<h1 style="margin:0 0 16px;font-size:26px;color:${color}">${rec.action} ${rec.asset} <span style="font-size:13px;color:#888">${rec.conviction} conviction</span></h1>
+	<table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 16px">
+		<tr><td style="padding:8px;background:#f5f5f3;font-weight:600">Trade</td><td style="padding:8px">${rec.action} ${rec.asset}</td></tr>
+		<tr><td style="padding:8px;background:#f5f5f3;font-weight:600">Conviction</td><td style="padding:8px">${rec.conviction}</td></tr>
+		<tr><td style="padding:8px;background:#f5f5f3;font-weight:600">Time horizon</td><td style="padding:8px">${rec.time_horizon || "—"}</td></tr>
+		<tr><td style="padding:8px;background:#f5f5f3;font-weight:600">Projected return</td><td style="padding:8px">24h ${pct(rec.projected_24h_pct)} · 7D ${pct(rec.projected_7d_pct)} · 30D ${pct(rec.projected_30d_pct)}</td></tr>
+		<tr><td style="padding:8px;background:#f5f5f3;font-weight:600">Risk</td><td style="padding:8px">${rec.risk_note || "—"}</td></tr>
+	</table>
+	<p style="font-size:14px;line-height:1.6;color:#333"><strong>Signal:</strong> ${rec.signal_basis || "—"}</p>
+	<p style="font-size:13px;line-height:1.6;color:#666"><strong>Market:</strong> ${rec.market_note || "—"}</p>
+	<p style="font-size:11px;color:#aaa;margin-top:24px">Human-in-the-loop: this is a signal for your review, not auto-executed.</p>
+</div>`;
+}
+function signalEmailText(rec) {
+	const pct = (v) => v == null ? "—" : (v >= 0 ? "+" : "") + Number(v).toFixed(1) + "%";
+	return `DAILY SIGNAL — ${rec.action} ${rec.asset} (${rec.conviction} conviction)
+Trade: ${rec.action} ${rec.asset}
+Time horizon: ${rec.time_horizon || "—"}
+Projected return: 24h ${pct(rec.projected_24h_pct)} / 7D ${pct(rec.projected_7d_pct)} / 30D ${pct(rec.projected_30d_pct)}
+Risk: ${rec.risk_note || "—"}
+Signal: ${rec.signal_basis || "—"}
+Market: ${rec.market_note || "—"}
+
+Human-in-the-loop: signal for review, not auto-executed.`;
+}
+async function emailSignalReport({ to = SIGNAL_EMAIL_TO, force = false } = {}) {
+	const rec = await generateSignalReport({ force });
+	if (rec.demo)  return { ok: false, error: "ANTHROPIC_API_KEY not set" };
+	if (rec.error) return { ok: false, error: rec.error };
+	const r = await sendMailerSendEmail({
+		to,
+		subject: `Daily Signal — ${rec.action} ${rec.asset} (${rec.conviction})`,
+		html: signalEmailHtml(rec),
+		text: signalEmailText(rec),
+	});
+	return { ...r, rec };
+}
+
+// Daily scheduler: regenerate + email the signal report once per day at SIGNAL_EMAIL_HOUR (UTC).
+let signalSchedulerStarted = false;
+function startSignalScheduler() {
+	if (signalSchedulerStarted) return;
+	signalSchedulerStarted = true;
+	const DAY = 24 * 3600_000;
+	const msUntilHour = (hourUtc) => {
+		const now = new Date();
+		const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hourUtc, 0, 0, 0));
+		if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
+		return next - now;
+	};
+	const tick = async () => {
+		try {
+			if (!process.env.ANTHROPIC_API_KEY) return;
+			const result = await emailSignalReport({ force: true });
+			if (result.ok) console.log("[signal] Daily report emailed to", SIGNAL_EMAIL_TO);
+			else console.warn("[signal] Daily email skipped:", result.error);
+		} catch (e) {
+			console.error("[signal] Scheduler error:", e.message);
+		}
+	};
+	setTimeout(() => { tick(); setInterval(tick, DAY); }, msUntilHour(SIGNAL_EMAIL_HOUR));
+	console.log(`[signal] Scheduler armed for ${SIGNAL_EMAIL_HOUR}:00 UTC daily`);
+}
+
 const server = http.createServer(async (req, res) => {
 	const method = req.method || "GET";
 	const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
@@ -1572,6 +1840,482 @@ const server = http.createServer(async (req, res) => {
 			jsonResponse(res, 200, { success: true }, cors);
 			return;
 		}
+	}
+
+	// Alpaca portfolio API
+	if (pathname.startsWith("/api/alpaca/")) {
+		const cors = corsHeaders(req.headers.origin, true);
+		if (method === "OPTIONS") {
+			res.writeHead(204, { ...cors, "Access-Control-Max-Age": "86400" });
+			res.end();
+			return;
+		}
+
+		const ALPACA_KEY    = process.env.ALPACA_KEY_ID;
+		const ALPACA_SECRET = process.env.ALPACA_SECRET_KEY;
+		const ALPACA_BASE   = process.env.ALPACA_BASE_URL || "https://paper-api.alpaca.markets";
+		const DATA_BASE     = "https://data.alpaca.markets";
+
+		// When keys aren't configured, return demo flag so the frontend falls back to seed data
+		if (!ALPACA_KEY || !ALPACA_SECRET) {
+			jsonResponse(res, 200, { demo: true }, cors);
+			return;
+		}
+
+		const alpacaHeaders = {
+			"APCA-API-KEY-ID": ALPACA_KEY,
+			"APCA-API-SECRET-KEY": ALPACA_SECRET,
+			"Accept": "application/json",
+		};
+
+		// GET /api/alpaca/positions — live portfolio positions
+		if (pathname === "/api/alpaca/positions" && method === "GET") {
+			try {
+				const r = await fetch(`${ALPACA_BASE}/v2/positions`, { headers: alpacaHeaders });
+				const raw = await r.json();
+				if (!r.ok) { jsonResponse(res, r.status, { error: raw.message ?? "Alpaca error" }, cors); return; }
+				const positions = raw.map((p) => ({
+					symbol:            p.symbol,
+					qty:               parseFloat(p.qty),
+					avg_entry_price:   parseFloat(p.avg_entry_price),
+					current_price:     parseFloat(p.current_price),
+					market_value:      parseFloat(p.market_value),
+					unrealized_pl:     parseFloat(p.unrealized_pl),
+					unrealized_plpc:   parseFloat(p.unrealized_plpc) * 100,
+				}));
+				jsonResponse(res, 200, { positions }, cors);
+			} catch (e) {
+				jsonResponse(res, 500, { error: e.message }, cors);
+			}
+			return;
+		}
+
+		// GET /api/alpaca/bars/:symbol — daily OHLCV for candlestick chart (90 days)
+		const barsMatch = pathname.match(/^\/api\/alpaca\/bars\/([^/]+)$/);
+		if (barsMatch && method === "GET") {
+			const symbol = decodeURIComponent(barsMatch[1]).toUpperCase();
+			const end   = new Date().toISOString().slice(0, 10);
+			const start = new Date(Date.now() - 90 * 86400_000).toISOString().slice(0, 10);
+			try {
+				const r = await fetch(
+					`${DATA_BASE}/v2/stocks/${encodeURIComponent(symbol)}/bars?timeframe=1Day&start=${start}&end=${end}&limit=100&feed=iex`,
+					{ headers: alpacaHeaders }
+				);
+				const raw = await r.json();
+				if (!r.ok) { jsonResponse(res, r.status, { error: raw.message ?? "Alpaca error" }, cors); return; }
+				jsonResponse(res, 200, { bars: raw.bars ?? [] }, cors);
+			} catch (e) {
+				jsonResponse(res, 500, { error: e.message }, cors);
+			}
+			return;
+		}
+
+		// GET /api/alpaca/multi-returns?symbols=A,B,C — batch 1D/7D/30D/365D returns + sparkline closes
+		if (pathname === "/api/alpaca/multi-returns" && method === "GET") {
+			const rawSymbols = (url.searchParams.get("symbols") || "")
+				.split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+			if (!rawSymbols.length) { jsonResponse(res, 400, { error: "symbols required" }, cors); return; }
+			const end   = new Date().toISOString().slice(0, 10);
+			const start = new Date(Date.now() - 370 * 86400_000).toISOString().slice(0, 10);
+			try {
+				const r = await fetch(
+					`${DATA_BASE}/v2/stocks/bars?symbols=${rawSymbols.join(",")}&timeframe=1Day&start=${start}&end=${end}&limit=500&feed=iex`,
+					{ headers: alpacaHeaders }
+				);
+				const raw = await r.json();
+				if (!r.ok) { jsonResponse(res, r.status, { error: raw.message ?? "Alpaca error" }, cors); return; }
+				const result = {};
+				for (const [sym, bars] of Object.entries(raw.bars ?? {})) {
+					if (!bars?.length) continue;
+					const closes = bars.map(b => b.c);
+					const n = closes.length;
+					const last = closes.at(-1);
+					const pct = (daysAgo) => {
+						const idx = n - 1 - daysAgo;
+						if (idx < 0) return null;
+						const ref = closes[idx];
+						return ref > 0 ? ((last - ref) / ref) * 100 : null;
+					};
+					result[sym] = {
+						pct_1d:   pct(1),
+						pct_7d:   pct(7),
+						pct_30d:  pct(30),
+						pct_365d: pct(252),
+						sparkline: closes.slice(-7),
+					};
+				}
+				jsonResponse(res, 200, { returns: result }, cors);
+			} catch (e) {
+				jsonResponse(res, 500, { error: e.message }, cors);
+			}
+			return;
+		}
+
+		// GET /api/alpaca/fund — AI-managed $100 fund account status + recent orders
+		if (pathname === "/api/alpaca/fund" && method === "GET") {
+			const FUND_KEY    = process.env.ALPACA_FUND_KEY_ID;
+			const FUND_SECRET = process.env.ALPACA_FUND_SECRET_KEY;
+			const FUND_BASE   = process.env.ALPACA_FUND_BASE_URL || "https://paper-api.alpaca.markets";
+			if (!FUND_KEY || !FUND_SECRET) {
+				jsonResponse(res, 200, { demo: true }, cors);
+				return;
+			}
+			const fundHeaders = {
+				"APCA-API-KEY-ID": FUND_KEY,
+				"APCA-API-SECRET-KEY": FUND_SECRET,
+				"Accept": "application/json",
+			};
+			try {
+				const [acctRes, ordersRes] = await Promise.all([
+					fetch(`${FUND_BASE}/v2/account`,        { headers: fundHeaders }),
+					fetch(`${FUND_BASE}/v2/orders?status=filled&limit=10`, { headers: fundHeaders }),
+				]);
+				const acct   = await acctRes.json();
+				const orders = await ordersRes.json();
+				jsonResponse(res, 200, {
+					equity:  acct.equity,
+					cash:    acct.cash,
+					status:  acct.status,
+					orders:  Array.isArray(orders) ? orders : [],
+				}, cors);
+			} catch (e) {
+				jsonResponse(res, 500, { error: e.message }, cors);
+			}
+			return;
+		}
+
+		jsonResponse(res, 404, { error: "Not found" }, cors);
+		return;
+	}
+
+	// Kraken crypto portfolio API
+	if (pathname.startsWith("/api/kraken/")) {
+		const cors = corsHeaders(req.headers.origin, true);
+		if (method === "OPTIONS") {
+			res.writeHead(204, { ...cors, "Access-Control-Max-Age": "86400" });
+			res.end();
+			return;
+		}
+
+		const KRAKEN_KEY    = process.env.KRAKEN_API_KEY;
+		const KRAKEN_SECRET = process.env.KRAKEN_API_SECRET;
+
+		// GET /api/kraken/balances — non-zero account balances
+		if (pathname === "/api/kraken/balances" && method === "GET") {
+			if (!KRAKEN_KEY || !KRAKEN_SECRET) {
+				jsonResponse(res, 200, { demo: true }, cors);
+				return;
+			}
+			try {
+				const r = await krakenPrivatePost("/0/private/Balance");
+				const data = await r.json();
+				if (data.error?.length) { jsonResponse(res, 400, { error: data.error[0] }, cors); return; }
+				const balances = Object.entries(data.result || {})
+					.map(([raw, bal]) => ({ asset: normalizeAsset(raw), raw_asset: raw, balance: parseFloat(bal) }))
+					.filter(b => b.balance > 0.000001);
+				jsonResponse(res, 200, { balances }, cors);
+			} catch (e) {
+				jsonResponse(res, 500, { error: e.message }, cors);
+			}
+			return;
+		}
+
+		// GET /api/kraken/ticker?pairs=XBTUSD,ETHUSD,...  — live prices + 24h stats
+		if (pathname === "/api/kraken/ticker" && method === "GET") {
+			const pairs = url.searchParams.get("pairs") || "XBTUSD,ETHUSD,SOLUSD,XRPUSD,DOGEUSD,ADAUSD,DOTUSD,LINKUSD,AVAXUSD,LTCUSD,MATICUSD,XMRUSD,NEARUSD,UNIUSD";
+			try {
+				const r = await krakenPublicGet("/0/public/Ticker", { pair: pairs });
+				const data = await r.json();
+				if (data.error?.length) { jsonResponse(res, 400, { error: data.error[0] }, cors); return; }
+				const tickers = {};
+				for (const [pair, info] of Object.entries(data.result || {})) {
+					const last    = parseFloat(info.c[0]);
+					const open24h = parseFloat(info.o);
+					tickers[pair] = {
+						last,
+						open_24h:       open24h,
+						high_24h:       parseFloat(info.h[1]),
+						low_24h:        parseFloat(info.l[1]),
+						volume_24h:     parseFloat(info.v[1]),
+						change_24h_pct: open24h > 0 ? ((last - open24h) / open24h) * 100 : 0,
+					};
+				}
+				jsonResponse(res, 200, { tickers }, cors);
+			} catch (e) {
+				jsonResponse(res, 500, { error: e.message }, cors);
+			}
+			return;
+		}
+
+		// GET /api/kraken/ohlc/:pair?interval=1440  — daily OHLC for candlestick chart
+		const ohlcMatch = pathname.match(/^\/api\/kraken\/ohlc\/([^/]+)$/);
+		if (ohlcMatch && method === "GET") {
+			const pair     = decodeURIComponent(ohlcMatch[1]).toUpperCase();
+			const interval = url.searchParams.get("interval") || "1440";
+			try {
+				const r = await krakenPublicGet("/0/public/OHLC", { pair, interval });
+				const data = await r.json();
+				if (data.error?.length) { jsonResponse(res, 400, { error: data.error[0] }, cors); return; }
+				const result  = data.result || {};
+				const pairKey = Object.keys(result).find(k => k !== "last");
+				const bars    = (result[pairKey] || []).map(([time, open, high, low, close]) => ({
+					time: Number(time),
+					open: parseFloat(open), high: parseFloat(high),
+					low:  parseFloat(low),  close: parseFloat(close),
+				}));
+				jsonResponse(res, 200, { bars, pair }, cors);
+			} catch (e) {
+				jsonResponse(res, 500, { error: e.message }, cors);
+			}
+			return;
+		}
+
+		// GET /api/kraken/orders — last 20 closed orders
+		if (pathname === "/api/kraken/orders" && method === "GET") {
+			if (!KRAKEN_KEY || !KRAKEN_SECRET) {
+				jsonResponse(res, 200, { demo: true }, cors);
+				return;
+			}
+			try {
+				const r = await krakenPrivatePost("/0/private/ClosedOrders", { trades: "true" });
+				const data = await r.json();
+				if (data.error?.length) { jsonResponse(res, 400, { error: data.error[0] }, cors); return; }
+				const orders = Object.entries(data.result?.closed || {}).slice(0, 20).map(([id, o]) => ({
+					id,
+					pair:       o.descr?.pair,
+					type:       o.descr?.type,
+					order_type: o.descr?.ordertype,
+					price:      parseFloat(o.price),
+					volume:     parseFloat(o.vol),
+					filled:     parseFloat(o.vol_exec),
+					cost:       parseFloat(o.cost),
+					status:     o.status,
+					closed_at:  o.closetm,
+				}));
+				jsonResponse(res, 200, { orders }, cors);
+			} catch (e) {
+				jsonResponse(res, 500, { error: e.message }, cors);
+			}
+			return;
+		}
+
+		// POST /api/kraken/order — place a market or limit order
+		if (pathname === "/api/kraken/order" && method === "POST") {
+			if (!KRAKEN_KEY || !KRAKEN_SECRET) {
+				jsonResponse(res, 403, { error: "Kraken API keys not configured." }, cors);
+				return;
+			}
+			let body;
+			try { body = await collectBody(req); } catch { jsonResponse(res, 500, { error: "Request failed." }, cors); return; }
+			let parsed;
+			try { parsed = JSON.parse(body); } catch { jsonResponse(res, 400, { error: "Invalid JSON." }, cors); return; }
+			const { pair, type, ordertype, volume, price } = parsed;
+			if (!pair || !type || !ordertype || !volume) {
+				jsonResponse(res, 400, { error: "pair, type, ordertype, and volume are required." }, cors);
+				return;
+			}
+			const orderParams = { pair, type, ordertype, volume: String(volume) };
+			if (price && ordertype !== "market") orderParams.price = String(price);
+			try {
+				const r = await krakenPrivatePost("/0/private/AddOrder", orderParams);
+				const data = await r.json();
+				if (data.error?.length) { jsonResponse(res, 400, { error: data.error[0] }, cors); return; }
+				jsonResponse(res, 200, { success: true, result: data.result }, cors);
+			} catch (e) {
+				jsonResponse(res, 500, { error: e.message }, cors);
+			}
+			return;
+		}
+
+		jsonResponse(res, 404, { error: "Not found" }, cors);
+		return;
+	}
+
+	// Yahoo Finance bars — free stock OHLC fallback (no auth required)
+	if (pathname.match(/^\/api\/yahoo\/bars\/([^/]+)$/) && method === "GET") {
+		const cors = corsHeaders(req.headers.origin, true);
+		const symbol = decodeURIComponent(pathname.split("/").pop()).toUpperCase();
+		try {
+			const r = await fetch(
+				`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=3mo`,
+				{ headers: { "User-Agent": "Mozilla/5.0 (compatible; portfolio-dashboard/1.0)" } }
+			);
+			const raw = await r.json();
+			const result = raw.chart?.result?.[0];
+			if (!result) throw new Error("No data for " + symbol);
+			const timestamps = result.timestamp || [];
+			const quote = result.indicators?.quote?.[0] || {};
+			const bars = timestamps.map((t, i) => ({
+				t: new Date(t * 1000).toISOString(),
+				o: quote.open?.[i],
+				h: quote.high?.[i],
+				l: quote.low?.[i],
+				c: quote.close?.[i],
+				v: quote.volume?.[i],
+			})).filter(b => b.o != null && b.c != null);
+			jsonResponse(res, 200, { bars }, cors);
+		} catch (e) {
+			jsonResponse(res, 500, { error: e.message }, cors);
+		}
+		return;
+	}
+
+	// AI daily trade recommendation — single high-conviction signal with 24h/7D/30D projections
+	if (pathname === "/api/ai/daily-recs" && method === "GET") {
+		const cors = corsHeaders(req.headers.origin, true);
+		const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
+		if (!ANTHROPIC_KEY) {
+			jsonResponse(res, 200, { demo: true }, cors);
+			return;
+		}
+
+		// Serve from cache unless force-refresh requested
+		const force = url.searchParams.get("force") === "true";
+		if (!force && dailyRecCache.data && Date.now() < dailyRecCache.expiresAt) {
+			jsonResponse(res, 200, { ...dailyRecCache.data, cached: true, cachedAt: dailyRecCache.cachedAt }, cors);
+			return;
+		}
+
+		try {
+			const FIAT = new Set(["USD", "EUR", "GBP", "JPY", "CAD"]);
+			const PAIR_MAP = {
+				BTC:"XBTUSD", ETH:"ETHUSD", SOL:"SOLUSD", XRP:"XRPUSD",
+				DOGE:"DOGEUSD", ADA:"ADAUSD", DOT:"DOTUSD", LINK:"LINKUSD",
+				AVAX:"AVAXUSD", LTC:"LTCUSD", NEAR:"NEARUSD", PAXG:"PAXGUSD",
+				TRAC:"TRACUSD", ALGO:"ALGOUSD",
+			};
+			let holdings = [];
+			let cashUsd = 0;
+			const krakenKey = process.env.KRAKEN_API_KEY;
+			const krakenSecret = process.env.KRAKEN_API_SECRET;
+			if (krakenKey && krakenSecret) {
+				const balRes  = await krakenPrivatePost("/0/private/Balance");
+				const balData = await balRes.json();
+				const balances = Object.entries(balData.result || {})
+					.map(([raw, bal]) => ({ asset: normalizeAsset(raw), balance: parseFloat(bal) }))
+					.filter(b => b.balance > 0.000001);
+				cashUsd = balances.filter(b => b.asset === "USD").reduce((s, b) => s + b.balance, 0);
+				const cryptoHoldings = balances.filter(b => !FIAT.has(b.asset));
+				const pairs = cryptoHoldings.map(b => PAIR_MAP[b.asset]).filter(Boolean).join(",");
+				if (pairs) {
+					const tkRes  = await krakenPublicGet("/0/public/Ticker", { pair: pairs });
+					const tkData = await tkRes.json();
+					const tickers = tkData.result || {};
+					holdings = cryptoHoldings.map(b => {
+						const tkKey = Object.keys(tickers).find(k =>
+							k.replace("XBT", "BTC").includes(b.asset) || k.startsWith(b.asset === "BTC" ? "XXB" : b.asset)
+						);
+						const tk      = tkKey ? tickers[tkKey] : null;
+						const last    = tk ? parseFloat(tk.c[0]) : 0;
+						const open24h = tk ? parseFloat(tk.o)    : 0;
+						const high24h = tk ? parseFloat(tk.h[1]) : 0;
+						const low24h  = tk ? parseFloat(tk.l[1]) : 0;
+						const vol24h  = tk ? parseFloat(tk.v[1]) : 0;
+						const chg24h  = open24h > 0 ? ((last - open24h) / open24h) * 100 : 0;
+						return { asset: b.asset, balance: b.balance, price: last, value: b.balance * last, chg24h, high24h, low24h, vol24h };
+					}).filter(h => h.price > 0).sort((a, b) => b.value - a.value);
+				}
+			}
+			const holdingLines = holdings.length
+				? holdings.map(h =>
+					`  ${h.asset}: qty=${h.balance.toFixed(4)} price=$${h.price.toFixed(2)} value=$${h.value.toFixed(2)} 24h=${h.chg24h >= 0 ? "+" : ""}${h.chg24h.toFixed(2)}% high24h=$${h.high24h.toFixed(2)} low24h=$${h.low24h.toFixed(2)} vol24h=${h.vol24h.toFixed(0)}`
+				  ).join("\n")
+				: "  No live holdings — generate signal based on general crypto momentum";
+
+			const prompt = `You are a quantitative crypto analyst. Apply the following framework to identify the single highest-conviction trade from this portfolio.
+
+QUANT FRAMEWORK:
+1. Momentum Score (1-10): Rate each asset on 24h price action + volume confirmation
+2. Signal Strength: HIGH if 24h move >2% aligned with trend; MEDIUM if 0.5-2%; LOW if <0.5%
+3. Multi-timeframe projection using momentum persistence (decay ~0.6x/week for 7D, ~0.3x for 30D)
+4. Risk: name the specific price level or condition that invalidates the trade
+5. Position sizing: if cash < $10, note "monitor only"
+
+PORTFOLIO DATA:
+${holdingLines}
+
+Available USD cash: $${cashUsd.toFixed(2)}
+
+Select the SINGLE highest-conviction opportunity (existing holding or a major pair like BTC/ETH/SOL if they show stronger signals). Project returns across three timeframes using momentum decay.
+
+Respond with ONLY valid JSON, no markdown or explanation:
+{
+  "asset": "XRP",
+  "action": "BUY",
+  "conviction": "HIGH",
+  "projected_24h_pct": 2.4,
+  "projected_7d_pct": 5.8,
+  "projected_30d_pct": 11.2,
+  "signal_basis": "One sentence: specific signal justifying this trade.",
+  "risk_note": "One sentence: specific invalidation condition.",
+  "market_note": "One sentence: broader crypto market context."
+}`;
+
+			const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
+				method: "POST",
+				headers: {
+					"x-api-key": ANTHROPIC_KEY,
+					"anthropic-version": "2023-06-01",
+					"content-type": "application/json",
+				},
+				body: JSON.stringify({
+					model: SIGNAL_MODEL,
+					max_tokens: 700,
+					system: QUANT_ANALYST_SYSTEM,
+					messages: [{ role: "user", content: prompt }],
+				}),
+			});
+			const claudeData = await claudeRes.json();
+			let text = claudeData.content?.[0]?.text?.trim() || "{}";
+			text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/i, "").trim();
+			const rec = JSON.parse(text);
+			const result = { ...rec, cached: false, cachedAt: Date.now() };
+
+			// Store in 24h cache
+			dailyRecCache.data     = result;
+			dailyRecCache.expiresAt = Date.now() + 24 * 3600_000;
+			dailyRecCache.cachedAt  = Date.now();
+
+			jsonResponse(res, 200, result, cors);
+		} catch (e) {
+			jsonResponse(res, 500, { error: e.message }, cors);
+		}
+		return;
+	}
+
+	// AI signal — premium regenerate (force) + email report (human-in-the-loop)
+	if (pathname === "/api/ai/regenerate" && method === "POST") {
+		const cors = corsHeaders(req.headers.origin, true);
+		if (!isSignalPremiumAuthed(req)) {
+			jsonResponse(res, 401, { error: "Premium feature — invalid or missing token." }, cors);
+			return;
+		}
+		try {
+			const rec = await generateSignalReport({ force: true });
+			jsonResponse(res, 200, rec, cors);
+		} catch (e) {
+			jsonResponse(res, 500, { error: e.message }, cors);
+		}
+		return;
+	}
+
+	if (pathname === "/api/ai/email-signal" && method === "POST") {
+		const cors = corsHeaders(req.headers.origin, true);
+		if (!isSignalPremiumAuthed(req)) {
+			jsonResponse(res, 401, { error: "Premium feature — invalid or missing token." }, cors);
+			return;
+		}
+		try {
+			const result = await emailSignalReport();
+			if (!result.ok) {
+				jsonResponse(res, 500, { error: result.error || "Email failed" }, cors);
+				return;
+			}
+			jsonResponse(res, 200, { success: true, to: SIGNAL_EMAIL_TO, asset: result.rec?.asset, action: result.rec?.action }, cors);
+		} catch (e) {
+			jsonResponse(res, 500, { error: e.message }, cors);
+		}
+		return;
 	}
 
 	// PM: password-protected project management API
@@ -1813,6 +2557,8 @@ const server = http.createServer(async (req, res) => {
 	else if (pathname === "/admin") pathToServe = "/admin.html";
 	else if (pathname === "/blog") pathToServe = "/blog.html";
 	else if (pathname === "/project") pathToServe = "/project.html";
+	else if (pathname === "/portfolio") pathToServe = "/portfolio.html";
+	else if (pathname === "/crypto") pathToServe = "/crypto.html";
 	const status = await serveStatic(res, pathToServe, method);
 	if (status !== 200) {
 		const code = status === 404 ? 404 : status === 403 ? 403 : 500;
@@ -1836,6 +2582,7 @@ server.on("upgrade", (request, socket, head) => {
 initDatabase().then((pool) => {
 	dbPool = pool;
 	cms.init(pool);
+	startSignalScheduler();
 	server.listen(PORT, () => {
 		console.log(`Listening on port ${PORT}`);
 	});

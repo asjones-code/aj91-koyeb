@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portfolio — AJ91</title>
+  <script>
+    (function () {
+      function setVh() {
+        var v = window.visualViewport;
+        var vh = (v && v.height) ? v.height : window.innerHeight;
+        document.documentElement.style.setProperty('--vh', vh + 'px');
+      }
+      setVh();
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', setVh);
+        window.visualViewport.addEventListener('scroll', setVh);
+      }
+      window.addEventListener('resize', setVh);
+      window.addEventListener('orientationchange', function () { setTimeout(setVh, 100); });
+      document.addEventListener('DOMContentLoaded', setVh);
+      setTimeout(setVh, 500);
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+  <style>
+    /* ── Portfolio page overrides ──────────────────────────────────── */
+    .page-portfolio { padding: 0 0 6rem; }
+
+    /* hero */
+    .pf-hero {
+      padding: 7rem 0 4rem;
+      border-bottom: 1px solid var(--c-border);
+    }
+    .pf-hero-label {
+      font-family: monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--c-accent, rgba(171,248,254,0.7));
+      margin-bottom: 1rem;
+    }
+    .pf-hero h1 {
+      font-size: clamp(2.4rem, 6vw, 4.5rem);
+      font-weight: 700;
+      line-height: 1.05;
+      margin: 0 0 1.25rem;
+      letter-spacing: -0.02em;
+    }
+    .pf-hero p {
+      max-width: 54ch;
+      color: var(--c-secondary);
+      font-size: 1.05rem;
+      line-height: 1.7;
+      margin: 0;
+    }
+
+    /* summary stats bar */
+    .pf-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--c-border);
+      border: 1px solid var(--c-border);
+      margin: 2.5rem 0;
+    }
+    .pf-stat {
+      background: #000;
+      padding: 1.25rem 1.5rem;
+    }
+    .pf-stat-label {
+      font-family: monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--c-tertiary);
+      margin-bottom: 0.4rem;
+    }
+    .pf-stat-value {
+      font-size: 1.4rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+    .pf-stat-value.up   { color: rgba(171,248,254,1); }
+    .pf-stat-value.down { color: rgba(237,111,245,1); }
+
+    /* stock screener table */
+    .pf-body {
+      border: 1px solid var(--c-border);
+      margin-bottom: 1px;
+    }
+
+    /* table panel */
+    .pf-table-wrap {
+      background: #000;
+      overflow-x: auto;
+    }
+    .pf-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: monospace;
+      font-size: 0.78rem;
+    }
+    .pf-table thead th {
+      padding: 0.75rem 0.9rem;
+      text-align: right;
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--c-tertiary);
+      border-bottom: 1px solid var(--c-border);
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+    .pf-table thead th:first-child { text-align: left; }
+    .pf-table thead th:last-child  { text-align: center; cursor: default; }
+    .pf-table thead th:hover { color: var(--c-secondary); }
+    .pf-table tbody tr.portfolio-row {
+      border-bottom: 1px solid var(--c-border);
+      transition: background 0.1s;
+    }
+    .pf-table tbody tr.portfolio-row:hover {
+      background: var(--c-surface-hover);
+    }
+    .pf-table td {
+      padding: 0.6rem 0.9rem;
+      white-space: nowrap;
+      text-align: right;
+    }
+    .pf-table td:first-child { text-align: left; }
+    .pf-table td:last-child  { text-align: center; }
+    .pf-table td.ticker { font-weight: 600; color: rgba(255,255,255,0.92); text-align: left; }
+    .pf-table td.up   { color: rgba(171,248,254,1); }
+    .pf-table td.down { color: rgba(237,111,245,1); }
+
+    /* PREVIEW button in table */
+    .preview-btn {
+      font-family: monospace;
+      font-size: 0.58rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.25em 0.6em;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: transparent;
+      color: rgba(255,255,255,0.45);
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .preview-btn:hover {
+      border-color: rgba(171,248,254,0.6);
+      color: rgba(171,248,254,0.9);
+    }
+
+    /* Chart modal */
+    .chart-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .chart-modal.hidden { display: none !important; }
+    .chart-modal-inner {
+      width: min(900px, 96vw);
+      height: min(520px, 85vh);
+      background: #000;
+      border: 1px solid var(--c-border);
+      display: flex;
+      flex-direction: column;
+    }
+    .chart-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--c-border);
+    }
+    .chart-modal-title {
+      font-family: monospace;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.92);
+      letter-spacing: 0.06em;
+    }
+    .chart-modal-close {
+      background: transparent;
+      border: none;
+      color: var(--c-tertiary);
+      font-size: 1rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0.2rem 0.4rem;
+    }
+    .chart-modal-close:hover { color: rgba(255,255,255,0.8); }
+    #modal-chart-container { flex: 1; min-height: 0; }
+
+    .sector-badge {
+      font-size: 0.58rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.2em 0.55em;
+      border: 1px solid var(--c-border);
+      border-radius: 3px;
+      color: var(--c-tertiary);
+    }
+
+    .hidden { display: none !important; }
+
+    /* Kraken 2-col section */
+    .pf-kraken {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--c-border);
+      border: 1px solid var(--c-border);
+      margin-top: 1px;
+    }
+    @media (max-width: 680px) { .pf-kraken { grid-template-columns: 1fr; } }
+
+    .kraken-holding {
+      display: flex;
+      justify-content: space-between;
+      font-family: monospace;
+      font-size: 0.72rem;
+      padding: 0.2rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .kraken-holding:last-child { border-bottom: none; }
+    .kraken-sym { color: rgba(171,248,254,0.9); font-weight: 700; }
+    .kraken-val { color: var(--c-secondary); }
+    .kraken-chg.up   { color: #4ade80; }
+    .kraken-chg.down { color: #ED6FF5; }
+    .kraken-link {
+      display: inline-block;
+      margin-top: 0.75rem;
+      font-family: monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      color: rgba(171,248,254,0.5);
+      text-decoration: none;
+    }
+    .kraken-link:hover { color: rgba(171,248,254,0.9); }
+
+    .pf-fund-card {
+      background: #000;
+      padding: 1.5rem;
+    }
+    .pf-fund-card-label {
+      font-family: monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(171,248,254,0.6);
+      margin-bottom: 0.5rem;
+    }
+    .pf-fund-value {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.5rem;
+    }
+    .pf-fund-meta {
+      font-family: monospace;
+      font-size: 0.7rem;
+      color: var(--c-tertiary);
+    }
+    .pf-fund-trades { margin-top: 0.75rem; }
+
+    /* AI Trade Recommendations */
+    .pf-recs-wrap {
+      border: 1px solid var(--c-border);
+      margin-top: 1px;
+      background: #000;
+      padding: 1.5rem 1.5rem 0.5rem;
+    }
+    .pf-section-label {
+      font-family: monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(171,248,254,0.6);
+      margin-bottom: 1rem;
+    }
+    .pf-recs-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--c-border);
+      border: 1px solid var(--c-border);
+      margin-bottom: 1rem;
+    }
+    @media (max-width: 900px) { .pf-recs-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 600px) { .pf-recs-grid { grid-template-columns: 1fr; } }
+    .rec-card { background: #000; padding: 1.25rem; }
+    .rec-label {
+      font-family: monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--c-tertiary);
+      margin-bottom: 0.75rem;
+    }
+    .rec-action { font-size: 1.4rem; font-weight: 700; letter-spacing: 0.05em; margin-bottom: 0.2rem; }
+    .rec-ticker { font-family: monospace; font-size: 0.9rem; font-weight: 600; color: rgba(255,255,255,0.9); margin-bottom: 0.2rem; }
+    .rec-momentum { font-family: monospace; font-size: 0.75rem; margin-bottom: 0.75rem; }
+    .rec-momentum.up   { color: rgba(171,248,254,1); }
+    .rec-momentum.down { color: rgba(237,111,245,1); }
+    .rec-dd { font-size: 0.78rem; color: var(--c-secondary); line-height: 1.6; margin-bottom: 0.4rem; }
+    .rec-ref { font-family: monospace; font-size: 0.65rem; color: var(--c-tertiary); margin-bottom: 0.4rem; }
+    .rec-note { font-family: monospace; font-size: 0.6rem; color: rgba(171,248,254,0.3); letter-spacing: 0.05em; margin-top: 0.75rem; }
+    .rec-empty { font-family: monospace; font-size: 0.7rem; color: var(--c-tertiary); }
+
+    /* Trend sparkline column */
+    .pf-table td.trend { padding: 0.35rem 0.9rem; line-height: 0; }
+
+    /* Daily signal */
+    .daily-sig-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 0.6rem; }
+    .daily-sig-action { font-family: monospace; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; }
+    .daily-sig-action.up   { color: rgba(171,248,254,1); }
+    .daily-sig-action.hold { color: rgba(255,255,255,0.7); }
+    .daily-sig-action.down { color: rgba(237,111,245,1); }
+    .daily-sig-conviction { font-family: monospace; font-size: 0.58rem; letter-spacing: 0.1em; color: var(--c-tertiary); }
+    .daily-sig-timeframes {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--c-border);
+      border: 1px solid var(--c-border);
+      margin-bottom: 0.75rem;
+    }
+    .daily-sig-tf {
+      background: #000;
+      padding: 0.4rem 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .daily-sig-tf-label { font-family: monospace; font-size: 0.55rem; letter-spacing: 0.1em; color: var(--c-tertiary); text-transform: uppercase; }
+    .daily-sig-tf-val { font-family: monospace; font-size: 0.72rem; font-weight: 600; }
+    .daily-sig-tf-val.up   { color: rgba(171,248,254,1); }
+    .daily-sig-tf-val.down { color: rgba(237,111,245,1); }
+    .daily-sig-rationale { font-size: 0.72rem; color: var(--c-secondary); line-height: 1.5; margin-bottom: 0.5rem; }
+    .daily-sig-risk { font-family: monospace; font-size: 0.6rem; color: rgba(237,111,245,0.6); line-height: 1.5; margin-bottom: 0.5rem; }
+    .daily-sig-market { font-family: monospace; font-size: 0.6rem; color: var(--c-tertiary); line-height: 1.5; padding-top: 0.5rem; border-top: 1px solid var(--c-border); margin-bottom: 0.75rem; }
+    .daily-sig-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 0.5rem; border-top: 1px solid var(--c-border); }
+    .daily-sig-cached-label { font-family: monospace; font-size: 0.58rem; color: var(--c-tertiary); letter-spacing: 0.06em; }
+    .daily-sig-refresh {
+      font-family: monospace;
+      font-size: 0.58rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.25em 0.6em;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: transparent;
+      color: rgba(255,255,255,0.2);
+      cursor: not-allowed;
+    }
+    /* Asset tabs (Crypto / Stocks) */
+    .pf-tabs { display:flex; gap:1px; background:var(--c-border); border:1px solid var(--c-border); margin:2.5rem 0 0; }
+    .pf-tab { flex:0 0 auto; background:#000; color:var(--c-tertiary); font-family:monospace; font-size:0.7rem; letter-spacing:0.12em; text-transform:uppercase; padding:0.85rem 1.4rem; border:none; cursor:pointer; transition:color .15s, background .15s; }
+    .pf-tab:hover:not(:disabled) { color:var(--c-secondary); }
+    .pf-tab.active { color:rgba(171,248,254,1); box-shadow:inset 0 -2px 0 rgba(171,248,254,1); }
+    .pf-tab:disabled { color:rgba(255,255,255,0.18); cursor:not-allowed; }
+    .pf-tab .pf-tab-soon { font-size:0.55rem; color:rgba(237,111,245,0.6); margin-left:0.5rem; letter-spacing:0.1em; }
+    .pf-tabpanel[hidden] { display:none; }
+
+    /* Daily signal action buttons (email / premium star) */
+    .daily-sig-actions { display:flex; gap:0.5rem; align-items:center; }
+    .daily-sig-star {
+      font-family: monospace; font-size:0.58rem; letter-spacing:0.08em; text-transform:uppercase;
+      padding:0.25em 0.6em; border:1px solid rgba(255,205,80,0.4); background:transparent;
+      color:rgba(255,205,80,0.9); cursor:pointer; transition:border-color .15s, color .15s, background .15s;
+    }
+    .daily-sig-star:hover { border-color:rgba(255,205,80,0.9); background:rgba(255,205,80,0.08); }
+    .daily-sig-star:disabled { opacity:0.5; cursor:wait; }
+    .daily-sig-refresh.live { color:rgba(171,248,254,0.9); border-color:rgba(171,248,254,0.4); cursor:pointer; }
+    .daily-sig-refresh.live:hover { border-color:rgba(171,248,254,0.9); background:rgba(171,248,254,0.06); }
+  </style>
+</head>
+
+<body data-barba="wrapper" class="page-is-portfolio">
+  <div class="container">
+    <header class="header">
+      <div class="header-inner">
+        <a href="/" class="header-logo logo word font-kihim">aj91</a>
+        <nav class="header-nav navigation" aria-label="Main">
+          <ul>
+            <li><a class="font-mono" href="https://www.linkedin.com/in/asjones91/" aria-label="LinkedIn"><i class="fa-brands fa-linkedin" aria-hidden="true"></i><span class="nav-text">Linkedin</span></a></li>
+            <li><a class="font-mono" href="https://aj91.substack.com/" aria-label="Substack"><i class="fa-solid fa-newspaper" aria-hidden="true"></i><span class="nav-text">Substack</span></a></li>
+          </ul>
+        </nav>
+        <button class="menuToggle" id="menu-toggle" type="button" aria-expanded="false" aria-controls="menu-panel" aria-label="Toggle menu">
+          <div class="hamburger"><span></span><span></span><span></span></div>
+          <div class="cross"><span></span><span></span></div>
+        </button>
+      </div>
+    </header>
+
+    <main data-barba="container" data-barba-namespace="portfolio">
+      <div class="page-portfolio">
+
+        <!-- Hero -->
+        <section class="pf-hero">
+          <div class="pf-hero-label">Financial Autonomy</div>
+          <h1>Your money.<br>Your moves.</h1>
+          <p>
+            Real positions. Real returns. This portfolio is an exercise in building
+            wealth on your own terms — no advisor, no middleman. Below is the live
+            view, plus a $100 fund run entirely by an AI agent.
+          </p>
+        </section>
+
+        <!-- Asset tabs -->
+        <div class="pf-tabs" role="tablist">
+          <button class="pf-tab active" id="tab-btn-crypto" data-tab="crypto" role="tab" aria-selected="true">Crypto</button>
+          <button class="pf-tab" id="tab-btn-stocks" data-tab="stocks" role="tab" aria-selected="false" disabled>Stocks<span class="pf-tab-soon">Coming soon</span></button>
+        </div>
+
+        <!-- Crypto tab -->
+        <div class="pf-tabpanel" id="tab-crypto" role="tabpanel">
+
+        <!-- Crypto summary stats -->
+        <div class="pf-stats">
+          <div class="pf-stat">
+            <div class="pf-stat-label">Crypto Value</div>
+            <div class="pf-stat-value" id="stat-invested">—</div>
+          </div>
+          <div class="pf-stat">
+            <div class="pf-stat-label">24h Change $</div>
+            <div class="pf-stat-value" id="stat-equity">—</div>
+          </div>
+          <div class="pf-stat">
+            <div class="pf-stat-label">24h Return %</div>
+            <div class="pf-stat-value" id="stat-return">—</div>
+          </div>
+          <div class="pf-stat">
+            <div class="pf-stat-label">Assets</div>
+            <div class="pf-stat-value" id="stat-pct">—</div>
+          </div>
+        </div>
+
+        <!-- Kraken Crypto -->
+        <div class="pf-kraken">
+          <div class="pf-fund-card">
+            <div class="pf-fund-card-label">Kraken · Crypto</div>
+            <div class="pf-fund-value" id="kraken-value">—</div>
+            <div class="pf-fund-meta">24h: <span id="kraken-change">—</span> &nbsp;·&nbsp; <span id="kraken-assets">—</span> assets</div>
+            <div class="pf-fund-trades" id="kraken-holdings"></div>
+            <a class="kraken-link" href="./crypto.html">→ Full crypto terminal</a>
+          </div>
+          <div class="pf-fund-card">
+            <div class="pf-fund-card-label">About this portfolio</div>
+            <p style="font-size:0.85rem;color:var(--c-secondary);line-height:1.7;margin:0 0 1.25rem">
+              A human-in-the-loop, AI-assisted investment project designed to
+              help unearth potential profitable swings. The AI surfaces momentum
+              signals and trade ideas across both equities and crypto — every
+              recommendation requires your approval before execution.
+            </p>
+            <div class="pf-fund-card-label" style="margin-bottom:0.75rem">Daily Signal — Claude</div>
+            <div id="daily-rec-content"><div class="rec-empty" style="padding:0.5rem 0">Loading…</div></div>
+            <div class="daily-sig-footer" id="daily-rec-footer" style="display:none">
+              <span class="daily-sig-cached-label" id="daily-rec-cached-label">Refreshed just now</span>
+              <div class="daily-sig-actions">
+                <button class="daily-sig-refresh live" id="signal-email-btn" title="Email me this signal report">✉ Email</button>
+                <button class="daily-sig-star" id="signal-star-btn" title="Premium: regenerate today's signal">★ Regenerate</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        </div><!-- /#tab-crypto -->
+
+        <!-- Stocks tab (disabled / coming soon) -->
+        <div class="pf-tabpanel" id="tab-stocks" role="tabpanel" hidden>
+        <!-- Stock screener table -->
+        <div class="pf-body">
+          <div class="pf-table-wrap">
+            <table class="pf-table">
+              <thead>
+                <tr>
+                  <th data-sort="symbol">Ticker</th>
+                  <th data-sort="current_price">Price</th>
+                  <th data-sort="pct_1d">1D</th>
+                  <th data-sort="pct_7d">7D</th>
+                  <th data-sort="pct_30d">30D</th>
+                  <th data-sort="pct_365d">365D</th>
+                  <th>Trend</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="portfolio-tbody">
+                <tr><td colspan="8" style="padding:2rem;text-align:center;font-family:monospace;font-size:0.7rem;color:var(--c-tertiary);letter-spacing:0.1em;">LOADING POSITIONS…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        </div><!-- /#tab-stocks -->
+
+        <!-- Chart modal -->
+        <div id="chart-modal" class="chart-modal hidden">
+          <div class="chart-modal-inner">
+            <div class="chart-modal-header">
+              <span class="chart-modal-title" id="modal-chart-label">—</span>
+              <button class="chart-modal-close" id="modal-close">✕</button>
+            </div>
+            <div id="modal-chart-container"></div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="loader.js"></script>
+  <script type="module" src="js/portfolio.js"></script>
+</body>
+</html>
