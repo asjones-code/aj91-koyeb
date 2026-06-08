@@ -462,6 +462,16 @@
             frameborder="0"
             style="border-radius:8px;min-width:280px;"
           ></iframe>
+
+          <!-- Shown after the booking completes (Calendly fires event_scheduled) -->
+          <div id="intakeBooked" style="display:none;text-align:center;padding:1rem 0 0;">
+            <p class="intake-eyebrow">Booked</p>
+            <h2 class="intake-question" style="margin-bottom:1rem;">You're all set.</h2>
+            <p style="color:rgba(255,255,255,0.55);line-height:1.65;margin:0 0 2rem;">
+              A calendar invite is on its way to your inbox. I'll review your intake before we talk.
+            </p>
+            <a href="studio.html" class="intake-btn-next" style="text-decoration:none;">← Back to home</a>
+          </div>
         </div>
 
       </div>
@@ -560,7 +570,17 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, company, service, budget, timeline, description }),
-      }).catch(() => {});
+      })
+        .then(r => r.json())
+        .then(d => {
+          // Email debug — open DevTools console to see this on submit.
+          if (d && d.mail && d.mail.ok) {
+            console.log('[intake] notification email sent ✓', d.mail.messageId || '');
+          } else {
+            console.warn('[intake] notification email NOT sent ✗ —', (d && d.mail && d.mail.error) || 'unknown reason', d);
+          }
+        })
+        .catch(err => console.warn('[intake] /api/intake request failed', err));
     }
 
     function flashError(step, msg) {
@@ -596,6 +616,26 @@
           radio.dispatchEvent(new Event('change', { bubbles: true }));
         }
       });
+    });
+
+    // When Calendly confirms the booking, swap the widget for a
+    // confirmation + "Back to home" button.
+    window.addEventListener('message', (e) => {
+      if (typeof e.origin === 'string' && e.origin.indexOf('calendly.com') === -1) return;
+      if (!e.data || e.data.event !== 'calendly.event_scheduled') return;
+
+      const iframe  = document.getElementById('calendly-iframe');
+      const intro   = document.querySelector('[data-step="6"] .intake-calendly-intro');
+      const booked  = document.getElementById('intakeBooked');
+      if (iframe) iframe.style.display = 'none';
+      if (intro)  intro.style.display = 'none';
+      if (booked) booked.style.display = 'block';
+
+      // The actual booking is a stronger signal than the lead form submit.
+      if (typeof gtag === 'function') {
+        gtag('event', 'schedule_confirmed', { event_category: 'intake' });
+        // gtag('event', 'conversion', { send_to: 'AW-XXXXXXXXX/XXXXXXXXXXXXXXX' });
+      }
     });
   </script>
 

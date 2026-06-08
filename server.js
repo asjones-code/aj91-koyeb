@@ -784,11 +784,15 @@ function collectBody(req) {
 async function sendMailerSendEmail({ to, subject, html, text }) {
 	const token = (process.env.MAILERSEND_API_TOKEN || "").trim();
 	if (!token) {
-		console.warn("[mailersend] MAILERSEND_API_TOKEN not set; email skipped");
-		return { ok: false, error: "Email not configured" };
+		console.warn("[mailersend] MAILERSEND_API_TOKEN not set; email skipped. Set it in .env (local) and in the Koyeb dashboard env vars (production).");
+		return { ok: false, error: "MAILERSEND_API_TOKEN not set" };
 	}
 	const fromEmail = process.env.MAILERSEND_FROM_EMAIL || "noreply@yourdomain.com";
 	const fromName = process.env.MAILERSEND_FROM_NAME || "PM";
+	console.log("[mailersend] sending", { to, from: fromEmail, tokenLen: token.length, usingDefaultFrom: !process.env.MAILERSEND_FROM_EMAIL });
+	if (!process.env.MAILERSEND_FROM_EMAIL) {
+		console.warn("[mailersend] MAILERSEND_FROM_EMAIL not set — falling back to noreply@yourdomain.com, which is NOT a verified domain and will be rejected (422). Set it to an address on a domain you've verified in MailerSend.");
+	}
 	try {
 		const res = await fetch("https://api.mailersend.com/v1/email", {
 			method: "POST",
@@ -2164,13 +2168,20 @@ const server = http.createServer(async (req, res) => {
 					<tr><td style="padding:8px 12px;background:#f5f5f3;font-weight:600;vertical-align:top;">Description</td><td style="padding:8px 12px;">${(description || "—").replace(/\n/g, "<br>")}</td></tr>
 				</table>
 			`;
-			await sendMailerSendEmail({
+			console.log("[intake] received submission:", { name, email, company, service, budget, timeline });
+			const mail = await sendMailerSendEmail({
 				to: "asjones91@gmail.com",
 				subject: `New intake: ${name || email} — ${service || "General"}`,
 				html,
 				text: `New intake\nName: ${name}\nEmail: ${email}\nCompany: ${company}\nService: ${service}\nBudget: ${budget}\nTimeline: ${timeline}\nDescription: ${description}`,
 			});
-			jsonResponse(res, 200, { success: true }, cors);
+			if (mail.ok) {
+				console.log("[intake] notification email SENT ✓", { messageId: mail.messageId, to: "asjones91@gmail.com" });
+			} else {
+				console.error("[intake] notification email FAILED ✗:", mail.error);
+			}
+			// Surface mail status in the response so it's visible in the browser DevTools.
+			jsonResponse(res, 200, { success: true, mail: { ok: !!mail.ok, messageId: mail.messageId || null, error: mail.error || null } }, cors);
 			return;
 		}
 	}
