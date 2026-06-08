@@ -5,6 +5,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Start a Project — AJ91</title>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-LPE99LYE4W"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag('js', new Date());
+    gtag('config', 'G-LPE99LYE4W');
+  </script>
   <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,600,700,800&display=swap">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="home.css">
@@ -521,6 +529,32 @@
 
       // Show Calendly immediately — email fires in the background
       showStep(6);
+
+      // ── Conversion tracking ──────────────────────────────────────────────
+      // 1. Push a clean success URL so a "page reached" goal can match it.
+      //    Lands on /intake.html?submitted=1  (history entry, no reload)
+      try {
+        const successUrl = '/intake.html?submitted=1';
+        history.pushState({ intake: 'booked' }, '', successUrl);
+        // Tell GA4 this is a distinct virtual pageview of the success page.
+        if (typeof gtag === 'function') {
+          gtag('event', 'page_view', {
+            page_title: 'Intake — Submitted',
+            page_path: '/intake/booked',
+            page_location: location.origin + successUrl,
+          });
+          // 2. Fire the lead event. Use this as your conversion in GA4,
+          //    or import it into Google Ads.
+          gtag('event', 'generate_lead', {
+            currency: 'USD',
+            value: 1,
+            service, budget, timeline,
+          });
+          // 3. Google Ads conversion snippet — uncomment and fill in your
+          //    conversion ID/label from Google Ads → Goals → Conversions.
+          // gtag('event', 'conversion', { send_to: 'AW-XXXXXXXXX/XXXXXXXXXXXXXXX' });
+        }
+      } catch (_) {}
 
       fetch('/api/intake', {
         method: 'POST',
