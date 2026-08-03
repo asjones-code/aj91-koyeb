@@ -2966,6 +2966,7 @@ Respond with ONLY valid JSON, no markdown or explanation:
 	else if (pathname === "/project") pathToServe = "/project.html";
 	else if (pathname === "/portfolio") pathToServe = "/portfolio.html";
 	else if (pathname === "/crypto") pathToServe = "/crypto.html";
+	else if (pathname === "/tools" || pathname === "/tools/" || pathname === "/tools/invoice") pathToServe = "/tools.html";
 	const status = await serveStatic(res, pathToServe, method);
 	if (status !== 200) {
 		const code = status === 404 ? 404 : status === 403 ? 403 : 500;

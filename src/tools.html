@@ -1,0 +1,1137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tools — Invoice Generator — AJ91</title>
+  <meta name="description" content="A free, private invoice generator. Everything stays in your browser — build an invoice, download it as a PDF.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+  <style>
+    /* ── /tools ───────────────────────────────────────────────────── */
+    .page-tools {
+      padding: 0 2rem 6rem;
+      max-width: 1440px;
+      width: 100%;
+      margin-inline: auto;
+    }
+    @media (max-width: 760px) { .page-tools { padding-inline: 1.15rem; } }
+
+    .tl-hero {
+      padding: 7rem 0 2.5rem;
+      border-bottom: 1px solid var(--c-border);
+    }
+    .tl-hero-label {
+      font-family: monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--c-accent, rgba(171,248,254,0.7));
+      margin-bottom: 1rem;
+    }
+    .tl-hero h1 {
+      font-size: clamp(2.2rem, 5.5vw, 4rem);
+      font-weight: 700;
+      line-height: 1.05;
+      margin: 0 0 1.25rem;
+      letter-spacing: -0.02em;
+    }
+    .tl-hero p {
+      max-width: 60ch;
+      color: var(--c-secondary);
+      font-size: 1.05rem;
+      line-height: 1.7;
+      margin: 0;
+    }
+
+    /* tool switcher — /tools can grow past this one tool */
+    .tl-tabs {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin: 2rem 0 1.5rem;
+    }
+    .tl-tab {
+      font-family: monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 0.55rem 1rem;
+      border-radius: 999px;
+      border: 1px solid var(--c-border);
+      background: var(--c-surface);
+      color: var(--c-secondary);
+      cursor: pointer;
+    }
+    .tl-tab.active {
+      color: #06121a;
+      background: var(--c-accent, #abf8fe);
+      border-color: var(--c-accent, #abf8fe);
+    }
+    .tl-tab[disabled] { opacity: 0.4; cursor: default; }
+    .tl-tab-soon {
+      display: inline-block;
+      margin-left: 0.5rem;
+      font-size: 0.6rem;
+      opacity: 0.7;
+    }
+
+    /* the tool column — toolbar, sheet, options and note all share one width
+       so they line up with each other and with the left-aligned hero */
+    .tl-bar, .inv-sheet, .tl-opts, .tl-note {
+      max-width: 8.5in;
+      margin-inline: 0;
+    }
+
+    /* toolbar */
+    .tl-bar {
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-bottom: 1.25rem;
+    }
+    .tl-btn {
+      font-family: monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.6rem 1.05rem;
+      border-radius: 6px;
+      border: 1px solid var(--c-border);
+      background: var(--c-surface);
+      color: var(--c-text);
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+    .tl-btn:hover { background: var(--c-surface-hover); border-color: rgba(255,255,255,0.16); }
+    .tl-btn-primary {
+      background: var(--c-accent, #abf8fe);
+      border-color: var(--c-accent, #abf8fe);
+      color: #06121a;
+      font-weight: 700;
+    }
+    .tl-btn-primary:hover { background: #c4fbff; border-color: #c4fbff; }
+    .tl-bar-sep { flex: 1 1 auto; }
+    .tl-status {
+      font-family: monospace;
+      font-size: 0.68rem;
+      color: var(--c-tertiary);
+      letter-spacing: 0.05em;
+    }
+
+    /* ── the invoice sheet (white paper, prints on its own) ───────── */
+    .inv-sheet {
+      background: #ffffff;
+      color: #1a1a1a;
+      border-radius: 10px;
+      padding: 3.25rem;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    /* every editable cell is a seamless input */
+    .inv-sheet input,
+    .inv-sheet textarea,
+    .inv-sheet select {
+      font: inherit;
+      color: inherit;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      padding: 3px 5px;
+      width: 100%;
+      outline: none;
+      transition: background 0.12s ease, border-color 0.12s ease;
+    }
+    .inv-sheet input:hover,
+    .inv-sheet textarea:hover,
+    .inv-sheet select:hover { border-color: #d8d8d8; }
+    .inv-sheet input:focus,
+    .inv-sheet textarea:focus,
+    .inv-sheet select:focus {
+      border-color: #4a9fd8;
+      background: #f4fbff;
+    }
+    .inv-sheet textarea { resize: none; overflow: hidden; display: block; }
+    .inv-sheet ::placeholder { color: #b4b4b4; }
+
+    /* editable field labels, like the original */
+    .inv-lbl {
+      font-size: 11px;
+      color: #8a8a8a;
+      font-weight: 600;
+    }
+    .inv-lbl:hover { border-color: #e4e4e4; }
+
+    /* header */
+    .inv-head {
+      display: flex;
+      gap: 2rem;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 2.25rem;
+    }
+    .inv-logo-wrap { width: 46%; }
+    .inv-logo-drop {
+      border: 1px dashed #cfcfcf;
+      border-radius: 6px;
+      height: 92px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #a0a0a0;
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-align: center;
+      padding: 0.5rem;
+    }
+    .inv-logo-drop:hover { border-color: #4a9fd8; color: #4a9fd8; }
+    .inv-logo-has { border: none; height: auto; display: block; }
+    .inv-logo-has img { max-height: 110px; max-width: 100%; display: block; }
+    .inv-logo-clear {
+      display: none;
+      margin-top: 0.4rem;
+      font-size: 10px;
+      color: #c0392b;
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .inv-title-wrap { width: 42%; text-align: right; }
+    .inv-title input {
+      font-size: 34px;
+      font-weight: 300;
+      letter-spacing: 0.02em;
+      text-align: right;
+      color: #4a4a4a;
+      text-transform: uppercase;
+    }
+    .inv-number input { text-align: right; color: #8a8a8a; }
+
+    /* parties + meta */
+    .inv-mid {
+      display: flex;
+      gap: 2.5rem;
+      align-items: flex-start;
+      margin-bottom: 2rem;
+    }
+    .inv-parties { width: 56%; }
+    .inv-party { margin-bottom: 1.1rem; }
+    .inv-from textarea { font-weight: 600; }
+    .inv-meta { width: 44%; }
+    .inv-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 0.35rem;
+    }
+    .inv-meta-row > .inv-lbl { flex: 0 0 45%; text-align: right; }
+    .inv-meta-row > .inv-meta-val { flex: 1 1 auto; }
+    .inv-meta-val input { text-align: right; }
+    .inv-balance {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 1rem;
+      padding: 0.6rem 0;
+      background: #f4f4f4;
+      border-radius: 4px;
+    }
+    .inv-balance .inv-lbl {
+      flex: 0 0 45%;
+      text-align: right;
+      font-size: 12px;
+      color: #4a4a4a;
+      font-weight: 700;
+    }
+    .inv-balance-amt {
+      flex: 1 1 auto;
+      text-align: right;
+      font-size: 15px;
+      font-weight: 700;
+      padding-right: 5px;
+    }
+
+    /* items table */
+    .inv-items { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
+    .inv-items thead th {
+      background: #3c3c3c;
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 0;
+    }
+    .inv-items thead th input {
+      color: #ffffff;
+      padding: 9px 8px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .inv-items thead th input:hover { border-color: rgba(255,255,255,0.35); }
+    .inv-items thead th input:focus { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.6); }
+    .inv-items thead .th-desc input { text-align: left; }
+    .inv-items thead .th-num input { text-align: right; }
+    .inv-items tbody td {
+      border-bottom: 1px solid #ececec;
+      padding: 4px 3px;
+      vertical-align: top;
+    }
+    .inv-items .td-num input { text-align: right; }
+    .inv-items .td-amt {
+      text-align: right;
+      padding: 8px 8px;
+      white-space: nowrap;
+      color: #333;
+    }
+    .col-desc { width: 46%; }
+    .col-qty  { width: 13%; }
+    .col-rate { width: 17%; }
+    .col-amt  { width: 18%; }
+    .col-del  { width: 6%; }
+    .inv-del {
+      background: none;
+      border: none;
+      color: #d0d0d0;
+      cursor: pointer;
+      font-size: 13px;
+      padding: 6px;
+      line-height: 1;
+    }
+    .inv-del:hover { color: #c0392b; }
+    .inv-additem {
+      font-size: 11px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #4a9fd8;
+      background: none;
+      border: 1px solid #cfe6f4;
+      border-radius: 4px;
+      padding: 0.5rem 0.9rem;
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .inv-additem:hover { background: #f0f9ff; border-color: #4a9fd8; }
+
+    /* totals */
+    .inv-foot { display: flex; gap: 2.5rem; align-items: flex-start; margin-top: 1.75rem; }
+    .inv-notes { width: 52%; }
+    .inv-notes .inv-lbl { display: block; margin-bottom: 0.15rem; }
+    .inv-notes textarea { color: #555; font-size: 12px; }
+    .inv-totals { width: 48%; }
+    .inv-tot-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.28rem 0;
+    }
+    .inv-tot-row > .inv-lbl { flex: 1 1 auto; text-align: right; }
+    .inv-tot-val {
+      flex: 0 0 34%;
+      text-align: right;
+      padding-right: 5px;
+      white-space: nowrap;
+    }
+    .inv-tot-input { flex: 0 0 34%; }
+    .inv-tot-input input { text-align: right; }
+    .inv-mode {
+      flex: 0 0 auto;
+      display: inline-flex;
+      border: 1px solid #dcdcdc;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .inv-mode button {
+      background: #fafafa;
+      border: none;
+      color: #999;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 7px;
+      cursor: pointer;
+      line-height: 1.2;
+    }
+    .inv-mode button.on { background: #3c3c3c; color: #fff; }
+    .inv-tot-total {
+      border-top: 2px solid #3c3c3c;
+      margin-top: 0.5rem;
+      padding-top: 0.6rem;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .inv-tot-total .inv-lbl { font-size: 12px; color: #3c3c3c; font-weight: 700; }
+    .inv-tot-due {
+      background: #f4f4f4;
+      border-radius: 4px;
+      margin-top: 0.4rem;
+      padding: 0.5rem 0;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .inv-tot-due .inv-lbl { font-size: 12px; color: #1a1a1a; font-weight: 700; }
+
+    /* optional-row toggles live outside the sheet so they never print */
+    .tl-opts {
+      display: flex;
+      gap: 1.1rem;
+      flex-wrap: wrap;
+      margin-top: 1.5rem;
+      padding: 1rem 1.15rem;
+      border: 1px solid var(--c-border);
+      border-radius: 8px;
+      background: var(--c-surface);
+    }
+    .tl-opts label {
+      font-family: monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--c-secondary);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      cursor: pointer;
+    }
+    .tl-opts input[type="checkbox"] { accent-color: var(--c-accent, #abf8fe); cursor: pointer; }
+    .tl-opts select {
+      font-family: monospace;
+      font-size: 0.7rem;
+      background: rgba(0,0,0,0.35);
+      color: var(--c-text);
+      border: 1px solid var(--c-border);
+      border-radius: 4px;
+      padding: 0.3rem 0.45rem;
+    }
+
+    .tl-note {
+      margin-top: 1.25rem;
+      font-family: monospace;
+      font-size: 0.68rem;
+      line-height: 1.7;
+      color: var(--c-tertiary);
+    }
+
+    .is-hidden { display: none !important; }
+
+    /* `screen` is load-bearing: the print viewport is ~720px wide, so an
+       unscoped max-width query would collapse the sheet to one column in PDFs. */
+    @media screen and (max-width: 760px) {
+      .inv-sheet { padding: 1.5rem; }
+      .inv-head, .inv-mid, .inv-foot { flex-direction: column; gap: 1.25rem; }
+      .inv-logo-wrap, .inv-title-wrap, .inv-parties, .inv-meta,
+      .inv-notes, .inv-totals { width: 100%; }
+      .inv-title-wrap { text-align: left; }
+      .inv-title input, .inv-number input { text-align: left; }
+      .inv-meta-val input { text-align: left; }
+      .inv-meta-row > .inv-lbl, .inv-balance .inv-lbl { text-align: left; flex-basis: 40%; }
+
+      /* let the money table scroll rather than crushing its columns */
+      .inv-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .inv-items { min-width: 460px; }
+    }
+
+    /* ── print: the sheet, nothing else ───────────────────────────── */
+    @media print {
+      @page { size: letter; margin: 0.5in; }
+      html, body {
+        background: #fff !important;
+        color: #1a1a1a !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+      body * { visibility: hidden !important; }
+      .inv-sheet, .inv-sheet * { visibility: visible !important; }
+      .inv-sheet {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        max-width: none;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+        border-radius: 0;
+      }
+      .inv-sheet input,
+      .inv-sheet textarea,
+      .inv-sheet select {
+        border-color: transparent !important;
+        background: transparent !important;
+        -webkit-appearance: none;
+        appearance: none;
+      }
+      /* the native date-picker button is chrome, not content */
+      .inv-sheet input[type="date"]::-webkit-calendar-picker-indicator { display: none !important; }
+      .inv-items thead th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .inv-balance, .inv-tot-due { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .inv-del, .inv-additem, .inv-logo-clear, .inv-mode { display: none !important; }
+      .inv-logo-drop.is-empty { display: none !important; }
+      .inv-items tbody tr, .inv-tot-row { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body data-barba="wrapper" class="page-is-tools">
+  <div class="container">
+    <header class="header">
+      <div class="header-inner">
+        <a href="/" class="header-logo logo word font-kihim">aj91</a>
+        <nav class="header-nav navigation" aria-label="Main">
+          <ul>
+            <li><a class="font-mono" href="https://www.linkedin.com/in/asjones91/" aria-label="LinkedIn"><i class="fa-brands fa-linkedin" aria-hidden="true"></i><span class="nav-text">Linkedin</span></a></li>
+            <li><a class="font-mono" href="https://aj91.substack.com/" aria-label="Substack"><i class="fa-solid fa-newspaper" aria-hidden="true"></i><span class="nav-text">Substack</span></a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main data-barba="container" data-barba-namespace="tools">
+      <div class="page-tools">
+
+        <section class="tl-hero">
+          <div class="tl-hero-label">Tools</div>
+          <h1>Invoice generator.</h1>
+          <p>
+            Build an invoice and download it as a PDF. Nothing is uploaded — the whole
+            thing runs in your browser and saves to this device, so your client list and
+            your rates stay yours.
+          </p>
+        </section>
+
+        <div class="tl-tabs" role="tablist">
+          <button class="tl-tab active" role="tab" aria-selected="true" type="button">Invoice</button>
+          <button class="tl-tab" role="tab" aria-selected="false" type="button" disabled>Estimate<span class="tl-tab-soon">Soon</span></button>
+          <button class="tl-tab" role="tab" aria-selected="false" type="button" disabled>Receipt<span class="tl-tab-soon">Soon</span></button>
+        </div>
+
+        <div class="tl-bar">
+          <button class="tl-btn tl-btn-primary" id="btn-pdf" type="button">Download PDF</button>
+          <button class="tl-btn" id="btn-new" type="button">New invoice</button>
+          <button class="tl-btn" id="btn-save" type="button">Export JSON</button>
+          <button class="tl-btn" id="btn-load" type="button">Import JSON</button>
+          <input type="file" id="file-json" accept="application/json,.json" class="is-hidden">
+          <span class="tl-bar-sep"></span>
+          <span class="tl-status" id="status">Saved to this browser</span>
+        </div>
+
+        <!-- ════════ the sheet ════════ -->
+        <div class="inv-sheet" id="sheet">
+
+          <div class="inv-head">
+            <div class="inv-logo-wrap">
+              <div class="inv-logo-drop is-empty" id="logo-drop" tabindex="0" role="button" aria-label="Add your logo">+ Add your logo</div>
+              <input type="file" id="logo-file" accept="image/*" class="is-hidden">
+              <button class="inv-logo-clear" id="logo-clear" type="button">Remove logo</button>
+            </div>
+            <div class="inv-title-wrap">
+              <div class="inv-title"><input id="f-title" value="INVOICE" aria-label="Document title"></div>
+              <div class="inv-number"><input id="f-number" placeholder="#1" aria-label="Invoice number"></div>
+            </div>
+          </div>
+
+          <div class="inv-mid">
+            <div class="inv-parties">
+              <div class="inv-party inv-from">
+                <textarea id="f-from" rows="1" placeholder="Who is this from?" aria-label="From"></textarea>
+              </div>
+              <div class="inv-party">
+                <input class="inv-lbl" id="l-billto" value="Bill To" aria-label="Bill to label">
+                <textarea id="f-billto" rows="1" placeholder="Who is this to?" aria-label="Bill to"></textarea>
+              </div>
+              <div class="inv-party is-hidden" id="row-shipto">
+                <input class="inv-lbl" id="l-shipto" value="Ship To" aria-label="Ship to label">
+                <textarea id="f-shipto" rows="1" placeholder="(optional)" aria-label="Ship to"></textarea>
+              </div>
+            </div>
+
+            <div class="inv-meta">
+              <div class="inv-meta-row">
+                <input class="inv-lbl" id="l-date" value="Date" aria-label="Date label">
+                <span class="inv-meta-val"><input type="date" id="f-date" aria-label="Date"></span>
+              </div>
+              <div class="inv-meta-row">
+                <input class="inv-lbl" id="l-terms" value="Payment Terms" aria-label="Payment terms label">
+                <span class="inv-meta-val"><input id="f-terms" placeholder="e.g. Net 7" aria-label="Payment terms"></span>
+              </div>
+              <div class="inv-meta-row">
+                <input class="inv-lbl" id="l-due" value="Due Date" aria-label="Due date label">
+                <span class="inv-meta-val"><input type="date" id="f-due" aria-label="Due date"></span>
+              </div>
+              <div class="inv-meta-row is-hidden" id="row-po">
+                <input class="inv-lbl" id="l-po" value="PO Number" aria-label="PO number label">
+                <span class="inv-meta-val"><input id="f-po" aria-label="PO number"></span>
+              </div>
+              <div class="inv-balance">
+                <input class="inv-lbl" id="l-balance" value="Balance Due" aria-label="Balance due label">
+                <span class="inv-balance-amt" id="out-balance-top">$0.00</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="inv-table-wrap">
+          <table class="inv-items">
+            <colgroup>
+              <col class="col-desc"><col class="col-qty"><col class="col-rate"><col class="col-amt"><col class="col-del">
+            </colgroup>
+            <thead>
+              <tr>
+                <th class="th-desc"><input id="l-item" value="Item" aria-label="Item column label"></th>
+                <th class="th-num"><input id="l-qty" value="Quantity" aria-label="Quantity column label"></th>
+                <th class="th-num"><input id="l-rate" value="Rate" aria-label="Rate column label"></th>
+                <th class="th-num"><input id="l-amount" value="Amount" aria-label="Amount column label"></th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="items"></tbody>
+          </table>
+          </div>
+
+          <button class="inv-additem" id="btn-additem" type="button">+ Line Item</button>
+
+          <div class="inv-foot">
+            <div class="inv-notes">
+              <input class="inv-lbl" id="l-notes" value="Notes" aria-label="Notes label">
+              <textarea id="f-notes" rows="1" placeholder="Notes — any relevant information not already covered" aria-label="Notes"></textarea>
+              <div style="height:0.9rem"></div>
+              <input class="inv-lbl" id="l-terms-text" value="Terms" aria-label="Terms label">
+              <textarea id="f-terms-text" rows="1" placeholder="Terms and conditions — late fees, payment methods, delivery schedule" aria-label="Terms"></textarea>
+            </div>
+
+            <div class="inv-totals">
+              <div class="inv-tot-row">
+                <input class="inv-lbl" id="l-subtotal" value="Subtotal" aria-label="Subtotal label">
+                <span class="inv-tot-val" id="out-subtotal">$0.00</span>
+              </div>
+
+              <div class="inv-tot-row is-hidden" id="row-discount">
+                <input class="inv-lbl" id="l-discount" value="Discount" aria-label="Discount label">
+                <span class="inv-mode" data-for="discount">
+                  <button type="button" data-mode="pct" class="on">%</button>
+                  <button type="button" data-mode="flat">$</button>
+                </span>
+                <span class="inv-tot-input"><input id="f-discount" inputmode="decimal" placeholder="0" aria-label="Discount value"></span>
+              </div>
+
+              <div class="inv-tot-row is-hidden" id="row-tax">
+                <input class="inv-lbl" id="l-tax" value="Tax" aria-label="Tax label">
+                <span class="inv-mode" data-for="tax">
+                  <button type="button" data-mode="pct" class="on">%</button>
+                  <button type="button" data-mode="flat">$</button>
+                </span>
+                <span class="inv-tot-input"><input id="f-tax" inputmode="decimal" placeholder="0" aria-label="Tax value"></span>
+              </div>
+
+              <div class="inv-tot-row is-hidden" id="row-shipping">
+                <input class="inv-lbl" id="l-shipping" value="Shipping" aria-label="Shipping label">
+                <span class="inv-tot-input"><input id="f-shipping" inputmode="decimal" placeholder="0" aria-label="Shipping value"></span>
+              </div>
+
+              <div class="inv-tot-row inv-tot-total">
+                <input class="inv-lbl" id="l-total" value="Total" aria-label="Total label">
+                <span class="inv-tot-val" id="out-total">$0.00</span>
+              </div>
+
+              <div class="inv-tot-row is-hidden" id="row-paid">
+                <input class="inv-lbl" id="l-paid" value="Amount Paid" aria-label="Amount paid label">
+                <span class="inv-tot-input"><input id="f-paid" inputmode="decimal" placeholder="0" aria-label="Amount paid"></span>
+              </div>
+
+              <div class="inv-tot-row inv-tot-due">
+                <input class="inv-lbl" id="l-balance2" value="Balance Due" aria-label="Balance due label">
+                <span class="inv-tot-val" id="out-balance">$0.00</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- ════════ /sheet ════════ -->
+
+        <div class="tl-opts">
+          <label><input type="checkbox" id="opt-shipto"> Ship To</label>
+          <label><input type="checkbox" id="opt-po"> PO Number</label>
+          <label><input type="checkbox" id="opt-discount"> Discount</label>
+          <label><input type="checkbox" id="opt-tax"> Tax</label>
+          <label><input type="checkbox" id="opt-shipping"> Shipping</label>
+          <label><input type="checkbox" id="opt-paid"> Amount Paid</label>
+          <label>
+            Currency
+            <select id="opt-currency"></select>
+          </label>
+        </div>
+
+        <p class="tl-note">
+          Your details, logo and last invoice stay in this browser's local storage — nothing
+          is sent anywhere. "Download PDF" opens your print dialog; choose <em>Save as PDF</em>
+          as the destination for a vector PDF with selectable text. In that dialog, untick
+          <em>Headers and footers</em> under "More settings" — it's on by default and stamps
+          the date and URL onto your invoice.
+        </p>
+
+      </div>
+    </main>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  var KEY = "aj91.tools.invoice.v1";
+  var $ = function (id) { return document.getElementById(id); };
+
+  var CURRENCIES = [
+    ["USD", "$"], ["EUR", "€"], ["GBP", "£"], ["TRY", "₺"], ["CAD", "$"],
+    ["AUD", "$"], ["NZD", "$"], ["CHF", "CHF"], ["JPY", "¥"], ["CNY", "¥"],
+    ["INR", "₹"], ["SGD", "$"], ["HKD", "$"], ["SEK", "kr"], ["NOK", "kr"],
+    ["DKK", "kr"], ["PLN", "zł"], ["CZK", "Kč"], ["HUF", "Ft"], ["RON", "lei"],
+    ["ILS", "₪"], ["AED", "د.إ"], ["SAR", "﷼"], ["ZAR", "R"], ["MXN", "$"],
+    ["BRL", "R$"], ["ARS", "$"], ["CLP", "$"], ["COP", "$"], ["KRW", "₩"],
+    ["THB", "฿"], ["MYR", "RM"], ["IDR", "Rp"], ["PHP", "₱"], ["VND", "₫"],
+    ["NGN", "₦"], ["KES", "KSh"], ["EGP", "E£"], ["UAH", "₴"], ["ISK", "kr"]
+  ];
+
+  // ── fields we persist ────────────────────────────────────────────
+  var TEXT_FIELDS = [
+    "f-title", "f-number", "f-from", "f-billto", "f-shipto", "f-date",
+    "f-terms", "f-due", "f-po", "f-notes", "f-terms-text",
+    "f-discount", "f-tax", "f-shipping", "f-paid"
+  ];
+  var LABEL_FIELDS = [
+    "l-billto", "l-shipto", "l-date", "l-terms", "l-due", "l-po", "l-balance",
+    "l-item", "l-qty", "l-rate", "l-amount", "l-notes", "l-terms-text",
+    "l-subtotal", "l-discount", "l-tax", "l-shipping", "l-total", "l-paid", "l-balance2"
+  ];
+  var OPTIONS = [
+    ["opt-shipto", "row-shipto"], ["opt-po", "row-po"], ["opt-discount", "row-discount"],
+    ["opt-tax", "row-tax"], ["opt-shipping", "row-shipping"], ["opt-paid", "row-paid"]
+  ];
+
+  var modes = { discount: "pct", tax: "pct" };
+  var logoData = null;
+
+  // ── helpers ──────────────────────────────────────────────────────
+  function num(v) {
+    if (v === null || v === undefined) return 0;
+    var n = parseFloat(String(v).replace(/[^0-9.\-]/g, ""));
+    return isFinite(n) ? n : 0;
+  }
+
+  function currency() { return $("opt-currency").value || "USD"; }
+
+  function money(n) {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency", currency: currency(), minimumFractionDigits: 2, maximumFractionDigits: 2
+      }).format(n);
+    } catch (e) {
+      return currency() + " " + n.toFixed(2);
+    }
+  }
+
+  function autoSize(el) {
+    if (!el || el.tagName !== "TEXTAREA") return;
+    el.style.height = "auto";
+    el.style.height = (el.scrollHeight + 2) + "px";
+  }
+
+  function autoSizeAll() {
+    var t = document.querySelectorAll(".inv-sheet textarea");
+    for (var i = 0; i < t.length; i++) autoSize(t[i]);
+  }
+
+  function flash(msg) {
+    var s = $("status");
+    s.textContent = msg;
+    clearTimeout(flash._t);
+    flash._t = setTimeout(function () { s.textContent = "Saved to this browser"; }, 2200);
+  }
+
+  // ── line items ───────────────────────────────────────────────────
+  function addItem(data, skipSave) {
+    data = data || {};
+    var tr = document.createElement("tr");
+
+    var tdDesc = document.createElement("td");
+    var ta = document.createElement("textarea");
+    ta.rows = 1;
+    ta.placeholder = "Description of item/service…";
+    ta.value = data.desc || "";
+    ta.setAttribute("aria-label", "Item description");
+    tdDesc.appendChild(ta);
+
+    var tdQty = document.createElement("td");
+    tdQty.className = "td-num";
+    var qty = document.createElement("input");
+    qty.inputMode = "decimal";
+    qty.placeholder = "1";
+    qty.value = data.qty !== undefined ? data.qty : "1";
+    qty.setAttribute("aria-label", "Quantity");
+    tdQty.appendChild(qty);
+
+    var tdRate = document.createElement("td");
+    tdRate.className = "td-num";
+    var rate = document.createElement("input");
+    rate.inputMode = "decimal";
+    rate.placeholder = "0.00";
+    rate.value = data.rate !== undefined ? data.rate : "";
+    rate.setAttribute("aria-label", "Rate");
+    tdRate.appendChild(rate);
+
+    var tdAmt = document.createElement("td");
+    tdAmt.className = "td-amt";
+    tdAmt.textContent = money(0);
+
+    var tdDel = document.createElement("td");
+    var del = document.createElement("button");
+    del.type = "button";
+    del.className = "inv-del";
+    del.innerHTML = "&times;";
+    del.setAttribute("aria-label", "Remove line item");
+    del.addEventListener("click", function () {
+      tr.parentNode.removeChild(tr);
+      if (!$("items").children.length) addItem();
+      recalc();
+      save();
+    });
+    tdDel.appendChild(del);
+
+    tr.appendChild(tdDesc); tr.appendChild(tdQty); tr.appendChild(tdRate);
+    tr.appendChild(tdAmt); tr.appendChild(tdDel);
+    $("items").appendChild(tr);
+
+    ta.addEventListener("input", function () { autoSize(ta); save(); });
+    qty.addEventListener("input", function () { recalc(); save(); });
+    rate.addEventListener("input", function () { recalc(); save(); });
+
+    autoSize(ta);
+    if (!skipSave) { recalc(); save(); }
+    return tr;
+  }
+
+  function readItems() {
+    var rows = $("items").children, out = [];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      out.push({
+        desc: r.cells[0].firstChild.value,
+        qty: r.cells[1].firstChild.value,
+        rate: r.cells[2].firstChild.value
+      });
+    }
+    return out;
+  }
+
+  // ── totals ───────────────────────────────────────────────────────
+  function recalc() {
+    var rows = $("items").children, subtotal = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var amt = num(r.cells[1].firstChild.value) * num(r.cells[2].firstChild.value);
+      subtotal += amt;
+      r.cells[3].textContent = money(amt);
+    }
+
+    var discount = 0;
+    if (!$("row-discount").classList.contains("is-hidden")) {
+      discount = modes.discount === "pct"
+        ? subtotal * num($("f-discount").value) / 100
+        : num($("f-discount").value);
+    }
+
+    var afterDiscount = subtotal - discount;
+
+    var tax = 0;
+    if (!$("row-tax").classList.contains("is-hidden")) {
+      tax = modes.tax === "pct"
+        ? afterDiscount * num($("f-tax").value) / 100
+        : num($("f-tax").value);
+    }
+
+    var shipping = $("row-shipping").classList.contains("is-hidden") ? 0 : num($("f-shipping").value);
+    var paid = $("row-paid").classList.contains("is-hidden") ? 0 : num($("f-paid").value);
+
+    var total = afterDiscount + tax + shipping;
+    var balance = total - paid;
+
+    $("out-subtotal").textContent = money(subtotal);
+    $("out-total").textContent = money(total);
+    $("out-balance").textContent = money(balance);
+    $("out-balance-top").textContent = money(balance);
+  }
+
+  // ── persistence ──────────────────────────────────────────────────
+  function serialize() {
+    var d = { items: readItems(), modes: modes, logo: logoData, currency: currency(), text: {}, labels: {}, opts: {} };
+    TEXT_FIELDS.forEach(function (id) { var el = $(id); if (el) d.text[id] = el.value; });
+    LABEL_FIELDS.forEach(function (id) { var el = $(id); if (el) d.labels[id] = el.value; });
+    OPTIONS.forEach(function (p) { d.opts[p[0]] = $(p[0]).checked; });
+    return d;
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(serialize()));
+      save._warned = false;
+    } catch (e) {
+      // quota exceeded (usually an oversized logo) or private-browsing mode.
+      // Don't fail silently — the user would lose work without knowing.
+      if (!save._warned) {
+        save._warned = true;
+        $("status").textContent = "Couldn't autosave — use Export JSON to keep this";
+      }
+    }
+  }
+
+  function applyOption(cbId, rowId) {
+    $(rowId).classList.toggle("is-hidden", !$(cbId).checked);
+  }
+
+  function hydrate(d) {
+    if (!d) return;
+    if (d.text) TEXT_FIELDS.forEach(function (id) {
+      var el = $(id);
+      if (el && d.text[id] !== undefined) el.value = d.text[id];
+    });
+    if (d.labels) LABEL_FIELDS.forEach(function (id) {
+      var el = $(id);
+      if (el && d.labels[id] !== undefined) el.value = d.labels[id];
+    });
+    if (d.currency) $("opt-currency").value = d.currency;
+    if (d.modes) {
+      ["discount", "tax"].forEach(function (k) {
+        if (!d.modes[k]) return;
+        modes[k] = d.modes[k];
+        var btns = document.querySelectorAll('.inv-mode[data-for="' + k + '"] button');
+        for (var i = 0; i < btns.length; i++) {
+          btns[i].classList.toggle("on", btns[i].getAttribute("data-mode") === modes[k]);
+        }
+      });
+    }
+    if (d.opts) OPTIONS.forEach(function (p) {
+      if (d.opts[p[0]] !== undefined) $(p[0]).checked = !!d.opts[p[0]];
+      applyOption(p[0], p[1]);
+    });
+    setLogo(d.logo || null);
+
+    $("items").innerHTML = "";
+    var items = (d.items && d.items.length) ? d.items : [{}];
+    items.forEach(function (it) { addItem(it, true); });
+
+    autoSizeAll();
+    recalc();
+  }
+
+  // ── logo ─────────────────────────────────────────────────────────
+  function setLogo(dataUrl) {
+    logoData = dataUrl || null;
+    var drop = $("logo-drop");
+    if (logoData) {
+      drop.classList.remove("is-empty");
+      drop.classList.add("inv-logo-has");
+      drop.innerHTML = "";
+      var img = document.createElement("img");
+      img.src = logoData;
+      img.alt = "Logo";
+      drop.appendChild(img);
+      $("logo-clear").style.display = "block";
+    } else {
+      drop.classList.add("is-empty");
+      drop.classList.remove("inv-logo-has");
+      drop.textContent = "+ Add your logo";
+      $("logo-clear").style.display = "none";
+    }
+  }
+
+  function readLogoFile(file) {
+    if (!file || !/^image\//.test(file.type)) return;
+    if (file.size > 2 * 1024 * 1024) { flash("Logo too large — keep it under 2 MB"); return; }
+    var fr = new FileReader();
+    fr.onload = function () { setLogo(fr.result); save(); };
+    fr.readAsDataURL(file);
+  }
+
+  // ── payment terms → due date ─────────────────────────────────────
+  function maybeDeriveDue() {
+    var t = $("f-terms").value;
+    var m = /net\s*(\d{1,3})/i.exec(t);
+    if (!m) return;
+    var base = $("f-date").value;
+    if (!base) return;
+    var parts = base.split("-");
+    var dt = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+    dt.setDate(dt.getDate() + Number(m[1]));
+    var mm = String(dt.getMonth() + 1).padStart(2, "0");
+    var dd = String(dt.getDate()).padStart(2, "0");
+    $("f-due").value = dt.getFullYear() + "-" + mm + "-" + dd;
+  }
+
+  // ── wiring ───────────────────────────────────────────────────────
+  function init() {
+    // currency list
+    var sel = $("opt-currency");
+    CURRENCIES.forEach(function (c) {
+      var o = document.createElement("option");
+      o.value = c[0];
+      o.textContent = c[0] + " " + c[1];
+      sel.appendChild(o);
+    });
+
+    // mode toggles ($ / %)
+    var modeWraps = document.querySelectorAll(".inv-mode");
+    for (var i = 0; i < modeWraps.length; i++) {
+      (function (wrap) {
+        var key = wrap.getAttribute("data-for");
+        wrap.addEventListener("click", function (e) {
+          var btn = e.target.closest("button");
+          if (!btn) return;
+          modes[key] = btn.getAttribute("data-mode");
+          var btns = wrap.querySelectorAll("button");
+          for (var j = 0; j < btns.length; j++) btns[j].classList.remove("on");
+          btn.classList.add("on");
+          recalc(); save();
+        });
+      })(modeWraps[i]);
+    }
+
+    // option checkboxes
+    OPTIONS.forEach(function (p) {
+      $(p[0]).addEventListener("change", function () {
+        applyOption(p[0], p[1]);
+        recalc(); save();
+      });
+    });
+
+    sel.addEventListener("change", function () { recalc(); save(); });
+
+    // every field saves; totals fields also recalc
+    TEXT_FIELDS.concat(LABEL_FIELDS).forEach(function (id) {
+      var el = $(id);
+      if (!el) return;
+      el.addEventListener("input", function () {
+        autoSize(el);
+        recalc();
+        save();
+      });
+    });
+
+    $("f-terms").addEventListener("change", function () { maybeDeriveDue(); save(); });
+    $("f-date").addEventListener("change", function () { maybeDeriveDue(); save(); });
+
+    $("btn-additem").addEventListener("click", function () { addItem(); });
+
+    // logo
+    $("logo-drop").addEventListener("click", function () { if (!logoData) $("logo-file").click(); });
+    $("logo-drop").addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("logo-file").click(); }
+    });
+    $("logo-drop").addEventListener("dragover", function (e) { e.preventDefault(); });
+    $("logo-drop").addEventListener("drop", function (e) {
+      e.preventDefault();
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) readLogoFile(e.dataTransfer.files[0]);
+    });
+    $("logo-file").addEventListener("change", function (e) { readLogoFile(e.target.files[0]); });
+    $("logo-clear").addEventListener("click", function () { setLogo(null); $("logo-file").value = ""; save(); });
+
+    // toolbar
+    $("btn-pdf").addEventListener("click", function () {
+      var prev = document.title;
+      var n = ($("f-number").value || "").replace(/[^\w\-#]/g, "").replace(/^#/, "");
+      var who = ($("f-billto").value || "").split("\n")[0].replace(/[^\w\s\-]/g, "").trim().replace(/\s+/g, "_");
+      document.title = ["Invoice", n, who].filter(Boolean).join("_") || "Invoice";
+      window.print();
+      setTimeout(function () { document.title = prev; }, 500);
+    });
+
+    $("btn-new").addEventListener("click", function () {
+      if (!window.confirm("Start a new invoice? Your From details and logo are kept; everything else clears.")) return;
+      var keepFrom = $("f-from").value;
+      var keepLogo = logoData;
+      var keepCur = currency();
+      var num_ = $("f-number").value;
+
+      ["f-billto", "f-shipto", "f-po", "f-notes", "f-terms-text",
+       "f-discount", "f-tax", "f-shipping", "f-paid"].forEach(function (id) { $(id).value = ""; });
+
+      // bump the invoice number if it ends in digits
+      var m = /^(.*?)(\d+)$/.exec(num_ || "");
+      $("f-number").value = m ? m[1] + String(Number(m[2]) + 1) : num_;
+
+      $("f-date").value = todayISO();
+      maybeDeriveDue();
+
+      $("items").innerHTML = "";
+      addItem({}, true);
+
+      $("f-from").value = keepFrom;
+      setLogo(keepLogo);
+      $("opt-currency").value = keepCur;
+
+      autoSizeAll(); recalc(); save();
+      flash("New invoice started");
+    });
+
+    $("btn-save").addEventListener("click", function () {
+      var blob = new Blob([JSON.stringify(serialize(), null, 2)], { type: "application/json" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "invoice-" + ($("f-number").value || "draft").replace(/[^\w\-]/g, "") + ".json";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+      flash("Exported");
+    });
+
+    $("btn-load").addEventListener("click", function () { $("file-json").click(); });
+    $("file-json").addEventListener("change", function (e) {
+      var f = e.target.files[0];
+      if (!f) return;
+      var fr = new FileReader();
+      fr.onload = function () {
+        try {
+          hydrate(JSON.parse(fr.result));
+          save();
+          flash("Imported");
+        } catch (err) {
+          flash("That file wasn't a saved invoice");
+        }
+      };
+      fr.readAsText(f);
+      e.target.value = "";
+    });
+
+    // restore, or start fresh
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem(KEY)); } catch (e) { saved = null; }
+
+    if (saved) {
+      hydrate(saved);
+    } else {
+      $("f-number").value = "#1";
+      $("f-date").value = todayISO();
+      $("opt-currency").value = "USD";
+      addItem({}, true);
+      recalc();
+    }
+    autoSizeAll();
+  }
+
+  function todayISO() {
+    var d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

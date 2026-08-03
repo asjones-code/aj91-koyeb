@@ -57,6 +57,7 @@ async function main() {
 		{ loc: `${base}/work.html`, changefreq: "monthly", priority: "0.8" },
 		{ loc: `${base}/projects`, changefreq: "weekly", priority: "0.9" },
 		{ loc: `${base}/blog`, changefreq: "weekly", priority: "0.9" },
+		{ loc: `${base}/tools`, changefreq: "monthly", priority: "0.7" },
 	];
 
 	const dbUrl = (process.env.DATABASE_URL || "").trim();

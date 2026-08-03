@@ -16,7 +16,7 @@
     "dev": "node node_modules/parcel/lib/bin.js src/index.html",
     "dev:portfolio": "node node_modules/parcel/lib/bin.js src/portfolio.html",
     "dev:crypto": "node node_modules/parcel/lib/bin.js src/crypto.html",
-    "build": "node node_modules/parcel/lib/bin.js build src/index.html src/projects.html src/project.html src/work.html src/about.html src/pm.html src/admin.html src/blog.html src/studio.html src/intake.html src/portfolio.html src/crypto.html && node scripts/build-sitemap.mjs",
+    "build": "node node_modules/parcel/lib/bin.js build src/index.html src/projects.html src/project.html src/work.html src/about.html src/pm.html src/admin.html src/blog.html src/studio.html src/intake.html src/portfolio.html src/crypto.html src/tools.html && node scripts/build-sitemap.mjs",
     "start": "node server.js",
     "cms:create-admin": "node -r dotenv/config cms/scripts/create-admin.js",
     "cms:reset-admin": "node cms/scripts/reset-admin.js",
