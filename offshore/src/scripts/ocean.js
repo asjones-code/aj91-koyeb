@@ -80,7 +80,9 @@ export function ocean(canvas) {
   }
 
   resize();
-  addEventListener('resize', resize);
+  // Watch the canvas itself, not the window: if the page script runs before the
+  // stylesheet applies, the canvas starts at its default 300×150 and only grows later.
+  new ResizeObserver(resize).observe(canvas);
   id = requestAnimationFrame(tick);
 
   return {

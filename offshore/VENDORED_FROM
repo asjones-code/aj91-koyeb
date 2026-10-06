@@ -1,3 +1,3 @@
 Copied from the Offshore repo by scripts/sync-offshore.sh. Do not edit these here; change them there and re-sync.
-commit: e3e9707
+commit: e598981
 paths: src/core/ src/platform/ src/styles/ocean.css src/scripts/ocean.js
