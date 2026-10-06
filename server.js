@@ -2958,6 +2958,17 @@ Respond with ONLY valid JSON, no markdown or explanation:
 		}
 	}
 
+	// Offshore (dist/offshore): its service worker scope is /offshore/, so the bare path must redirect.
+	if (pathname === "/offshore") {
+		res.writeHead(301, { Location: "/offshore/" + url.search });
+		res.end();
+		return;
+	}
+	// Offshore's connectivity probe: must never come from any cache.
+	if (pathname === "/offshore/probe.txt") {
+		res.setHeader("Cache-Control", "no-store");
+	}
+
 	// Clean URLs: /projects -> /projects.html, /admin -> /admin.html, /blog -> /blog.html
 	let pathToServe = pathname;
 	if (pathname === "/projects") pathToServe = "/projects.html";

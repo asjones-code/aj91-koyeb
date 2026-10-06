@@ -1,0 +1,157 @@
+/* Tokens and base layout from Redesign concept v1 ("calm the tides"). */
+
+:root {
+  --bg: #05080d;
+  --ink: #eaf6ff;
+  --ink-soft: #9cc3d8;
+  --label: #8fbcd4;
+  --accent: #9fe8ff;
+  --line: rgba(159, 232, 255, 0.18);
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: Geist, 'SF Pro Display', system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+/* `hidden` must win over any display rule below (the old Done-button bug). */
+[hidden] { display: none !important; }
+
+html, body { margin: 0; height: 100%; }
+
+body {
+  background: linear-gradient(to bottom, #020812 0%, #06182b 42%, #0a2d4a 100%) fixed var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+.sea {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Darkens the bottom so text over the waves stays readable. */
+.shade {
+  position: fixed;
+  inset: auto 0 0 0;
+  height: 40vh;
+  background: linear-gradient(to bottom, rgba(3, 12, 24, 0), rgba(3, 12, 24, 0.9));
+  z-index: 0;
+  pointer-events: none;
+}
+
+.screen {
+  position: relative;
+  z-index: 1;
+  min-height: 100dvh;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: calc(48px + env(safe-area-inset-top)) 28px calc(32px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+}
+
+.label {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--label);
+}
+
+.topbar { display: flex; justify-content: space-between; }
+
+.headline {
+  font-size: 40px;
+  font-weight: 500;
+  line-height: 1.08;
+  letter-spacing: -0.5px;
+  margin: 26px 0 0;
+}
+
+.clock {
+  font-family: var(--mono);
+  font-size: clamp(56px, 18vw, 80px);
+  font-weight: 300;
+  letter-spacing: -2px;
+  font-variant-numeric: tabular-nums;
+  margin-top: 16px;
+}
+
+.sub { font-size: 16px; line-height: 1.5; color: var(--ink-soft); margin-top: 8px; }
+
+.spacer { flex: 1; }
+
+.pill {
+  display: block;
+  width: 100%;
+  font: 13px var(--mono);
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: rgba(3, 12, 24, 0.6);
+  border: 1px solid rgba(159, 232, 255, 0.4);
+  border-radius: 999px;
+  padding: 15px 0;
+  cursor: pointer;
+}
+
+button { font: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+
+.chip {
+  font: 14px var(--mono);
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: rgba(3, 12, 24, 0.6);
+  border: 1px solid rgba(159, 232, 255, 0.25);
+  color: var(--label);
+  cursor: pointer;
+}
+.chip[aria-pressed='true'] { border-color: var(--accent); color: var(--ink); }
+
+.settings { display: flex; justify-content: space-between; margin-top: 30px; }
+
+.toggle {
+  font: 11px var(--mono);
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--label);
+  background: none;
+  border: 0;
+  padding: 8px 0;
+  cursor: pointer;
+}
+.toggle:disabled { opacity: 0.4; }
+
+.track { margin-top: 32px; }
+.track-labels {
+  display: flex;
+  justify-content: space-between;
+  font: 11px var(--mono);
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--label);
+}
+.track-labels .now { color: var(--ink); }
+.bar { height: 2px; background: var(--line); margin-top: 12px; border-radius: 2px; }
+.fill { height: 2px; width: 0; background: var(--accent); border-radius: 2px; transition: width 1s linear; }
+
+.tagline { font-size: 15px; color: #bcdcec; text-align: center; margin: 0 0 8px; }
+
+.rows { margin-top: 32px; }
+.row { display: flex; justify-content: space-between; padding: 13px 0; border-bottom: 1px solid rgba(159, 232, 255, 0.14); }
+.row .hi { color: var(--accent); }
+
+.foot { text-align: center; font-size: 11px; margin-top: 16px; }
+
+/* Per-state accents. The whole screen must change at the armed → offline moment. */
+body[data-state='offline'] .status { color: var(--accent); }
+body[data-state='ended'] .clock { font-family: var(--sans); font-weight: 500; letter-spacing: -1px; }

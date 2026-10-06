@@ -1,0 +1,297 @@
+<!doctype html>
+<!-- Offshore timer, from the Offshore repo's spike.astro. Every change goes through commit(), which saves to localStorage, so a reload resumes. -->
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#05080d" />
+    <title>Offshore</title>
+    <link rel="stylesheet" href="./src/styles/ocean.css" />
+    <style>
+      #log { font: 11px/1.4 var(--mono); white-space: pre-wrap; color: var(--label); max-height: 30vh; overflow: auto; margin-top: 8px; }
+      details { margin-top: 20px; }
+      summary { cursor: pointer; }
+      .qr { width: min(60vw, 220px); margin: 16px auto 0; border-radius: 8px; overflow: hidden; }
+      .qr svg { display: block; width: 100%; height: auto; }
+      .elsewhere .sub { text-align: center; font-size: 14px; }
+    </style>
+  </head>
+  <body data-state="armed">
+    <canvas class="sea" id="sea" aria-hidden="true"></canvas>
+    <div class="shade"></div>
+    <main class="screen">
+      <div class="topbar">
+        <div class="label" id="brand">Offshore</div>
+        <div class="label status" id="status">Armed</div>
+      </div>
+
+      <!-- data-show lists the states a block is visible in; render() sets `hidden` on the rest. -->
+      <div data-show="armed">
+        <h1 class="headline">Go offline to<br />calm the water.</h1>
+        <p class="sub">Turn on airplane mode and set the phone down. The timer starts by itself.</p>
+      </div>
+
+      <div data-show="offline ended">
+        <div class="clock" id="elapsed"></div>
+        <div class="sub" id="detail"></div>
+      </div>
+
+      <div data-show="offline" class="track" id="track">
+        <div class="track-labels" id="track-labels"></div>
+        <div class="bar"><div class="fill" id="fill"></div></div>
+      </div>
+
+      <div data-show="ended" class="rows" id="rows"></div>
+
+      <div class="spacer"></div>
+
+      <div data-show="armed">
+        <div class="label">Goals</div>
+        <div class="chips" id="chips"></div>
+        <div class="settings">
+          <button class="toggle" id="sound"></button>
+          <button class="toggle" id="awake"></button>
+          <a class="toggle" href="./history.html">History →</a>
+        </div>
+        <!-- Open on another device: a QR of this app's own URL, drawn on the device. -->
+        <details class="elsewhere">
+          <summary class="label">Open on another device</summary>
+          <div class="qr" id="qr"></div>
+          <p class="sub">Scan with the other device's camera. Each device keeps its own voyages.</p>
+        </details>
+      </div>
+
+      <p data-show="offline" class="tagline" id="tagline"></p>
+
+      <div data-show="ended">
+        <button class="pill" id="dismiss">Done</button>
+        <div class="label foot" id="total"></div>
+      </div>
+
+      <details>
+        <summary class="label">Log</summary>
+        <div id="log"></div>
+      </details>
+    </main>
+
+    <script type="module">
+      import { start, advance, elapsedMs, isDiscardable } from './src/core/session.js';
+      import { goalProgress } from './src/core/goals.js';
+      import { totalMs } from './src/core/stats.js';
+      import { clock, short } from './src/core/format.js';
+      import { load, save } from './src/platform/store.js';
+      import { wakeLock } from './src/platform/wakelock.js';
+      import { chime } from './src/platform/chime.js';
+      import { ocean } from './src/scripts/ocean.js';
+      import { qrSvg } from './src/scripts/qr.js';
+
+      const MIN = 60_000;
+      const PRESETS = [25 * MIN, 50 * MIN, 90 * MIN];
+
+      const $ = (id) => /** @type {HTMLElement} */ (document.getElementById(id));
+      const sea = ocean(/** @type {HTMLCanvasElement} */ ($('sea')));
+      const awake = wakeLock();
+      const bell = chime();
+
+      // The one piece of state. Everything on screen is derived from it in render().
+      let data = load();
+      // How many goals have already chimed for which session, so each chimes once.
+      let announced = { id: '', count: 0 };
+
+      /** Change state, save it, redraw. @param {Partial<typeof data>} patch */
+      function commit(patch) {
+        data = { ...data, ...patch };
+        save(data);
+        render();
+      }
+
+      function log(msg) {
+        const t = new Date().toLocaleTimeString();
+        $('log').textContent = `${t}  ${msg}\n` + $('log').textContent;
+      }
+
+      // On the dev server the page and /probe.txt both come from this laptop, which stays
+      // reachable with Wi-Fi off, so the probe would always say "online". In dev only,
+      // knock on an internet address instead. It sends no data and isn't in production builds.
+      // Parcel replaces process.env.NODE_ENV at build time.
+      const DEV = process.env.NODE_ENV !== 'production';
+      const PROBE_URL = DEV ? 'https://www.gstatic.com/generate_204' : '/offshore/probe.txt';
+
+      async function probe() {
+        try {
+          const res = await fetch(`${PROBE_URL}?t=${Date.now()}`, {
+            cache: 'no-store',
+            mode: DEV ? 'no-cors' : 'same-origin',
+            signal: AbortSignal.timeout(3000),
+          });
+          // A no-cors response is opaque (status 0), but getting one at all means online.
+          return res.ok || res.type === 'opaque';
+        } catch {
+          return false;
+        }
+      }
+
+      const time = (at) => new Date(at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+
+      function renderChips() {
+        const chosen = data.settings.goalsMs;
+        const all = [...new Set([...PRESETS, ...chosen])].sort((a, b) => a - b);
+        $('chips').replaceChildren(
+          ...all.map((g) => {
+            const b = document.createElement('button');
+            b.className = 'chip';
+            b.textContent = short(g);
+            b.setAttribute('aria-pressed', String(chosen.includes(g)));
+            b.onclick = () => {
+              const goalsMs = chosen.includes(g) ? chosen.filter((x) => x !== g) : [...chosen, g];
+              commit({ settings: { ...data.settings, goalsMs } });
+            };
+            return b;
+          }),
+          Object.assign(document.createElement('button'), { className: 'chip', textContent: '+', onclick: addGoal }),
+        );
+      }
+
+      function addGoal() {
+        const mins = Number(prompt('Goal length in minutes'));
+        if (!Number.isFinite(mins) || mins <= 0) return;
+        const g = Math.round(mins) * MIN;
+        if (!data.settings.goalsMs.includes(g)) commit({ settings: { ...data.settings, goalsMs: [...data.settings.goalsMs, g] } });
+      }
+
+      function render() {
+        const now = Date.now();
+        const session = data.current;
+        const state = !session ? 'armed' : session.endedAt === null ? 'offline' : 'ended';
+        document.body.dataset.state = state;
+        document.querySelectorAll('[data-show]').forEach((el) => {
+          /** @type {HTMLElement} */ (el).hidden = !el.dataset.show.split(' ').includes(state);
+        });
+        $('status').textContent = { armed: 'Armed', offline: '● Offshore', ended: 'Back ashore' }[state];
+        awake.set(state === 'offline' && data.settings.keepAwake);
+
+        if (state === 'armed') {
+          sea.setChop(0.95);
+          renderChips();
+          $('sound').textContent = `Sound ${data.settings.sound ? 'on' : 'off'}`;
+          $('awake').textContent = awake.supported ? `Keep awake ${data.settings.keepAwake ? 'on' : 'off'}` : 'Keep awake n/a';
+          /** @type {HTMLButtonElement} */ ($('awake')).disabled = !awake.supported;
+          return;
+        }
+
+        const elapsed = elapsedMs(session, now);
+        const goals = [...session.goalsMs].sort((a, b) => a - b);
+        const { reached, next, fraction } = goalProgress(goals, elapsed);
+
+        if (state === 'offline') {
+          // Water settles as you approach the last goal (or 90m with no goals).
+          const settled = Math.min(1, elapsed / (goals.at(-1) ?? 90 * MIN));
+          sea.setChop(0.05 + 0.5 * (1 - settled));
+          $('elapsed').textContent = clock(elapsed);
+          $('detail').textContent = `Offline since ${time(session.startedAt)}`;
+          $('track').hidden = goals.length === 0;
+          $('track-labels').replaceChildren(...goals.map((g) => {
+            const s = document.createElement('span');
+            s.textContent = reached.includes(g) ? `✓ ${short(g)}` : g === next ? `${short(g)} · ${Math.floor(fraction * 100)}%` : short(g);
+            if (g === next) s.className = 'now';
+            return s;
+          }));
+          $('fill').style.width = `${settled * 100}%`;
+          $('tagline').textContent = next === null && goals.length
+            ? 'Flat water. Nothing is reaching you.'
+            : settled < 0.33 ? 'Choppy still. Let it settle.' : 'Headwinds easing. Stay out a little longer.';
+
+          // Chime only for goals reached while we were watching, not ones found on reopen.
+          if (announced.id !== session.id) announced = { id: session.id, count: reached.length };
+          else if (reached.length > announced.count) {
+            announced.count = reached.length;
+            log(`goal reached: ${short(reached.at(-1))}`);
+            if (data.settings.sound) bell.play();
+          }
+        } else {
+          sea.setChop(0.2);
+          const tooShort = isDiscardable(session);
+          $('elapsed').textContent = short(elapsed);
+          $('detail').textContent = tooShort
+            ? 'Under a minute, so it will not be saved.'
+            : `${time(session.startedAt)} – ${time(session.endedAt)} · ${session.endVerified ? 'verified' : 'unverified'}`;
+          $('rows').replaceChildren(...goals.map((g) => {
+            const row = document.createElement('div');
+            row.className = 'row';
+            row.innerHTML = `<span>${short(g)}</span><span class="${reached.includes(g) ? 'hi' : ''}">${reached.includes(g) ? 'reached' : '—'}</span>`;
+            return row;
+          }));
+          $('total').textContent = `All time · ${short(totalMs(data.history) + (tooShort ? 0 : elapsed))} offshore`;
+        }
+      }
+
+      // Visible "watching" sources give a verified ending; load/resume sources don't.
+      const WATCHING = new Set(['online event', 'interval']);
+
+      // Each check gets a number; a slow probe that finishes after a newer one
+      // started is stale (e.g. an "online" answer from just before the drop).
+      let latest = 0;
+
+      async function check(source) {
+        // Nobody is watching while hidden; the next 'visible' check decides.
+        if (document.visibilityState !== 'visible') {
+          log(`${source}: ignored while hidden`);
+          return;
+        }
+        const n = ++latest;
+        const online = await probe();
+        if (n !== latest) {
+          log(`${source}: stale probe ignored`);
+          return;
+        }
+        const now = Date.now();
+        const session = data.current;
+        log(`${source}: probe → ${online ? 'online' : 'offline'}`);
+
+        if (!online && !session) {
+          commit({ current: start({ id: crypto.randomUUID?.() ?? String(now), at: now, goalsMs: data.settings.goalsMs }) });
+          log('core: start');
+        } else if (!online && session?.endedAt === null) {
+          commit({ current: advance(session, { type: 'offlineConfirmed', at: now }) });
+        } else if (online && session?.endedAt === null) {
+          const verified = WATCHING.has(source);
+          commit({ current: advance(session, { type: 'onlineDetected', at: now, verified }) });
+          log(`core: onlineDetected (verified=${verified})`);
+        }
+      }
+
+      window.addEventListener('online', () => check('online event'));
+      window.addEventListener('offline', () => check('offline event'));
+      window.addEventListener('pageshow', () => check('pageshow'));
+      document.addEventListener('visibilitychange', () => {
+        log(`visibility → ${document.visibilityState}`);
+        if (document.visibilityState === 'visible') check('visible');
+      });
+
+      // Done: keep the session unless it was a blip, then back to armed.
+      $('dismiss').addEventListener('click', () => {
+        const s = data.current;
+        commit({ current: null, history: s && !isDiscardable(s) ? [...data.history, s] : data.history });
+      });
+
+      $('sound').addEventListener('click', () => {
+        const sound = !data.settings.sound;
+        if (sound) { bell.unlock(); bell.play(); } // the tap unlocks audio and previews the chime
+        commit({ settings: { ...data.settings, sound } });
+      });
+      $('awake').addEventListener('click', () => {
+        commit({ settings: { ...data.settings, keepAwake: !data.settings.keepAwake } });
+      });
+      // After a reload, audio is locked again until the next tap anywhere.
+      document.addEventListener('pointerdown', () => { if (data.settings.sound) bell.unlock(); }, { once: true });
+
+      const appUrl = `${location.origin}/offshore/`;
+      $('qr').replaceChildren(qrSvg(appUrl, `QR code for ${appUrl}`));
+
+      setInterval(() => { if (document.visibilityState === 'visible') check('interval'); }, 5000);
+      setInterval(render, 1000);
+      render();
+    </script>
+  </body>
+</html>

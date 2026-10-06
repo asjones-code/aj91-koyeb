@@ -1,0 +1,51 @@
+<!doctype html>
+<!-- Past sessions, newest first, read straight from the same store the timer writes. -->
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#05080d" />
+    <title>Offshore · History</title>
+    <link rel="stylesheet" href="./src/styles/ocean.css" />
+  </head>
+  <body>
+    <canvas class="sea" id="sea" aria-hidden="true"></canvas>
+    <div class="shade"></div>
+    <main class="screen">
+      <div class="topbar">
+        <a class="label" href="./index.html">← Offshore</a>
+        <div class="label">History</div>
+      </div>
+      <div class="clock" id="total"></div>
+      <div class="sub">offshore in total</div>
+      <div class="rows" id="rows"></div>
+    </main>
+
+    <script type="module">
+      import { elapsedMs } from './src/core/session.js';
+      import { goalProgress } from './src/core/goals.js';
+      import { totalMs } from './src/core/stats.js';
+      import { short } from './src/core/format.js';
+      import { load } from './src/platform/store.js';
+      import { ocean } from './src/scripts/ocean.js';
+
+      ocean(/** @type {HTMLCanvasElement} */ (document.getElementById('sea'))).setChop(0.2);
+
+      const { history } = load();
+      document.getElementById('total').textContent = short(totalMs(history));
+
+      const rows = [...history].reverse().map((s) => {
+        const ms = elapsedMs(s, s.endedAt);
+        const reached = goalProgress(s.goalsMs, ms).reached.length;
+        const date = new Date(s.startedAt).toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        const row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML = `<span>${date}${s.endVerified ? '' : ' <span class="label" title="Ended while the app was closed or the phone was locked">· unverified</span>'}</span>`
+          + `<span class="hi">${short(ms)}${s.goalsMs.length ? ` · ${reached}/${s.goalsMs.length}` : ''}</span>`;
+        return row;
+      });
+      document.getElementById('rows').replaceChildren(...(rows.length ? rows : [Object.assign(document.createElement('p'), { className: 'sub', textContent: 'No sessions yet. Go offshore.' })]));
+    </script>
+  </body>
+</html>
