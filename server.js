@@ -18,6 +18,11 @@ const { Pool } = pg;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DIST = path.join(__dirname, "dist");
+// Offshore is served from its own origin so no other page of this site can read its storage or keys.
+const OFFSHORE_DIST = path.join(DIST, "offshore");
+const OFFSHORE_ORIGIN = (process.env.OFFSHORE_ORIGIN || "https://offshore.aj91.online").replace(/\/$/, "");
+const OFFSHORE_HOST = new URL(OFFSHORE_ORIGIN).host;
+const isOffshoreHost = (req) => (req.headers.host || "").toLowerCase() === OFFSHORE_HOST;
 const PORT = Number(process.env.PORT) || 3000;
 
 let dbPool = null;
@@ -388,13 +393,13 @@ function extractResponsesAnswer(data) {
 	return parts.join("").trim();
 }
 
-function safePath(relative) {
+function safePath(relative, root = DIST) {
 	const normalized = path.normalize(relative).replace(/^(\.\.(\/|\\|$))+/, "");
-	return path.join(DIST, normalized);
+	return path.join(root, normalized);
 }
 
-function isInsideDist(resolved) {
-	const distReal = path.resolve(DIST);
+function isInsideDist(resolved, root = DIST) {
+	const distReal = path.resolve(root);
 	const resolvedReal = path.resolve(resolved);
 	return resolvedReal === distReal || resolvedReal.startsWith(distReal + path.sep);
 }
@@ -730,10 +735,10 @@ async function handleApiAsk(req, body) {
 	}
 }
 
-async function serveStatic(res, pathname, method = "GET") {
+async function serveStatic(res, pathname, method = "GET", root = DIST) {
 	const file = pathname === "/" || pathname === "" ? "/index.html" : pathname;
-	const resolved = safePath(file);
-	if (!isInsideDist(resolved)) {
+	const resolved = safePath(file, root);
+	if (!isInsideDist(resolved, root)) {
 		return 403;
 	}
 
@@ -750,7 +755,7 @@ async function serveStatic(res, pathname, method = "GET") {
 		try {
 			await fs.access(indexCandidate);
 			const subPath = (pathname.endsWith("/") ? pathname : pathname + "/") + "index.html";
-			return serveStatic(res, subPath, method);
+			return serveStatic(res, subPath, method, root);
 		} catch {
 			return 404;
 		}
@@ -2036,10 +2041,31 @@ function startKrakenAiScheduler() {
 	console.log(`[kraken-ai] Scheduler armed for ${hour}:05 UTC daily · mode=${cfg.mode} · ${(cfg.equityPct * 100).toFixed(0)}% / ${cfg.maxPositions} positions`);
 }
 
+/** Offshore's origin serves only dist/offshore, never the rest of the site. */
+async function handleOffshore(res, pathname, method) {
+	res.setHeader("X-Content-Type-Options", "nosniff");
+	res.setHeader("X-Frame-Options", "DENY");
+	res.setHeader("Referrer-Policy", "no-referrer");
+	if (method !== "GET" && method !== "HEAD") {
+		res.writeHead(405, { Allow: "GET, HEAD" });
+		res.end();
+		return;
+	}
+	// The connectivity probe must never come from any cache.
+	if (pathname === "/probe.txt") res.setHeader("Cache-Control", "no-store");
+	const status = await serveStatic(res, pathname, method, OFFSHORE_DIST);
+	if (status !== 200) {
+		res.writeHead(status === 404 ? 404 : status === 403 ? 403 : 500, { "Content-Type": "text/plain; charset=utf-8" });
+		res.end(status === 404 ? "Not Found" : status === 403 ? "Forbidden" : "Internal Server Error");
+	}
+}
+
 const server = http.createServer(async (req, res) => {
 	const method = req.method || "GET";
 	const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
 	const pathname = url.pathname;
+
+	if (isOffshoreHost(req)) return handleOffshore(res, pathname, method);
 
 	// CMS: /api/posts, /api/projects, /api/career-dots (public) and /api/admin/* (protected)
 	if (pathname.startsWith("/api/posts") || pathname.startsWith("/api/projects") || pathname === "/api/career-dots" || pathname.startsWith("/api/admin/")) {
@@ -2958,15 +2984,11 @@ Respond with ONLY valid JSON, no markdown or explanation:
 		}
 	}
 
-	// Offshore (dist/offshore): its service worker scope is /offshore/, so the bare path must redirect.
-	if (pathname === "/offshore") {
-		res.writeHead(301, { Location: "/offshore/" + url.search });
+	// Offshore moved to its own origin; keep old links and QR codes working.
+	if (pathname === "/offshore" || pathname.startsWith("/offshore/")) {
+		res.writeHead(301, { Location: OFFSHORE_ORIGIN + (pathname.slice("/offshore".length) || "/") + url.search });
 		res.end();
 		return;
-	}
-	// Offshore's connectivity probe: must never come from any cache.
-	if (pathname === "/offshore/probe.txt") {
-		res.setHeader("Cache-Control", "no-store");
 	}
 
 	// Clean URLs: /projects -> /projects.html, /admin -> /admin.html, /blog -> /blog.html
@@ -2988,6 +3010,7 @@ Respond with ONLY valid JSON, no markdown or explanation:
 });
 
 server.on("upgrade", (request, socket, head) => {
+	if (isOffshoreHost(request)) return socket.destroy();
 	const pathname = new URL(request.url || "/", "http://" + (request.headers.host || "localhost")).pathname;
 	if (pathname === "/live") {
 		wss.handleUpgrade(request, socket, head, (ws) => {

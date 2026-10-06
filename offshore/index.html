@@ -116,7 +116,7 @@
       // knock on an internet address instead. It sends no data and isn't in production builds.
       // Parcel replaces process.env.NODE_ENV at build time.
       const DEV = process.env.NODE_ENV !== 'production';
-      const PROBE_URL = DEV ? 'https://www.gstatic.com/generate_204' : '/offshore/probe.txt';
+      const PROBE_URL = DEV ? 'https://www.gstatic.com/generate_204' : '/probe.txt';
 
       async function probe() {
         try {
@@ -286,7 +286,7 @@
       // After a reload, audio is locked again until the next tap anywhere.
       document.addEventListener('pointerdown', () => { if (data.settings.sound) bell.unlock(); }, { once: true });
 
-      const appUrl = `${location.origin}/offshore/`;
+      const appUrl = `${location.origin}/`;
       $('qr').replaceChildren(qrSvg(appUrl, `QR code for ${appUrl}`));
 
       setInterval(() => { if (document.visibilityState === 'visible') check('interval'); }, 5000);
