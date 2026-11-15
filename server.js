@@ -1527,13 +1527,22 @@ ANTI-PATTERNS (never do these)
 
 const SIGNAL_MODEL = (process.env.SIGNAL_MODEL || "claude-haiku-4-5-20251001").trim();
 const SIGNAL_EMAIL_TO = (process.env.SIGNAL_EMAIL_TO || "asjones91@gmail.com").trim();
-const SIGNAL_PREMIUM_TOKEN = (process.env.SIGNAL_PREMIUM_TOKEN || process.env.PM_PASSWORD || "test").trim();
+// No insecure fallback: if neither env var is set, token auth is disabled entirely.
+const SIGNAL_PREMIUM_TOKEN = (process.env.SIGNAL_PREMIUM_TOKEN || process.env.PM_PASSWORD || "").trim();
 const SIGNAL_EMAIL_HOUR = Number(process.env.SIGNAL_EMAIL_HOUR || 13); // UTC hour for daily send
 
+function safeEqual(a, b) {
+	const ab = Buffer.from(String(a)), bb = Buffer.from(String(b));
+	return ab.length === bb.length && crypto.timingSafeEqual(ab, bb);
+}
+
 // Premium gate: accept a shared signal token (X-Signal-Token) or a valid PM session.
+// PM sessions only count when PM_PASSWORD is explicitly configured (the PM login
+// otherwise falls back to the default password "test").
 function isSignalPremiumAuthed(req) {
 	const t = (req.headers["x-signal-token"] || "").trim();
-	if (t && t === SIGNAL_PREMIUM_TOKEN) return true;
+	if (t && SIGNAL_PREMIUM_TOKEN && safeEqual(t, SIGNAL_PREMIUM_TOKEN)) return true;
+	if (!(process.env.PM_PASSWORD || "").trim()) return false;
 	try { return isPmTokenValid(getPmToken(req)); } catch { return false; }
 }
 
@@ -1728,7 +1737,12 @@ const aiCfg = () => ({
 	minTradeUsd:  Math.max(1, Number(process.env.KRAKEN_AI_MIN_TRADE_USD || 25)),
 	rebalancePct: Math.min(Math.max(Number(process.env.KRAKEN_AI_REBALANCE_PCT || 0.05), 0), 1),
 });
-let lastKrakenPlan = null; // cached plan for approval mode + status endpoint
+// Approval plans expire; prices drift, and approving a stale plan is a blind trade.
+const AI_PLAN_TTL_MS = Math.max(0.25, Number(process.env.KRAKEN_AI_PLAN_TTL_HOURS || 12)) * 3600_000;
+// On approval, skip any trade whose price moved more than this vs. the plan (0.05 = 5%).
+const AI_MAX_PRICE_DRIFT = Math.max(0, Number(process.env.KRAKEN_AI_MAX_PRICE_DRIFT || 0.05));
+let lastKrakenPlanMem = null; // fallback when there is no DATABASE_URL
+let krakenApproveInFlight = false;
 
 function findTickerPrice(tickers, asset) {
 	const key = Object.keys(tickers).find(k =>
@@ -1747,7 +1761,26 @@ async function ensureAiTable() {
 		qty DOUBLE PRECISION NOT NULL,
 		updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 	)`);
+	// Single-row table holding the latest plan so approvals survive restarts/redeploys.
+	await dbPool.query(`CREATE TABLE IF NOT EXISTS kraken_ai_plan (
+		id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+		plan JSONB NOT NULL,
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+	)`);
 	aiTableReady = true;
+}
+async function loadKrakenPlan() {
+	if (!dbPool) return lastKrakenPlanMem;
+	await ensureAiTable();
+	const r = await dbPool.query("SELECT plan FROM kraken_ai_plan WHERE id = 1");
+	return r.rows[0]?.plan || null;
+}
+async function saveKrakenPlan(plan) {
+	if (!dbPool) { lastKrakenPlanMem = plan; return; }
+	await ensureAiTable();
+	await dbPool.query(
+		`INSERT INTO kraken_ai_plan (id, plan, updated_at) VALUES (1, $1, now())
+		 ON CONFLICT (id) DO UPDATE SET plan = $1, updated_at = now()`, [JSON.stringify(plan)]);
 }
 async function loadAiPositions() {
 	if (!dbPool) return { ...aiPositionsMem };
@@ -1874,7 +1907,7 @@ function computeTradePlan({ target, budget, prices, aiPositions, cashUsd, cfg })
 		if (overUsd > minDelta) {
 			const sellQty = Math.min(qty, overUsd / price);
 			const usd = sellQty * price;
-			trades.push({ asset, side: "sell", qty: sellQty, usd, conviction: meta[asset]?.conviction || "",
+			trades.push({ asset, side: "sell", qty: sellQty, usd, price, conviction: meta[asset]?.conviction || "",
 				signal_basis: tgtUsd === 0 ? "Exit — no longer in target allocation" : (meta[asset]?.signal_basis || "Trim to target weight"),
 				risk_note: meta[asset]?.risk_note || "" });
 			cash += usd;
@@ -1890,7 +1923,7 @@ function computeTradePlan({ target, budget, prices, aiPositions, cashUsd, cfg })
 		buyUsd = Math.min(buyUsd, cash);
 		if (buyUsd < cfg.minTradeUsd) continue;
 		const qty = buyUsd / price;
-		trades.push({ asset: p.asset, side: "buy", qty, usd: buyUsd, conviction: p.conviction || "",
+		trades.push({ asset: p.asset, side: "buy", qty, usd: buyUsd, price, conviction: p.conviction || "",
 			signal_basis: p.signal_basis || "", risk_note: p.risk_note || "" });
 		cash -= buyUsd;
 	}
@@ -1906,9 +1939,71 @@ async function placeKrakenMarketOrder({ asset, side, qty }) {
 	return data.result;
 }
 
+// Poll QueryOrders until the order is closed (market orders usually fill within a second).
+// Returns the executed base volume, quote cost and fee as reported by Kraken.
+async function getKrakenOrderFill(txid, { tries = 6, delayMs = 1000 } = {}) {
+	let last = null;
+	for (let i = 0; i < tries; i++) {
+		if (i) await new Promise(r => setTimeout(r, delayMs));
+		const r = await krakenPrivatePost("/0/private/QueryOrders", { txid, trades: "false" });
+		const data = await r.json();
+		if (data.error?.length) throw new Error(data.error[0]);
+		const o = data.result?.[txid];
+		if (!o) continue;
+		last = {
+			status: o.status,
+			volExec: parseFloat(o.vol_exec) || 0,
+			cost: parseFloat(o.cost) || 0,
+			fee: parseFloat(o.fee) || 0,
+			avgPrice: parseFloat(o.price) || 0,
+		};
+		if (o.status === "closed" || o.status === "canceled" || o.status === "expired") return last;
+	}
+	return last; // still open/pending after polling — caller records partial fill
+}
+
+// Place one trade and update the sleeve by the ACTUAL executed volume, not the requested one.
+async function executeKrakenTrade(t, aiPositions) {
+	try {
+		t.result = await placeKrakenMarketOrder(t);
+		const txid = t.result?.txid?.[0];
+		let fill = null;
+		if (txid) {
+			try { fill = await getKrakenOrderFill(txid); }
+			catch (e) { t.fillError = e.message; }
+		}
+		// If the fill can't be read, fall back to the requested qty so the sleeve
+		// still reflects the order, and flag it so it can be reconciled by hand.
+		const filledQty = fill ? fill.volExec : t.qty;
+		t.txid = txid;
+		t.fill = fill;
+		t.filledQty = filledQty;
+		if (fill && fill.cost) { t.usd = fill.cost; if (fill.avgPrice) t.price = fill.avgPrice; }
+		t.status = !fill ? "executed_unverified"
+			: fill.status === "closed" && filledQty > 0 ? "executed"
+			: filledQty > 0 ? "partial" : "failed";
+		if (t.status === "failed") t.error = `Order ${fill.status}, nothing filled`;
+		if (filledQty > 0) {
+			const prev = aiPositions[t.asset] || 0;
+			const next = t.side === "buy" ? prev + filledQty : Math.max(0, prev - filledQty);
+			aiPositions[t.asset] = next;
+			await setAiPosition(t.asset, next);
+		}
+	} catch (e) {
+		t.status = "failed"; t.error = e.message;
+	}
+	return t;
+}
+const isExecutedStatus = (s) => s === "executed" || s === "partial" || s === "executed_unverified";
+
 function tradeRow(t) {
 	const color = t.side === "buy" ? "#1f9d55" : "#d6336c";
-	const stat = t.status === "executed" ? "✅ executed" : t.status === "failed" ? `❌ ${t.error}` : t.status === "pending" ? "⏳ pending" : "📋 would " + t.side;
+	const stat = t.status === "executed" ? "✅ executed"
+		: t.status === "partial" ? "◐ partial fill"
+		: t.status === "executed_unverified" ? "⚠️ sent (fill unverified)"
+		: t.status === "failed" ? `❌ ${t.error}`
+		: t.status === "skipped" ? `⏭ skipped: ${t.error}`
+		: t.status === "pending" ? "⏳ pending" : "📋 would " + t.side;
 	return `<tr>
 		<td style="padding:8px;font-weight:600;color:${color}">${t.side.toUpperCase()} ${t.asset}</td>
 		<td style="padding:8px">$${t.usd.toFixed(2)} (${fmtVol(t.qty)} ${t.asset})</td>
@@ -1949,11 +2044,14 @@ ${lines}
 Market: ${market_note || "—"}`;
 }
 
-// Main run: evaluate → plan → (dry_run: email only | approval: email+cache | live: execute+email).
+// Main run: evaluate → plan → (dry_run: email only | approval: email+persist | live: execute+email).
+const AI_MODES = new Set(["dry_run", "approval", "live"]);
 async function runKrakenAiTrader({ mode, force = false } = {}) {
 	const cfg = aiCfg();
 	if (!cfg.enabled && !force) return { ok: false, skipped: "KRAKEN_AI_ENABLED=false" };
-	mode = (mode || cfg.mode || "dry_run").trim();
+	mode = String(mode || cfg.mode || "dry_run").trim();
+	if (!AI_MODES.has(mode)) return { ok: false, error: `Unknown mode "${mode}" (use dry_run, approval or live)` };
+	if (krakenApproveInFlight) return { ok: false, error: "An approval is executing — try again shortly" };
 	const port = await getKrakenPortfolio();
 	if (!port.ok) return { ok: false, error: port.error };
 	if (port.equity <= 0) return { ok: false, error: "Equity is zero — fund the Kraken account first" };
@@ -1964,55 +2062,98 @@ async function runKrakenAiTrader({ mode, force = false } = {}) {
 	if (target.error) return { ok: false, error: target.error };
 
 	const trades = computeTradePlan({ target, budget, prices: port.prices, aiPositions, cashUsd: port.cashUsd, cfg });
-	const summary = { mode, equity: port.equity, budget, market_note: target.market_note, trades };
+	const summary = { mode, equity: port.equity, budget, market_note: target.market_note, trades, createdAt: Date.now() };
 
 	if (mode === "live") {
-		for (const t of trades) {
-			try {
-				t.result = await placeKrakenMarketOrder(t);
-				t.status = "executed";
-				const prev = aiPositions[t.asset] || 0;
-				const next = t.side === "buy" ? prev + t.qty : Math.max(0, prev - t.qty);
-				aiPositions[t.asset] = next;
-				await setAiPosition(t.asset, next);
-			} catch (e) {
-				t.status = "failed"; t.error = e.message;
-			}
-		}
-		const executed = trades.filter(t => t.status === "executed");
+		for (const t of trades) await executeKrakenTrade(t, aiPositions);
+		summary.status = "executed";
+		await saveKrakenPlan(summary);
+		const executed = trades.filter(t => isExecutedStatus(t.status));
 		if (executed.length || trades.some(t => t.status === "failed"))
 			await sendMailerSendEmail({ to: SIGNAL_EMAIL_TO, subject: `Kraken AI — ${executed.length} trade(s) executed`, html: tradeEmailHtml(summary), text: tradeEmailText(summary) });
 	} else if (mode === "approval") {
 		trades.forEach(t => { t.status = "pending"; });
-		lastKrakenPlan = { ...summary, createdAt: Date.now() };
+		summary.status = trades.length ? "pending" : "noop";
+		summary.expiresAt = summary.createdAt + AI_PLAN_TTL_MS;
+		await saveKrakenPlan(summary);
 		if (trades.length)
 			await sendMailerSendEmail({ to: SIGNAL_EMAIL_TO, subject: `Kraken AI — ${trades.length} trade(s) need approval`, html: tradeEmailHtml(summary), text: tradeEmailText(summary) });
 	} else { // dry_run
 		trades.forEach(t => { t.status = "dry"; });
-		lastKrakenPlan = { ...summary, createdAt: Date.now() };
+		summary.status = "dry";
+		await saveKrakenPlan(summary);
 		await sendMailerSendEmail({ to: SIGNAL_EMAIL_TO, subject: `Kraken AI (dry run) — ${trades.length} would-be trade(s)`, html: tradeEmailHtml(summary), text: tradeEmailText(summary) });
 	}
 	return { ok: true, ...summary };
 }
 
-// Execute a previously-emailed approval plan.
+// Execute the persisted approval plan. Re-checks everything against live state first:
+// the plan must be unexpired, each price must be within AI_MAX_PRICE_DRIFT of the planned
+// price, sells are capped to what the sleeve and the exchange actually hold, and buys are
+// capped to the USD cash available right now.
 async function approveKrakenPlan() {
-	if (!lastKrakenPlan || !lastKrakenPlan.trades?.length) return { ok: false, error: "No pending plan to approve" };
-	const aiPositions = await loadAiPositions();
-	for (const t of lastKrakenPlan.trades) {
-		if (t.status === "executed") continue;
-		try {
-			t.result = await placeKrakenMarketOrder(t);
-			t.status = "executed";
-			const prev = aiPositions[t.asset] || 0;
-			const next = t.side === "buy" ? prev + t.qty : Math.max(0, prev - t.qty);
-			aiPositions[t.asset] = next;
-			await setAiPosition(t.asset, next);
-		} catch (e) { t.status = "failed"; t.error = e.message; }
+	if (krakenApproveInFlight) return { ok: false, error: "Approval already in progress" };
+	krakenApproveInFlight = true;
+	try {
+		const plan = await loadKrakenPlan();
+		if (!plan || plan.mode !== "approval") return { ok: false, error: "No approval-mode plan to approve" };
+		if (plan.status !== "pending") return { ok: false, error: `Plan is ${plan.status || "not pending"} — run a new approval plan` };
+		if (Date.now() > (plan.expiresAt || plan.createdAt + AI_PLAN_TTL_MS))
+			return { ok: false, error: "Plan expired — run a new approval plan" };
+
+		// Mark as executing before any order goes out, so a crash/restart can't replay it.
+		plan.status = "executing";
+		await saveKrakenPlan(plan);
+
+		const cfg = aiCfg();
+		let port;
+		try { port = await getKrakenPortfolio(); } catch (e) { port = { ok: false, error: e.message }; }
+		if (!port.ok) {
+			plan.status = "pending";
+			await saveKrakenPlan(plan);
+			return { ok: false, error: port.error };
+		}
+		const aiPositions = await loadAiPositions();
+		const exchangeBal = Object.fromEntries(port.holdings.map(h => [h.asset, h.balance]));
+		let cash = port.cashUsd;
+		const skip = (t, why) => { t.status = "skipped"; t.error = why; };
+
+		// Plans are built sells-first; keep that order so sells fund buys.
+		const ordered = [...plan.trades.filter(t => t.side === "sell"), ...plan.trades.filter(t => t.side === "buy")];
+		for (const t of ordered) {
+			if (t.status !== "pending") continue;
+			const price = port.prices[t.asset];
+			if (!price) { skip(t, "no live price"); continue; }
+			if (t.price) {
+				const drift = Math.abs(price - t.price) / t.price;
+				if (drift > AI_MAX_PRICE_DRIFT) { skip(t, `price moved ${(drift * 100).toFixed(1)}% since plan`); continue; }
+			}
+			if (t.side === "sell") {
+				t.qty = Math.min(t.qty, aiPositions[t.asset] || 0, exchangeBal[t.asset] || 0);
+			} else {
+				const usd = Math.min(t.usd, cash * 0.995); // small buffer for fees
+				t.qty = usd / price;
+			}
+			t.usd = t.qty * price;
+			t.price = price;
+			if (t.usd < cfg.minTradeUsd) { skip(t, `below $${cfg.minTradeUsd} minimum after re-check`); continue; }
+
+			await executeKrakenTrade(t, aiPositions);
+			if (isExecutedStatus(t.status)) {
+				const fee = t.fill?.fee || 0;
+				cash += t.side === "sell" ? t.usd - fee : -(t.usd + fee);
+			}
+		}
+
+		plan.status = "approved";
+		plan.approvedAt = Date.now();
+		await saveKrakenPlan(plan);
+		const s = { ...plan, mode: "live" };
+		await sendMailerSendEmail({ to: SIGNAL_EMAIL_TO, subject: `Kraken AI — approved plan executed`, html: tradeEmailHtml(s), text: tradeEmailText(s) });
+		return { ok: true, plan };
+	} finally {
+		krakenApproveInFlight = false;
 	}
-	const s = { ...lastKrakenPlan, mode: "live" };
-	await sendMailerSendEmail({ to: SIGNAL_EMAIL_TO, subject: `Kraken AI — approved plan executed`, html: tradeEmailHtml(s), text: tradeEmailText(s) });
-	return { ok: true, trades: lastKrakenPlan.trades };
 }
 
 // Daily scheduler for the trader (a few minutes after the signal email).
@@ -2369,6 +2510,14 @@ const server = http.createServer(async (req, res) => {
 
 		const KRAKEN_KEY    = process.env.KRAKEN_API_KEY;
 		const KRAKEN_SECRET = process.env.KRAKEN_API_SECRET;
+
+		// Account data and order placement require the premium token / PM session.
+		// Only public market data (ticker, ohlc) stays open.
+		const isPublicKraken = pathname === "/api/kraken/ticker" || pathname.startsWith("/api/kraken/ohlc/");
+		if (!isPublicKraken && !isSignalPremiumAuthed(req)) {
+			jsonResponse(res, 401, { error: "Unauthorized — signal token required." }, cors);
+			return;
+		}
 
 		// GET /api/kraken/balances — non-zero account balances
 		if (pathname === "/api/kraken/balances" && method === "GET") {
@@ -2745,8 +2894,14 @@ Respond with ONLY valid JSON, no markdown or explanation:
 		const cors = corsHeaders(req.headers.origin, true);
 		if (!isSignalPremiumAuthed(req)) { jsonResponse(res, 401, { error: "Premium feature — invalid or missing token." }, cors); return; }
 		try {
-			const positions = await loadAiPositions();
-			jsonResponse(res, 200, { positions, lastPlan: lastKrakenPlan }, cors);
+			const [positions, lastPlan] = await Promise.all([loadAiPositions(), loadKrakenPlan()]);
+			const cfg = aiCfg();
+			jsonResponse(res, 200, {
+				positions, lastPlan,
+				approving: krakenApproveInFlight,
+				persisted: Boolean(dbPool),
+				config: { ...cfg, planTtlHours: AI_PLAN_TTL_MS / 3600_000, maxPriceDrift: AI_MAX_PRICE_DRIFT, universe: AI_UNIVERSE, scheduleUtc: `${SIGNAL_EMAIL_HOUR}:05` },
+			}, cors);
 		} catch (e) { jsonResponse(res, 500, { error: e.message }, cors); }
 		return;
 	}

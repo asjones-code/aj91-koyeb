@@ -2,6 +2,7 @@
  * Portfolio Dashboard — Alpaca-backed trading terminal
  * Loads positions, renders charts via lightweight-charts, polls for live prices.
  */
+import { getSignalToken, clearSignalToken, authHeaders } from "./signal-token.js";
 
 const POLL_INTERVAL_MS = 15_000;
 
@@ -282,7 +283,21 @@ async function renderKraken() {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
 
   try {
-    const balRes = await fetch("/api/kraken/balances");
+    const balRes = await fetch("/api/kraken/balances", { headers: authHeaders() });
+    if (balRes.status === 401) {
+      set("kraken-value",  "Locked");
+      set("kraken-change", "—");
+      set("kraken-assets", "—");
+      const el = document.getElementById("kraken-holdings");
+      if (el) {
+        el.innerHTML = `<button type="button" id="kraken-unlock" style="font-family:monospace;font-size:0.7rem;margin-top:0.5rem;background:none;border:1px solid var(--c-tertiary);color:var(--c-secondary);padding:0.3rem 0.6rem;cursor:pointer">Unlock live holdings</button>`;
+        document.getElementById("kraken-unlock")?.addEventListener("click", () => {
+          clearSignalToken();
+          if (getSignalToken()) renderKraken();
+        });
+      }
+      return;
+    }
     const balData = await balRes.json();
 
     if (balData.demo) {
@@ -544,16 +559,6 @@ function initTabs() {
 }
 
 // ── premium signal controls (regenerate / email) ──────────────────────────────
-const SIGNAL_TOKEN_KEY = "pf_signal_token";
-function getSignalToken() {
-  let t = localStorage.getItem(SIGNAL_TOKEN_KEY);
-  if (!t) {
-    t = (prompt("Premium feature.\nEnter your signal access token to regenerate / email signals:") || "").trim();
-    if (t) localStorage.setItem(SIGNAL_TOKEN_KEY, t);
-  }
-  return t;
-}
-function clearSignalToken() { localStorage.removeItem(SIGNAL_TOKEN_KEY); }
 
 async function regenerateSignal() {
   const btn = document.getElementById("signal-star-btn");
