@@ -2,6 +2,8 @@
  * Crypto Dashboard — Kraken-backed terminal
  * Holdings table, candlestick chart, trade panel, order log.
  */
+import { getSignalToken, clearSignalToken, authHeaders } from "./signal-token.js";
+import { initAiTrader } from "./ai-trader.js";
 
 const POLL_MS = 30_000;
 
@@ -63,7 +65,8 @@ const setClass = (id, cls) => { const el = document.getElementById(id); if (el) 
 // ── API calls ─────────────────────────────────────────────────────────────────
 async function fetchBalances() {
   try {
-    const r = await fetch("/api/kraken/balances");
+    const r = await fetch("/api/kraken/balances", { headers: authHeaders() });
+    if (r.status === 401) return { locked: true };
     if (!r.ok) throw new Error(r.status);
     return await r.json();
   } catch { return { demo: true }; }
@@ -87,18 +90,23 @@ async function fetchOhlc(pair, interval) {
 
 async function fetchOrders() {
   try {
-    const r = await fetch("/api/kraken/orders");
+    const r = await fetch("/api/kraken/orders", { headers: authHeaders() });
+    if (r.status === 401) return { locked: true };
     if (!r.ok) throw new Error(r.status);
     return await r.json();
   } catch { return { demo: true }; }
 }
 
 async function placeOrder(payload) {
+  if (!getSignalToken("Placing a real Kraken order.\nEnter your signal access token:")) {
+    return { error: "Token required to place orders." };
+  }
   const r = await fetch("/api/kraken/order", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(payload),
   });
+  if (r.status === 401) { clearSignalToken(); return { error: "Invalid token — try again." }; }
   return r.json();
 }
 
@@ -240,6 +248,10 @@ async function renderOrders() {
   const el = document.getElementById("orders-list");
   if (!el) return;
   const data = await fetchOrders();
+  if (data.locked) {
+    el.innerHTML = `<div class="loading">Locked — unlock to see order history</div>`;
+    return;
+  }
   if (data.demo || !data.orders?.length) {
     el.innerHTML = `<div class="loading">No order history — add Kraken keys to see trades</div>`;
     return;
@@ -343,11 +355,24 @@ function initSort() {
 }
 
 // ── status indicator ──────────────────────────────────────────────────────────
-function setStatus(live) {
+function setStatus(state) {
   const dot  = document.getElementById("status-dot");
   const text = document.getElementById("status-text");
+  const live = state === "live";
   if (dot)  dot.className  = "status-dot" + (live ? " live" : "");
-  if (text) text.textContent = live ? "Live" : "Demo mode";
+  if (text) {
+    text.textContent = live ? "Live" : state === "locked" ? "Locked · unlock" : "Demo mode";
+    text.style.cursor = state === "locked" ? "pointer" : "";
+    text.onclick = state === "locked" ? unlock : null;
+  }
+}
+
+function unlock() {
+  clearSignalToken();
+  if (!getSignalToken()) return;
+  refresh();
+  renderOrders();
+  initAiTrader();
 }
 
 // ── refresh loop ──────────────────────────────────────────────────────────────
@@ -355,8 +380,17 @@ async function refresh() {
   const balData = await fetchBalances();
   let rawBalances;
 
+  if (balData.locked) {
+    setStatus("locked");
+    holdings = [];
+    renderStats(holdings);
+    const tbody = document.getElementById("holdings-tbody");
+    if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="loading">Locked — click “unlock” (top right) and enter your signal token</td></tr>`;
+    return;
+  }
+
   if (balData.demo) {
-    setStatus(false);
+    setStatus("demo");
     rawBalances = SEED_HOLDINGS.map(h => ({
       asset: h.asset, raw_asset: h.asset,
       balance: h.balance,
@@ -366,7 +400,7 @@ async function refresh() {
     }));
     holdings = rawBalances;
   } else {
-    setStatus(true);
+    setStatus("live");
     // Fetch tickers for all held assets
     const pairs = balData.balances
       .map(b => ASSET_TO_PAIR[b.asset] || "")
@@ -403,5 +437,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   await refresh();
   await renderOrders();
+  initAiTrader();
   setInterval(refresh, POLL_MS);
 });

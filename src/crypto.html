@@ -362,6 +362,51 @@
     /* ── loading ── */
     .loading { color: var(--muted); padding: 1.5rem 1rem; font-size: 0.75rem; text-align: center; }
 
+    /* ── AI trader ── */
+    .ai-trader { border-top: 1px solid var(--border); background: var(--bg1); flex-shrink: 0; }
+    .ai-trader > summary {
+      display: flex; align-items: center; gap: 1rem; padding: 0.55rem 1.25rem;
+      cursor: pointer; list-style: none; user-select: none;
+    }
+    .ai-trader > summary::-webkit-details-marker { display: none; }
+    .ai-trader > summary::before { content: "▸"; color: var(--muted); font-size: 0.7rem; }
+    .ai-trader[open] > summary::before { content: "▾"; }
+    .ai-summary { color: var(--muted); font-size: 0.65rem; }
+    .ai-actions { margin-left: auto; display: flex; gap: 0.5rem; }
+    .ai-btn {
+      background: none; border: 1px solid var(--border); color: var(--text);
+      font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.06em;
+      padding: 0.3rem 0.7rem; border-radius: 3px; cursor: pointer; text-transform: uppercase;
+    }
+    .ai-btn:hover:not(:disabled) { border-color: var(--cyan); color: var(--cyan); }
+    .ai-btn:disabled { opacity: 0.35; cursor: default; }
+    .ai-btn.primary { border-color: rgba(74,222,128,0.5); color: var(--green); }
+    .ai-msg { padding: 0 1.25rem; font-size: 0.7rem; min-height: 0; color: var(--muted); }
+    .ai-msg:not(:empty) { padding-bottom: 0.5rem; }
+    .ai-msg.ok { color: var(--green); }
+    .ai-msg.err { color: var(--red); }
+    .ai-body { padding: 0 1.25rem 1rem; max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.6rem; }
+    .ai-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+    .ai-chip { border: 1px solid var(--border); border-radius: 3px; padding: 0.15rem 0.45rem; font-size: 0.7rem; }
+    .ai-chip b { color: var(--cyan); }
+    .ai-dim { color: var(--muted); font-size: 0.7rem; }
+    .ai-note { font-style: italic; }
+    .ai-warn { color: #fbbf24; font-size: 0.7rem; }
+    .ai-plan-meta { display: flex; flex-wrap: wrap; gap: 1.25rem; font-size: 0.7rem; color: var(--muted); }
+    .ai-plan-meta b { color: var(--text); }
+    .ai-status-pending { color: #fbbf24 !important; }
+    .ai-status-approved, .ai-status-executed { color: var(--green) !important; }
+    .ai-status-expired, .ai-status-executing { color: var(--red) !important; }
+    .ai-table { font-size: 0.7rem; }
+    .ai-table th { font-size: 0.6rem; }
+    .ai-table td { vertical-align: top; }
+    .ai-why { max-width: 28rem; }
+    .ai-buy { color: var(--green); font-weight: 700; white-space: nowrap; }
+    .ai-sell { color: var(--magenta); font-weight: 700; white-space: nowrap; }
+    .ai-st-executed { color: var(--green); }
+    .ai-st-failed { color: var(--red); }
+    .ai-st-skipped, .ai-st-executed_unverified, .ai-st-partial { color: #fbbf24; }
+
     @media (max-width: 900px) {
       .main { flex-direction: column; }
       .panel-left { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 300px; }
@@ -510,6 +555,22 @@
 
     </div>
   </div>
+
+  <!-- AI trader -->
+  <details class="ai-trader" id="ai-trader">
+    <summary>
+      <span class="panel-title">AI Trader</span>
+      <span class="ai-summary" id="ai-summary">quant-analyst sleeve · click to open</span>
+      <span class="ai-actions" onclick="event.preventDefault()">
+        <button class="ai-btn" id="ai-reload" title="Reload state">↺</button>
+        <button class="ai-btn" id="ai-dry" title="Ask the model for a plan; no orders, emails the result">Dry run</button>
+        <button class="ai-btn" id="ai-propose" title="Build a plan that can be approved within the TTL">Propose plan</button>
+        <button class="ai-btn primary" id="ai-approve" disabled title="Re-price and execute the pending plan">Approve &amp; execute</button>
+      </span>
+    </summary>
+    <div class="ai-msg" id="ai-msg"></div>
+    <div class="ai-body" id="ai-body"></div>
+  </details>
 
   <script type="module" src="./js/crypto.js"></script>
 </body>
