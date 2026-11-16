@@ -168,18 +168,29 @@ async function ask() {
 	const btn = $("#cp-go");
 	btn.disabled = true;
 	$("#cp-out").innerHTML = `<p class="cp-status">${mode === "surprise" ? "Pulling a book off the shelf…" : "Reading through the margins…"}</p>`;
+	// Never leave the reader waiting forever (e.g. while the server restarts).
+	const ctrl = new AbortController();
+	const timer = setTimeout(() => ctrl.abort(), 30_000);
 	try {
 		const res = await fetch(`${API}/api/kindle/ask`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ question, mode }),
+			signal: ctrl.signal,
 		});
 		const data = await res.json().catch(() => ({}));
-		if (!res.ok) throw new Error(data.error || "Something went wrong.");
+		if (!res.ok) throw new Error(data.error || "Something went wrong. Try again in a moment.");
 		render(data);
 	} catch (err) {
-		$("#cp-out").innerHTML = `<p class="cp-status err">${esc(err.message)}</p>`;
+		const msg =
+			err.name === "AbortError"
+				? "The library is slow to answer right now. Try again in a moment."
+				: err instanceof TypeError
+					? "Couldn't reach the library. Check your connection and try again."
+					: err.message;
+		$("#cp-out").innerHTML = `<p class="cp-status err">${esc(msg)}</p>`;
 	} finally {
+		clearTimeout(timer);
 		btn.disabled = false;
 	}
 }
