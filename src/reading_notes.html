@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marginalia — years of Kindle highlights, made askable — AJ91</title>
+  <meta name="description" content="Marginalia: ask a question and get advice, quotes and book recommendations drawn from over a decade of AJ's Kindle highlights. A small, free RAG project.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&display=swap">
+  <style>
+    :root {
+      --cp-display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+      --cp-text: "Newsreader", "Iowan Old Style", Georgia, serif;
+      --cp-mono: ui-monospace, "Cascadia Code", Menlo, monospace;
+      --cp-paper: #f3ece0;
+      --cp-ink: rgba(243, 236, 224, 0.9);
+      --cp-ink-2: rgba(243, 236, 224, 0.6);
+      --cp-ink-3: rgba(243, 236, 224, 0.36);
+      --cp-rule: rgba(243, 236, 224, 0.1);
+      --cp-accent: var(--c-accent, #abf8fe);
+    }
+    .cp { color: var(--cp-ink); }
+    .cp-wrap { max-width: 1120px; margin-inline: auto; padding-inline: 2rem; }
+    @media (max-width: 760px) { .cp-wrap { padding-inline: 1.15rem; } }
+    .cp-label { font: 500 .68rem/1 var(--cp-mono); letter-spacing: .18em; text-transform: uppercase; color: var(--cp-ink-3); }
+    .cp-label b { color: var(--cp-accent); font-weight: 500; }
+
+    /* ── Hero with cover wall ── */
+    .cp-hero { position: relative; overflow: hidden; padding: 9rem 0 4rem; border-bottom: 1px solid var(--cp-rule); }
+    /* Cover wall. Motion is transform-only (GPU-composited, no layout/paint per frame):
+       the whole wall drifts slowly; alternate columns float against it. A static gradient
+       overlay does the fade-out (cheaper than masking an animated layer). */
+    .cp-wall { position: absolute; z-index: 0; inset: -6rem -4rem auto; display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; opacity: .34; pointer-events: none;
+      transform: rotate(-4deg); will-change: transform; animation: cp-drift 70s ease-in-out infinite alternate; }
+    .cp-wall img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 3px; box-shadow: 0 6px 18px rgba(0,0,0,.5); filter: saturate(.55) contrast(1.05);
+      opacity: 0; transition: opacity .8s ease; animation: cp-float 18s ease-in-out infinite alternate; }
+    .cp-wall img:nth-child(even) { animation-direction: alternate-reverse; animation-duration: 22s; }
+    .cp-wall img:nth-child(3n) { animation-duration: 26s; }
+    .cp-wall img.on { opacity: 1; }
+    .cp-wall.paused, .cp-wall.paused img { animation-play-state: paused; }
+    .cp-hero::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background: linear-gradient(to bottom, rgba(21,21,19,0) 0%, rgba(21,21,19,.35) 40%, #151513 88%); }
+    .cp-hero-inner { z-index: 2; }
+    @keyframes cp-drift { from { transform: rotate(-4deg) translate3d(0, 0, 0); } to { transform: rotate(-4deg) translate3d(-3%, -7%, 0); } }
+    @keyframes cp-float { from { transform: translate3d(0, -14px, 0); } to { transform: translate3d(0, 14px, 0); } }
+    @media (max-width: 760px) { .cp-wall { grid-template-columns: repeat(6, 1fr); } }
+    @media (prefers-reduced-motion: reduce) { .cp-wall, .cp-wall img { animation: none; } }
+    .cp-hero-inner { position: relative; }
+    .cp-title { font: 400 clamp(4.2rem, 13vw, 10.5rem)/.86 var(--cp-display); letter-spacing: -.02em; margin: 1.4rem 0 1.2rem; color: var(--cp-paper); }
+    .cp-title i { color: var(--cp-accent); }
+    .cp-sub { font: italic 400 clamp(1.35rem, 2.6vw, 2rem)/1.25 var(--cp-display); color: var(--cp-ink); max-width: 30ch; margin: 0 0 1.6rem; }
+    .cp-lede { font: 300 1.12rem/1.65 var(--cp-text); color: var(--cp-ink-2); max-width: 60ch; margin: 0 0 .8rem; }
+    .cp-lede em { color: var(--cp-ink); }
+
+    .cp-stats { display: flex; flex-wrap: wrap; gap: 2.5rem 3.5rem; margin-top: 2.8rem; }
+    .cp-stat b { display: block; font: 400 clamp(2.4rem, 5vw, 3.4rem)/1 var(--cp-display); color: var(--cp-paper); font-variant-numeric: lining-nums; }
+    .cp-stat span { font: .64rem var(--cp-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--cp-ink-3); }
+    .cp-years { display: flex; align-items: flex-end; gap: 3px; height: 44px; margin-top: 2.2rem; max-width: 520px; }
+    .cp-years div { flex: 1; background: linear-gradient(to top, rgba(171,248,254,.08), rgba(171,248,254,.45)); border-radius: 2px 2px 0 0; min-height: 2px; position: relative; }
+    .cp-years div:hover { background: var(--cp-accent); }
+    .cp-years div:hover::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); font: .68rem var(--cp-mono); white-space: nowrap; color: #000; background: var(--cp-paper); padding: 2px 6px; border-radius: 3px; }
+    .cp-years-axis { display: flex; justify-content: space-between; max-width: 520px; font: .62rem var(--cp-mono); color: var(--cp-ink-3); margin-top: .4rem; }
+
+    /* ── Ask ── */
+    .cp-ask { padding: 4.5rem 0 1rem; }
+    .cp-modes { display: flex; gap: 1.8rem; margin: 1.2rem 0 1.4rem; border-bottom: 1px solid var(--cp-rule); }
+    .cp-mode { font: 400 1.25rem/1 var(--cp-display); background: none; border: 0; color: var(--cp-ink-3); padding: 0 0 .8rem; cursor: pointer; border-bottom: 1px solid transparent; margin-bottom: -1px; }
+    .cp-mode:hover { color: var(--cp-ink); }
+    .cp-mode[aria-pressed="true"] { color: var(--cp-paper); border-color: var(--cp-accent); }
+    .cp-form { display: flex; align-items: flex-end; gap: 1rem; }
+    .cp-form input { flex: 1; min-width: 0; font: 300 clamp(1.3rem, 2.8vw, 1.9rem)/1.3 var(--cp-text); padding: .6rem 0; border: 0; border-bottom: 1px solid var(--cp-ink-3); background: none; color: var(--cp-paper); outline: none; }
+    .cp-form input::placeholder { color: var(--cp-ink-3); font-style: italic; }
+    .cp-form input:focus { border-color: var(--cp-accent); }
+    .cp-go { font: .74rem var(--cp-mono); letter-spacing: .12em; text-transform: uppercase; padding: .85rem 1.3rem; border-radius: 999px; border: 1px solid var(--cp-accent); background: none; color: var(--cp-accent); cursor: pointer; white-space: nowrap; }
+    .cp-go:hover { background: var(--cp-accent); color: #000; }
+    .cp-go:disabled { opacity: .45; cursor: wait; }
+    .cp-suggest { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; margin-top: 1rem; }
+    .cp-suggest button { font: italic 400 1rem var(--cp-text); background: none; border: 0; padding: 0; color: var(--cp-ink-3); cursor: pointer; }
+    .cp-suggest button:hover { color: var(--cp-paper); text-decoration: underline; text-underline-offset: 3px; }
+    .cp-suggest .cp-more { font: .68rem var(--cp-mono); font-style: normal; letter-spacing: .1em; text-transform: uppercase; color: var(--cp-accent); opacity: .7; }
+    .cp-suggest .cp-more:hover { opacity: 1; text-decoration: none; }
+    .cp-suggest button { animation: cp-in .45s ease both; }
+    @keyframes cp-in { from { opacity: 0; transform: translateY(4px); } }
+
+    /* ── Results ── */
+    .cp-out { min-height: 3rem; }
+    .cp-status { font: italic 300 1.05rem var(--cp-text); color: var(--cp-ink-3); margin: 2.5rem 0; }
+    .cp-status::before { content: ""; display: inline-block; width: .6rem; height: .6rem; margin-right: .6rem; border-radius: 50%; background: var(--cp-accent); animation: cp-pulse 1s ease-in-out infinite; vertical-align: middle; }
+    .cp-status.err::before { background: #f57; animation: none; }
+    @keyframes cp-pulse { 50% { opacity: .2; transform: scale(.7); } }
+    .cp-answer { margin: 3rem 0 0; padding: 0 0 2.5rem; border-bottom: 1px solid var(--cp-rule); }
+    .cp-answer p { font: 300 clamp(1.25rem, 2.2vw, 1.55rem)/1.6 var(--cp-text); color: var(--cp-paper); margin: .8rem 0 0; max-width: 62ch; }
+    .cp-answer p:first-of-type::first-letter { font: 400 3.6em/.8 var(--cp-display); float: left; margin: .08em .1em 0 0; color: var(--cp-accent); }
+    .cp-answer em { font-style: italic; }
+    .cp-cite { display: inline-block; font: 500 .62rem/1 var(--cp-mono); color: #000; background: var(--cp-accent); border-radius: 3px; padding: 3px 4px 2px; margin: 0 2px; vertical-align: .35em; text-decoration: none; }
+    .cp-cite:hover { background: var(--cp-paper); }
+    .cp-section { margin-top: 3rem; }
+    .cp-section > .cp-label { display: block; margin-bottom: 1.2rem; }
+
+    .cp-quotes { display: grid; gap: 1px; background: var(--cp-rule); border-top: 1px solid var(--cp-rule); border-bottom: 1px solid var(--cp-rule); }
+    .cp-quote { display: grid; grid-template-columns: 64px 1fr; gap: 1.4rem; padding: 1.6rem 0; background: #151513; scroll-margin-top: 6rem; transition: background .4s; }
+    .cp-quote.flash { background: #1c2526; }
+    .cp-quote blockquote { margin: 0 0 .7rem; font: 300 1.18rem/1.6 var(--cp-text); color: var(--cp-paper); }
+    .cp-quote .n { font: .62rem var(--cp-mono); color: var(--cp-accent); margin-right: .5rem; vertical-align: .3em; }
+    .cp-by { font: 400 .95rem var(--cp-display); font-style: italic; color: var(--cp-ink-2); }
+    .cp-by small { font: .62rem var(--cp-mono); font-style: normal; letter-spacing: .08em; color: var(--cp-ink-3); margin-left: .6rem; text-transform: uppercase; }
+    .cp-note-tag { font: .58rem var(--cp-mono); letter-spacing: .14em; text-transform: uppercase; color: #000; background: var(--c-magenta, #ed6ff5); padding: 2px 5px; border-radius: 2px; margin-right: .5rem; vertical-align: .25em; }
+
+    .cp-shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2rem 1.4rem; }
+    .cp-book { display: flex; flex-direction: column; gap: .7rem; }
+    .cp-book h3 { font: 400 1.15rem/1.2 var(--cp-display); color: var(--cp-paper); margin: 0; }
+    .cp-book .by { font: italic 300 .9rem var(--cp-text); color: var(--cp-ink-2); }
+    .cp-book .n { font: .62rem var(--cp-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--cp-accent); }
+    .cp-book p { font: italic 300 .9rem/1.5 var(--cp-text); color: var(--cp-ink-3); margin: 0; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+    /* covers */
+    .cover { position: relative; width: 100%; aspect-ratio: 2/3; border-radius: 2px 5px 5px 2px; overflow: hidden; background: #111;
+      box-shadow: inset 4px 0 6px -3px rgba(0,0,0,.6), 0 10px 24px -8px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.06); transition: transform .35s ease; }
+    .cp-book:hover .cover { transform: translateY(-4px) rotate(-1deg); }
+    .cover img { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover; display: block; }
+    .cover-fallback { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 12% 10%; color: rgba(255,255,255,.92); }
+    .cover-fallback b { font: 400 clamp(.75rem, 1.35vw, 1.05rem)/1.12 var(--cp-display); display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+    .cover-fallback span { font: .5rem var(--cp-mono); letter-spacing: .1em; text-transform: uppercase; opacity: .75; }
+    .cover-fallback::before { content: ""; position: absolute; left: 10%; right: 10%; top: 50%; height: 1px; background: rgba(255,255,255,.35); }
+    .cp-quote .cover-fallback b { font-size: .5rem; -webkit-line-clamp: 5; }
+    .cp-quote .cover-fallback span { display: none; }
+
+    /* ── How / top ── */
+    .cp-how { margin-top: 6rem; padding: 4rem 0 6rem; border-top: 1px solid var(--cp-rule); }
+    .cp-how h2 { font: 400 clamp(2.2rem, 5vw, 3.6rem)/1 var(--cp-display); color: var(--cp-paper); margin: 1rem 0 2.5rem; }
+    .cp-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2.2rem; counter-reset: s; }
+    .cp-steps li { list-style: none; counter-increment: s; }
+    .cp-steps li::before { content: "0" counter(s); display: block; font: .7rem var(--cp-mono); color: var(--cp-accent); margin-bottom: .8rem; }
+    .cp-steps h3 { font: 400 1.5rem var(--cp-display); margin: 0 0 .5rem; color: var(--cp-paper); }
+    .cp-steps p { font: 300 1rem/1.6 var(--cp-text); color: var(--cp-ink-2); margin: 0; }
+    .cp-steps code { font: .85em var(--cp-mono); color: var(--cp-accent); }
+    .cp-engine { font: italic 300 1rem var(--cp-text); color: var(--cp-ink-3); margin-top: 2.5rem; }
+    .cp-top { margin-top: 4.5rem; }
+    .cp-top .cp-shelf { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 1.6rem 1.1rem; }
+    .cp-top .cp-book h3 { font-size: .98rem; }
+    .cp-top .cp-book .by { font-size: .8rem; }
+  </style>
+</head>
+<body data-barba="wrapper" class="page-is-marginalia">
+  <div class="container">
+    <header class="header">
+      <div class="header-inner">
+        <a href="/" class="header-logo logo word font-kihim">aj91</a>
+        <nav class="header-nav navigation" aria-label="Main">
+          <ul>
+            <li><a class="font-mono" href="https://www.linkedin.com/in/asjones91/" aria-label="LinkedIn"><i class="fa-brands fa-linkedin" aria-hidden="true"></i><span class="nav-text">Linkedin</span></a></li>
+            <li><a class="font-mono" href="https://aj91.substack.com/" aria-label="Substack"><i class="fa-solid fa-newspaper" aria-hidden="true"></i><span class="nav-text">Substack</span></a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main data-barba="container" data-barba-namespace="marginalia" class="cp">
+      <section class="cp-hero">
+        <div class="cp-wall" id="cp-wall" aria-hidden="true"></div>
+        <div class="cp-wrap cp-hero-inner">
+          <div class="cp-label"><b>Project</b> &nbsp;·&nbsp; Retrieval-augmented reading</div>
+          <h1 class="cp-title">Margin<i>alia</i></h1>
+          <p class="cp-sub">Every line that stopped me, <span data-stat="span-words">for over a decade</span>, made askable.</p>
+          <p class="cp-lede"><em>Marginalia</em> are the marks readers leave in the edges of a book: the underlines, the stars, the arguments scribbled back at the author. Since <span data-stat="firstYear">2014</span> my Kindle has been keeping mine: philosophy, sailing, startups, attention, Africa and its diaspora, utopias, how to live.</p>
+          <p class="cp-lede">Ask it something. It finds the passages that answer back, the books they came from, and (when a model is connected) writes a short reply built only from those lines.</p>
+
+          <div class="cp-stats" aria-live="polite">
+            <div class="cp-stat"><b data-stat="highlights">—</b><span>Passages</span></div>
+            <div class="cp-stat"><b data-stat="books">—</b><span>Books</span></div>
+            <div class="cp-stat"><b data-stat="authors">—</b><span>Authors</span></div>
+            <div class="cp-stat"><b data-stat="span">—</b><span>Years</span></div>
+          </div>
+          <div class="cp-years" id="cp-years" aria-hidden="true"></div>
+          <div class="cp-years-axis" id="cp-years-axis" aria-hidden="true"></div>
+        </div>
+      </section>
+
+      <section class="cp-ask cp-wrap" aria-label="Ask Marginalia">
+        <div class="cp-label">Ask the library</div>
+        <div class="cp-modes" role="group" aria-label="Mode">
+          <button class="cp-mode" data-mode="advice" aria-pressed="true">Advice</button>
+          <button class="cp-mode" data-mode="books" aria-pressed="false">What to read</button>
+          <button class="cp-mode" data-mode="surprise" aria-pressed="false">Open at random</button>
+        </div>
+        <form class="cp-form" id="cp-form">
+          <label for="cp-q" style="position:absolute;left:-9999px">Your question</label>
+          <input id="cp-q" name="q" maxlength="500" autocomplete="off" placeholder="How do I stay focused when everything pulls at me?">
+          <button type="submit" class="cp-go" id="cp-go">Ask</button>
+        </form>
+        <div class="cp-suggest" id="cp-suggest" aria-label="Suggested questions"></div>
+        <div class="cp-out" id="cp-out" aria-live="polite"></div>
+      </section>
+
+      <section class="cp-how cp-wrap">
+        <div class="cp-label">How it works</div>
+        <h2>Four steps, no magic.</h2>
+        <ol class="cp-steps">
+          <li><h3>Collect</h3><p>Every highlight and note from my Kindle's <code>My Clippings.txt</code>, de-duplicated (Kindle re-saves a line each time you extend it) and cleaned up.</p></li>
+          <li><h3>Retrieve</h3><p>Your question is matched against every passage with BM25, the classic search ranking. Fast, free, and it runs on this site's own small server.</p></li>
+          <li><h3>Recommend</h3><p>Passages are grouped by book, so the books that keep answering your question rise to the top of the shelf.</p></li>
+          <li><h3>Reply</h3><p>The best passages go to a language model with one rule: answer only from these lines, and cite them. The model is pluggable.</p></li>
+        </ol>
+        <p class="cp-engine" id="cp-engine"></p>
+
+        <div class="cp-top">
+          <div class="cp-label">Most underlined</div>
+          <div class="cp-shelf" id="cp-top" style="margin-top:1.4rem"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script type="module" src="reading_notes.js"></script>
+</body>
+</html>

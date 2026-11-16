@@ -1,0 +1,3 @@
+{
+  "_how": "Map an exact book title (as shown on the page) to a cover image URL. Used before any API lookup."
+}

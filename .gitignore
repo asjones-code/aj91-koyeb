@@ -8,3 +8,6 @@ dist/
 cover-letters/HVFH_AD-LD.md
 .env.example
 .env.example
+
+# Kindle highlights (personal data, loaded into Postgres for prod; see scripts/seed-kindle.mjs)
+data/
