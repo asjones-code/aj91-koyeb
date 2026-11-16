@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS ai_fund (
 	updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 INSERT INTO ai_fund (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+ALTER TABLE ai_fund ADD COLUMN IF NOT EXISTS watchlist JSONB;   -- AI-set price levels that trigger an early decision
+ALTER TABLE ai_fund ADD COLUMN IF NOT EXISTS last_email JSONB;  -- {at, ok, subject, error}
 
 CREATE TABLE IF NOT EXISTS ai_trades (
 	id SERIAL PRIMARY KEY,
@@ -118,7 +120,7 @@ export function createStore(getPool) {
 			const keys = Object.keys(fields);
 			if (!keys.length) return this.getFund();
 			const sets = keys.map((k, i) => `${k} = $${i + 1}`).join(", ");
-			const vals = keys.map((k) => (k === "seed_basket" && fields[k] != null ? JSON.stringify(fields[k]) : fields[k]));
+			const vals = keys.map((k) => (["seed_basket", "watchlist", "last_email"].includes(k) && fields[k] != null ? JSON.stringify(fields[k]) : fields[k]));
 			const r = await q(`UPDATE ai_fund SET ${sets}, updated_at = now() WHERE id = 1 RETURNING *`, vals);
 			return fundRow(r.rows[0]);
 		},

@@ -13,7 +13,7 @@ export function decisionSchema(universe) {
 	return {
 		type: "object",
 		additionalProperties: false,
-		required: ["market_note", "journal", "opens", "closes", "adjusts"],
+		required: ["market_note", "journal", "opens", "closes", "adjusts", "watch"],
 		properties: {
 			market_note: { type: "string", description: "One sentence of broader crypto market context." },
 			journal: { type: "string", description: "2-4 sentence first-person trading journal entry for this run: what you see, what you did and why, or why you stayed flat." },
@@ -44,6 +44,21 @@ export function decisionSchema(universe) {
 					additionalProperties: false,
 					required: ["trade_id", "reason"],
 					properties: { trade_id: { type: "integer" }, reason: { type: "string" } },
+				},
+			},
+			watch: {
+				type: "array",
+				description: "Price levels to watch until the next run. If price crosses one, you are called again early. Replaces the previous watch list; use [] for none.",
+				items: {
+					type: "object",
+					additionalProperties: false,
+					required: ["asset", "direction", "price", "reason"],
+					properties: {
+						asset: { type: "string", enum: universe },
+						direction: { type: "string", enum: ["above", "below"] },
+						price: { type: "number" },
+						reason: { type: "string", description: "What crossing this level would mean, e.g. 'reclaims 4h SMA20'." },
+					},
 				},
 			},
 			adjusts: {
@@ -79,6 +94,7 @@ You run a small, real-money, SPOT-ONLY crypto fund on Kraken as a public experim
 - You may close open positions early (thesis broken) or tighten stops to lock in profit. Stops can only be raised, never lowered.
 - Learn from the recent closed trades you are shown: name what worked and what didn't in your journal.
 - Use the exact numbers in the market data; do not invent prices or news.
+- Between scheduled runs a free price check watches the levels you put in "watch" (at most 6) and screens every coin for alignment (above 4h SMA20, volume above its 7d average, positive 24h). If either fires you are called again early, so set concrete re-entry or breakdown levels instead of only describing them.
 Return ONLY the JSON object described by the schema.`.trim();
 }
 

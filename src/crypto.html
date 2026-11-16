@@ -185,6 +185,10 @@
     tr.holding-row:hover { background: rgba(171,248,254,0.04); }
     tr.holding-row.active { background: rgba(171,248,254,0.07); }
     .asset-sym { color: var(--cyan); font-weight: 700; font-size: 0.85rem; }
+    td.alloc { position: relative; min-width: 4.5rem; }
+    .alloc-bar { position: absolute; right: 0; top: 30%; height: 40%; background: rgba(171,248,254,0.10); border-radius: 2px; pointer-events: none; }
+    tr.dust-toggle td { color: var(--muted); font-size: 0.68rem; cursor: pointer; text-align: center; padding: 0.5rem; }
+    tr.dust-toggle:hover td { color: var(--cyan); }
     .up   { color: var(--green); }
     .down { color: var(--magenta); }
 
@@ -477,10 +481,11 @@
               <th data-sort="last" class="right">Price</th>
               <th data-sort="change_24h_pct" class="right">24h</th>
               <th data-sort="value" class="right">Value</th>
+              <th data-sort="alloc" class="right">Alloc</th>
             </tr>
           </thead>
           <tbody id="holdings-tbody">
-            <tr><td colspan="5" class="loading">Loading holdings…</td></tr>
+            <tr><td colspan="6" class="loading">Loading holdings…</td></tr>
           </tbody>
         </table>
       </div>
@@ -579,6 +584,7 @@
         <button class="ai-btn primary" id="ai-run" title="Run a decision now in the configured mode">Run now</button>
         <button class="ai-btn" id="ai-pause" title="Stop opening new trades (exits keep running)">Pause</button>
         <button class="ai-btn" id="ai-report" title="Send the daily report email now">Report</button>
+        <button class="ai-btn" id="ai-test-email" title="Send a test email and show MailerSend's response">Test email</button>
       </span>
     </summary>
     <div class="ai-msg" id="ai-msg"></div>

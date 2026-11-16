@@ -9,6 +9,7 @@
  *   POST /api/ai/kraken/monitor         premium  run the risk monitor now
  *   POST /api/ai/kraken/pause           premium  body {paused:bool}
  *   POST /api/ai/kraken/report          premium  send the daily report now
+ *   POST /api/ai/kraken/test-email      premium  send a test email; returns MailerSend's response
  *   GET  /api/ai/kraken/public          public   % only, no dollar amounts
  */
 import { traderConfig } from "./config.js";
@@ -49,7 +50,11 @@ export function createTrader(deps) {
 		const h = now.getUTCHours();
 		const jobs = [];
 		const monitorSlot = Math.floor(now.getTime() / (cfg.monitorMinutes * 60_000));
-		jobs.push(["monitor", String(monitorSlot), () => engine.monitor()]);
+		jobs.push(["monitor", String(monitorSlot), async () => {
+			const r = await engine.monitor({ checkTriggers: cfg.maxEarlyRunsPerDay > 0 });
+			if (r?.trigger) r.early = await maybeEarlyRun(r.trigger, cfg, day);
+			return r;
+		}]);
 		if (cfg.decisionHoursUtc.includes(h) && now.getUTCMinutes() >= 5) {
 			jobs.push(["decision", `${day}T${h}`, async () => {
 				const fund = await store.getFund();
@@ -62,19 +67,33 @@ export function createTrader(deps) {
 			try {
 				if (!(await claim(job, slot))) continue;
 				const r = await fn();
-				if (job !== "monitor" || r?.exits?.length) log.log?.(`[ai-trader] ${job} ${slot}:`, JSON.stringify(r).slice(0, 300));
+				if (job !== "monitor" || r?.exits?.length || r?.trigger) log.log?.(`[ai-trader] ${job} ${slot}:`, JSON.stringify(r).slice(0, 300));
 			} catch (e) {
 				log.error?.(`[ai-trader] ${job} ${slot} failed:`, e.message);
 			}
 		}
 	}
+	/** Run the model early on a trigger, at most maxEarlyRunsPerDay and earlyRunGapHours apart. */
+	async function maybeEarlyRun(trigger, cfg, day) {
+		const last = (await store.recentDecisions(1))[0];
+		if (last && Date.now() - new Date(last.created_at).getTime() < cfg.earlyRunGapHours * 3600_000)
+			return { skipped: `last decision under ${cfg.earlyRunGapHours}h ago` };
+		for (let n = 0; n < cfg.maxEarlyRunsPerDay; n++) {
+			if (await claim("early", `${day}#${n}`)) {
+				const r = await engine.runDecision({ trigger: `early — ${trigger.reason}` });
+				return { ran: true, n: n + 1, ok: r.ok, opened: (r.results || []).filter((x) => x.status === "opened").length, error: r.error };
+			}
+		}
+		return { skipped: `daily cap of ${cfg.maxEarlyRunsPerDay} early runs reached` };
+	}
+
 	function start() {
 		if (timer) return;
 		const cfg = cfgFn();
 		if (!cfg.enabled) { log.log?.("[ai-trader] disabled (KRAKEN_AI_ENABLED=false)"); return; }
 		if (!store.hasDb()) { log.log?.("[ai-trader] no DATABASE_URL; scheduler not started"); return; }
 		timer = setInterval(() => { tick().catch((e) => log.error?.("[ai-trader] tick:", e.message)); }, 60_000);
-		log.log?.(`[ai-trader] scheduler on · mode=${cfg.mode} · model=${cfg.model} · decisions ${cfg.decisionHoursUtc.map((x) => `${x}:05`).join(", ")} UTC · report ${cfg.reportHourUtc}:00 UTC · monitor every ${cfg.monitorMinutes}m`);
+		log.log?.(`[ai-trader] scheduler on · mode=${cfg.mode} · model=${cfg.model} · decisions ${cfg.decisionHoursUtc.map((x) => `${x}:05`).join(", ")} UTC · report ${cfg.reportHourUtc}:00 UTC · monitor every ${cfg.monitorMinutes}m · early runs ≤${cfg.maxEarlyRunsPerDay}/day`);
 	}
 
 	// ── routes ───────────────────────────────────────────────────────────────
@@ -112,6 +131,10 @@ export function createTrader(deps) {
 				return send(200, { ok: true, halted: fund.halted, halted_reason: fund.halted_reason });
 			}
 			if (pathname === "/api/ai/kraken/report" && method === "POST") return send(200, await reporter.dailyReport({ send: true }));
+			if (pathname === "/api/ai/kraken/test-email" && method === "POST") {
+				const r = await reporter.testEmail();
+				return send(r.ok ? 200 : 502, r);
+			}
 			return send(404, { error: "Not found" });
 		} catch (e) {
 			log.error?.("[ai-trader] route error:", e);

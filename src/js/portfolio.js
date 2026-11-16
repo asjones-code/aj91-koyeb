@@ -323,7 +323,10 @@ async function renderKraken() {
     const changePct   = cryptoValue > 0 ? (change24h / cryptoValue) * 100 : 0;
 
     set("kraken-value",  "$" + fmt(totalValue));
-    set("kraken-assets", holdings.length.toString());
+    const DUST_USD = 1;
+    const shown = holdings.filter(h => h.value >= DUST_USD);
+    const dust = holdings.filter(h => h.value < DUST_USD);
+    set("kraken-assets", shown.length.toString());
 
     // Populate stats bar with crypto data
     set("stat-invested", "$" + fmt(cryptoValue));
@@ -339,7 +342,7 @@ async function renderKraken() {
       statPctEl.textContent = sign + fmt(changePct) + "%";
       statPctEl.className = "pf-stat-value " + (changePct >= 0 ? "up" : "down");
     }
-    set("stat-pct", holdings.length.toString());
+    set("stat-pct", shown.length.toString());
 
     const chEl = document.getElementById("kraken-change");
     if (chEl) {
@@ -350,21 +353,29 @@ async function renderKraken() {
 
     const holdEl = document.getElementById("kraken-holdings");
     if (holdEl) {
-      const rows = holdings.slice(0, 5).map(h => {
+      const alloc = (v) => totalValue > 0 ? `<span class="kraken-alloc">${((v / totalValue) * 100).toFixed(1)}%</span>` : "";
+      const rows = shown.slice(0, 6).map(h => {
         const cls  = h.change_24h_pct >= 0 ? "up" : "down";
         const sign = h.change_24h_pct >= 0 ? "+" : "";
         const val  = h.value > 0 ? `$${fmt(h.value)}` : `${h.balance.toFixed(4)} (no price)`;
         const chg  = h.last > 0 ? `<span class="kraken-chg ${cls}">${sign}${fmt(h.change_24h_pct)}%</span>` : "";
         return `<div class="kraken-holding">
           <span class="kraken-sym">${h.asset}</span>
-          <span class="kraken-val">${val}</span>
+          <span class="kraken-val">${val} ${alloc(h.value)}</span>
           ${chg}
         </div>`;
       });
       if (cashUsd > 0.01) {
         rows.push(`<div class="kraken-holding">
           <span class="kraken-sym" style="color:var(--c-secondary)">Cash</span>
-          <span class="kraken-val">$${fmt(cashUsd)}</span>
+          <span class="kraken-val">$${fmt(cashUsd)} ${alloc(cashUsd)}</span>
+          <span></span>
+        </div>`);
+      }
+      if (dust.length) {
+        rows.push(`<div class="kraken-holding" style="opacity:0.55;font-size:0.7rem">
+          <span>+${dust.length} dust under $${DUST_USD}</span>
+          <span class="kraken-val">$${fmt(dust.reduce((s, h) => s + h.value, 0))}</span>
           <span></span>
         </div>`);
       }
