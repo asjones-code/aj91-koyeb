@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reading Notes — a decade of Kindle highlights, searchable — AJ91</title>
+  <meta name="description" content="Ask a question and get advice, quotes and book recommendations drawn from years of AJ's Kindle highlights. A small, free retrieval-augmented (RAG) project.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+  <style>
+    .page-rn { padding: 0 2rem 6rem; max-width: 1100px; width: 100%; margin-inline: auto; }
+    @media (max-width: 760px) { .page-rn { padding-inline: 1.15rem; } }
+
+    .rn-hero { padding: 7rem 0 2.5rem; border-bottom: 1px solid var(--c-border); }
+    .rn-label { font-family: monospace; font-size: .7rem; letter-spacing: .15em; text-transform: uppercase; color: var(--c-accent); margin-bottom: 1rem; }
+    .rn-hero h1 { font-size: clamp(2.2rem, 5.5vw, 4rem); font-weight: 700; line-height: 1.05; margin: 0 0 1.25rem; letter-spacing: -.02em; }
+    .rn-hero p { max-width: 62ch; color: var(--c-secondary); line-height: 1.6; margin: 0 0 .9rem; }
+
+    .rn-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1px; background: var(--c-border); border: 1px solid var(--c-border); border-radius: 12px; overflow: hidden; margin: 2rem 0 0; }
+    .rn-stat { background: #000; padding: 1.1rem 1.2rem; }
+    .rn-stat b { display: block; font-size: 1.6rem; font-variant-numeric: tabular-nums; }
+    .rn-stat span { font-family: monospace; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--c-tertiary); }
+
+    .rn-years { display: flex; align-items: flex-end; gap: 4px; height: 56px; margin-top: 1.25rem; }
+    .rn-years div { flex: 1; background: var(--c-accent-dim); border-top: 2px solid var(--c-accent); border-radius: 2px 2px 0 0; min-height: 3px; position: relative; }
+    .rn-years div:hover::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); font: .7rem monospace; white-space: nowrap; color: var(--c-text); background: #111; padding: 2px 6px; border-radius: 4px; }
+    .rn-years-axis { display: flex; justify-content: space-between; font: .65rem monospace; color: var(--c-tertiary); margin-top: .35rem; }
+
+    .rn-ask { padding: 3rem 0 1rem; }
+    .rn-modes { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+    .rn-mode { font-family: monospace; font-size: .78rem; padding: .45rem .85rem; border-radius: 999px; border: 1px solid var(--c-border); background: var(--c-surface); color: var(--c-secondary); cursor: pointer; }
+    .rn-mode[aria-pressed="true"] { border-color: var(--c-accent); color: var(--c-accent); background: var(--c-accent-dim); }
+    .rn-form { display: flex; gap: .6rem; }
+    .rn-form input { flex: 1; font: inherit; font-size: 1.05rem; padding: .95rem 1.1rem; border-radius: 12px; border: 1px solid var(--c-border); background: var(--c-surface); color: var(--c-text); outline: none; }
+    .rn-form input:focus { border-color: var(--c-accent); }
+    .rn-form button { font-family: monospace; padding: 0 1.3rem; border-radius: 12px; border: 1px solid var(--c-accent); background: var(--c-accent-dim); color: var(--c-accent); cursor: pointer; }
+    .rn-form button:disabled { opacity: .5; cursor: wait; }
+    .rn-suggest { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .8rem; }
+    .rn-suggest button { font-size: .8rem; padding: .3rem .7rem; border-radius: 8px; border: 1px dashed var(--c-border); background: none; color: var(--c-tertiary); cursor: pointer; }
+    .rn-suggest button:hover { color: var(--c-text); border-color: var(--c-secondary); }
+
+    .rn-out { min-height: 2rem; }
+    .rn-status { font-family: monospace; font-size: .8rem; color: var(--c-tertiary); margin: 1.5rem 0; }
+    .rn-answer { font-size: 1.12rem; line-height: 1.7; padding: 1.4rem 1.5rem; border-left: 2px solid var(--c-accent); background: var(--c-surface); border-radius: 0 12px 12px 0; margin: 1.5rem 0; white-space: pre-wrap; }
+    .rn-h { font-family: monospace; font-size: .7rem; letter-spacing: .15em; text-transform: uppercase; color: var(--c-tertiary); margin: 2rem 0 .8rem; }
+    .rn-quotes { display: grid; gap: .8rem; }
+    .rn-quote { padding: 1.1rem 1.25rem; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface); }
+    .rn-quote blockquote { margin: 0 0 .6rem; line-height: 1.6; }
+    .rn-quote blockquote::before { content: "“"; color: var(--c-accent); }
+    .rn-quote blockquote::after { content: "”"; color: var(--c-accent); }
+    .rn-quote.note blockquote::before, .rn-quote.note blockquote::after { content: ""; }
+    .rn-cite { font-size: .82rem; color: var(--c-secondary); }
+    .rn-cite i { color: var(--c-tertiary); font-style: normal; font-family: monospace; font-size: .72rem; margin-left: .4rem; }
+    .rn-tag { font: .62rem monospace; text-transform: uppercase; letter-spacing: .1em; color: var(--c-magenta); margin-right: .4rem; }
+    .rn-books { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .8rem; }
+    .rn-book { padding: 1.1rem 1.25rem; border: 1px solid var(--c-border); border-radius: 12px; }
+    .rn-book h3 { margin: 0 0 .15rem; font-size: 1rem; line-height: 1.35; }
+    .rn-book .by { font-size: .82rem; color: var(--c-secondary); }
+    .rn-book .n { font: .7rem monospace; color: var(--c-accent); margin: .5rem 0; }
+    .rn-book p { font-size: .85rem; color: var(--c-tertiary); line-height: 1.5; margin: 0; }
+
+    .rn-how { padding: 3rem 0 0; border-top: 1px solid var(--c-border); margin-top: 3rem; }
+    .rn-how ol { padding-left: 1.2rem; color: var(--c-secondary); line-height: 1.7; max-width: 70ch; }
+    .rn-how li { margin-bottom: .6rem; }
+    .rn-how code { font-size: .85em; color: var(--c-accent); }
+    .rn-top { columns: 2 260px; gap: 2rem; padding: 0; list-style: none; color: var(--c-secondary); font-size: .9rem; }
+    .rn-top li { break-inside: avoid; padding: .3rem 0; border-bottom: 1px solid var(--c-border); display: flex; justify-content: space-between; gap: 1rem; }
+    .rn-top li span:last-child { font-family: monospace; color: var(--c-tertiary); }
+  </style>
+</head>
+<body data-barba="wrapper" class="page-is-reading-notes">
+  <div class="container">
+    <header class="header">
+      <div class="header-inner">
+        <a href="/" class="header-logo logo word font-kihim">aj91</a>
+        <nav class="header-nav navigation" aria-label="Main">
+          <ul>
+            <li><a class="font-mono" href="https://www.linkedin.com/in/asjones91/" aria-label="LinkedIn"><i class="fa-brands fa-linkedin" aria-hidden="true"></i><span class="nav-text">Linkedin</span></a></li>
+            <li><a class="font-mono" href="https://aj91.substack.com/" aria-label="Substack"><i class="fa-solid fa-newspaper" aria-hidden="true"></i><span class="nav-text">Substack</span></a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+
+    <main data-barba="container" data-barba-namespace="reading-notes">
+      <div class="page-rn">
+
+        <section class="rn-hero">
+          <div class="rn-label">Project · Reading Notes</div>
+          <h1>Years of Kindle highlights, <br>turned into something you can ask.</h1>
+          <p>Since <span data-stat="firstYear">2014</span> I've highlighted the lines that stopped me: philosophy, sailing, startups, attention, Africa and its diaspora, utopias, how to live. This page is a small retrieval-augmented (RAG) system built on <span data-stat="years">those years</span> of reading.</p>
+          <p>Ask a question and it finds the passages that speak to it, recommends the books they came from, and (when a model is connected) writes a short answer grounded only in those passages.</p>
+
+          <div class="rn-stats" aria-live="polite">
+            <div class="rn-stat"><b data-stat="highlights">—</b><span>Highlights</span></div>
+            <div class="rn-stat"><b data-stat="books">—</b><span>Books</span></div>
+            <div class="rn-stat"><b data-stat="authors">—</b><span>Authors</span></div>
+            <div class="rn-stat"><b data-stat="span">—</b><span>Years of reading</span></div>
+          </div>
+          <div class="rn-years" id="rn-years" aria-hidden="true"></div>
+          <div class="rn-years-axis" id="rn-years-axis" aria-hidden="true"></div>
+        </section>
+
+        <section class="rn-ask" aria-label="Ask the reading notes">
+          <div class="rn-modes" role="group" aria-label="Mode">
+            <button class="rn-mode" data-mode="advice" aria-pressed="true">Advice &amp; answers</button>
+            <button class="rn-mode" data-mode="books" aria-pressed="false">Recommend books</button>
+            <button class="rn-mode" data-mode="surprise" aria-pressed="false">Surprise me</button>
+          </div>
+          <form class="rn-form" id="rn-form">
+            <label for="rn-q" class="visually-hidden" style="position:absolute;left:-9999px">Your question</label>
+            <input id="rn-q" name="q" maxlength="500" autocomplete="off" placeholder="How do I stay focused when everything is pulling at my attention?">
+            <button type="submit" id="rn-go">Ask</button>
+          </form>
+          <div class="rn-suggest" id="rn-suggest">
+            <button type="button">How do I deal with fear of failure?</button>
+            <button type="button">What makes a good leader?</button>
+            <button type="button">Building a startup from nothing</button>
+            <button type="button">Living a simpler, slower life</button>
+            <button type="button">Solitude at sea</button>
+          </div>
+          <div class="rn-out" id="rn-out" aria-live="polite"></div>
+        </section>
+
+        <section class="rn-how">
+          <div class="rn-label">How it works</div>
+          <ol>
+            <li><b>Collect.</b> Every highlight and note from my Kindle's <code>My Clippings.txt</code>, parsed, de-duplicated (Kindle re-saves a highlight every time you extend it) and cleaned up.</li>
+            <li><b>Retrieve.</b> Your question is matched against every passage with BM25, the classic search ranking. It's fast, free, and runs on the same small server as this site. No vector database, no paid embeddings.</li>
+            <li><b>Recommend.</b> Matching passages are grouped by book, so the books that keep answering your question rise to the top.</li>
+            <li><b>Generate (optional).</b> The top passages go to a language model with strict instructions: answer only from these excerpts, and cite them. The model is pluggable: a local model or any OpenAI-compatible endpoint.</li>
+          </ol>
+          <p class="rn-cite" id="rn-engine"></p>
+
+          <div class="rn-h">Most highlighted</div>
+          <ul class="rn-top" id="rn-top"></ul>
+        </section>
+
+      </div>
+    </main>
+  </div>
+  <script type="module" src="reading_notes.js"></script>
+</body>
+</html>
