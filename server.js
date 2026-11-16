@@ -1470,11 +1470,64 @@ function krakenPrivatePost(path, params = {}) {
 		body: postData,
 	});
 }
+const KRAKEN_LEGACY_CODES = new Set([
+	"XXBT", "XETH", "XXRP", "XLTC", "XXLM", "XXMR", "XZEC", "XETC", "XMLN", "XREP", "XXDG",
+	"XDAO", "XNMC", "XXVN", "XICN", "ZUSD", "ZEUR", "ZGBP", "ZCAD", "ZJPY", "ZAUD",
+]);
+// Kraken asset codes → common tickers: XXBT→BTC, XXRP→XRP, ZUSD→USD, XXDG→DOGE,
+// and suffixed variants keep their suffix: XRP.S→XRP.S, XXBT.M→BTC.M.
 function normalizeAsset(raw) {
-	if (raw === "XXBT" || raw === "XBT") return "BTC";
-	if (raw.startsWith("Z") && raw.length === 4) return raw.slice(1);
-	if (raw.startsWith("X") && raw.length >= 4) return raw.slice(1);
-	return raw;
+	const [code, ...rest] = String(raw).split(".");
+	let a = code;
+	// Only Kraken's fixed set of legacy codes carry an X (crypto) / Z (fiat) prefix;
+	// real tickers that start with X or Z (XTZ, XCN, ZETA, ZRX…) are left alone.
+	if (KRAKEN_LEGACY_CODES.has(a)) a = a.slice(1);
+	if (a === "XBT") a = "BTC";
+	if (a === "XDG") a = "DOGE";
+	return rest.length ? `${a}.${rest.join(".")}` : a;
+}
+
+// ── USD pricing for arbitrary Kraken balances ────────────────────────────────
+const KRAKEN_FIAT = new Set(["USD", "EUR", "GBP", "JPY", "CAD", "AUD", "CHF"]);
+const KRAKEN_PRICE_ALIAS = { BTC: "XBT", DOGE: "XDG" };
+// Staked/earn variants (XRP.S, DOT.F, ETH2.S, USD.HOLD …) are priced as their base asset.
+function pricingBase(asset) {
+	let a = String(asset).replace(/\.(S|M|F|B|P|HOLD)$/i, "");
+	if (a === "ETH2") a = "ETH";
+	return a;
+}
+// Kraken ticker result keys → base asset: XXRPZUSD→XRP, XXBTZUSD→BTC, ZEURZUSD→EUR, ALGOUSD→ALGO.
+function tickerKeyToAsset(key) {
+	const base = /^[XZ][A-Z]{3}[XZ]USD$/.test(key) ? key.slice(1, 4) : key.replace(/USD$/, "");
+	return base === "XBT" ? "BTC" : base === "XDG" ? "DOGE" : base;
+}
+// Returns { ASSET: { last, change_24h_pct } } in USD. One batched call; if Kraken rejects
+// the batch (one unknown pair fails the whole request), falls back to per-asset calls.
+async function krakenUsdPrices(assets) {
+	const bases = [...new Set(assets.map(pricingBase))].filter(a => a && a !== "USD");
+	const out = { USD: { last: 1, change_24h_pct: 0 } };
+	const pairFor = (a) => `${KRAKEN_PRICE_ALIAS[a] || a}USD`;
+	const ingest = (result) => {
+		for (const [k, info] of Object.entries(result || {})) {
+			const last = parseFloat(info.c?.[0]);
+			const open = parseFloat(info.o);
+			if (!(last > 0)) continue;
+			out[tickerKeyToAsset(k)] = { last, change_24h_pct: open > 0 ? ((last - open) / open) * 100 : 0 };
+		}
+	};
+	if (!bases.length) return out;
+	const batch = await (await krakenPublicGet("/0/public/Ticker", { pair: bases.map(pairFor).join(",") })).json();
+	if (!batch.error?.length) {
+		ingest(batch.result);
+	} else {
+		await Promise.all(bases.map(async (a) => {
+			try {
+				const one = await (await krakenPublicGet("/0/public/Ticker", { pair: pairFor(a) })).json();
+				if (!one.error?.length) ingest(one.result);
+			} catch { /* leave unpriced */ }
+		}));
+	}
+	return out;
 }
 
 // ── Quant-analyst signal engine ──────────────────────────────────────────────
@@ -1754,8 +1807,15 @@ const fmtVol = (q) => q.toFixed(8).replace(/0+$/, "").replace(/\.$/, "");
 // Persisted AI sleeve state: { asset: qty } the trader bought. dbPool if present, else memory.
 let aiPositionsMem = {};
 let aiTableReady = false;
-async function ensureAiTable() {
-	if (!dbPool || aiTableReady) return;
+let aiTablePromise = null;
+function ensureAiTable() {
+	if (!dbPool || aiTableReady) return Promise.resolve();
+	// Memoize so concurrent first callers share one CREATE (parallel CREATE TABLE
+	// IF NOT EXISTS can race in Postgres and 500 the first request after deploy).
+	aiTablePromise ||= createAiTables().catch((e) => { aiTablePromise = null; throw e; });
+	return aiTablePromise;
+}
+async function createAiTables() {
 	await dbPool.query(`CREATE TABLE IF NOT EXISTS kraken_ai_positions (
 		asset TEXT PRIMARY KEY,
 		qty DOUBLE PRECISION NOT NULL,
@@ -2529,10 +2589,27 @@ const server = http.createServer(async (req, res) => {
 				const r = await krakenPrivatePost("/0/private/Balance");
 				const data = await r.json();
 				if (data.error?.length) { jsonResponse(res, 400, { error: data.error[0] }, cors); return; }
-				const balances = Object.entries(data.result || {})
-					.map(([raw, bal]) => ({ asset: normalizeAsset(raw), raw_asset: raw, balance: parseFloat(bal) }))
+				const raw = Object.entries(data.result || {})
+					.map(([rawAsset, bal]) => ({ asset: normalizeAsset(rawAsset), raw_asset: rawAsset, balance: parseFloat(bal) }))
 					.filter(b => b.balance > 0.000001);
-				jsonResponse(res, 200, { balances }, cors);
+				// Price every balance server-side so both pages agree and nothing depends
+				// on a hard-coded client list. Unpriceable assets get last/value_usd = null.
+				let prices = {};
+				try { prices = await krakenUsdPrices(raw.map(b => b.asset)); }
+				catch (e) { console.error("[kraken/balances] pricing failed:", e.message); }
+				const balances = raw.map(b => {
+					const p = prices[pricingBase(b.asset)];
+					return {
+						...b,
+						fiat: KRAKEN_FIAT.has(pricingBase(b.asset)),
+						last: p ? p.last : null,
+						change_24h_pct: p ? p.change_24h_pct : 0,
+						value_usd: p ? b.balance * p.last : null,
+					};
+				}).sort((a, b) => (b.value_usd ?? -1) - (a.value_usd ?? -1));
+				const total_usd = balances.reduce((s, b) => s + (b.value_usd || 0), 0);
+				const unpriced = balances.filter(b => b.last == null).map(b => b.asset);
+				jsonResponse(res, 200, { balances, total_usd, unpriced, priced_at: new Date().toISOString() }, cors);
 			} catch (e) {
 				jsonResponse(res, 500, { error: e.message }, cors);
 			}

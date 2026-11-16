@@ -268,16 +268,6 @@ function closeChartModal() {
 }
 
 // ── Kraken fund panel ────────────────────────────────────────────────────────
-const ASSET_TO_PAIR = {
-  BTC:"XBTUSD",  ETH:"ETHUSD",   SOL:"SOLUSD",   XRP:"XRPUSD",
-  DOGE:"DOGEUSD",ADA:"ADAUSD",   DOT:"DOTUSD",   LINK:"LINKUSD",
-  AVAX:"AVAXUSD",LTC:"LTCUSD",   MATIC:"MATICUSD",XMR:"XMRUSD",
-  NEAR:"NEARUSD",UNI:"UNIUSD",   ALGO:"ALGOUSD",  BCH:"BCHUSD",
-  PAXG:"PAXGUSD",TRAC:"TRACUSD", SGB:"SGBUSD",    ATOM:"ATOMUSD",
-  FIL:"FILUSD",  AAVE:"AAVEUSD", COMP:"COMPUSD",  MKR:"MKRUSD",
-};
-// Fiat assets that are cash balances, not crypto
-const FIAT_ASSETS = new Set(["USD", "EUR", "GBP", "JPY", "CAD", "AUD"]);
 
 async function renderKraken() {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
@@ -300,6 +290,15 @@ async function renderKraken() {
     }
     const balData = await balRes.json();
 
+    if (!balRes.ok || balData.error) {
+      set("kraken-value",  "Error");
+      set("kraken-change", "—");
+      set("kraken-assets", "—");
+      const el = document.getElementById("kraken-holdings");
+      if (el) el.innerHTML = `<div style="font-family:monospace;font-size:0.7rem;color:#ED6FF5;margin-top:0.5rem">Kraken: ${String(balData.error || balRes.status).replace(/[<>&]/g, "")}</div>`;
+      return;
+    }
+
     if (balData.demo) {
       set("kraken-value",   "Add keys");
       set("kraken-change",  "—");
@@ -309,42 +308,14 @@ async function renderKraken() {
       return;
     }
 
-    // Separate fiat cash from crypto
-    const fiatBalances = balData.balances.filter(b => FIAT_ASSETS.has(b.asset));
-    const cryptoBalances = balData.balances.filter(b => !FIAT_ASSETS.has(b.asset));
-
-    const pairs = cryptoBalances
-      .map(b => ASSET_TO_PAIR[b.asset]).filter(Boolean).join(",");
-
-    let tickers = {};
-    if (pairs) {
-      const tkRes  = await fetch(`/api/kraken/ticker?pairs=${encodeURIComponent(pairs)}`);
-      const tkData = await tkRes.json();
-      tickers = tkData.tickers || {};
-    }
-
-    // Find ticker by pair or by scanning for asset prefix
-    function findTicker(asset) {
-      const pair = ASSET_TO_PAIR[asset];
-      if (!pair) return null;
-      return tickers[pair]
-        || Object.entries(tickers).find(([k]) => k.replace(/[XZ]?USD$/, "") === asset || k.startsWith(asset))?.[1]
-        || null;
-    }
-
-    // Enrich crypto balances with price data
-    const holdings = cryptoBalances.map(b => {
-      const ticker = findTicker(b.asset);
-      const last   = ticker?.last ?? 0;
-      return { ...b, last, value: b.balance * last, change_24h_pct: ticker?.change_24h_pct ?? 0 };
-    }).filter(h => h.value > 0.01 || h.balance > 0.0001).sort((a, b) => b.value - a.value);
-
-    // Add fiat cash as a single line item
-    const cashUsd = fiatBalances.reduce((s, b) => {
-      if (b.asset === "USD") return s + b.balance;
-      if (b.asset === "EUR") return s + b.balance * 1.08; // rough conversion
-      return s;
-    }, 0);
+    // The server prices every balance in USD (value_usd; null if Kraken has no USD pair).
+    const holdings = balData.balances
+      .filter(b => !b.fiat)
+      .map(b => ({ ...b, last: b.last ?? 0, value: b.value_usd ?? 0, change_24h_pct: b.change_24h_pct ?? 0 }))
+      .sort((a, b) => b.value - a.value);
+    const cashUsd = balData.balances
+      .filter(b => b.fiat)
+      .reduce((s, b) => s + (b.value_usd ?? 0), 0);
 
     const cryptoValue = holdings.reduce((s, h) => s + h.value, 0);
     const totalValue  = cryptoValue + cashUsd;

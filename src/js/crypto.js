@@ -67,17 +67,10 @@ async function fetchBalances() {
   try {
     const r = await fetch("/api/kraken/balances", { headers: authHeaders() });
     if (r.status === 401) return { locked: true };
-    if (!r.ok) throw new Error(r.status);
-    return await r.json();
-  } catch { return { demo: true }; }
-}
-
-async function fetchTicker(pairs) {
-  try {
-    const r = await fetch(`/api/kraken/ticker?pairs=${encodeURIComponent(pairs)}`);
-    if (!r.ok) throw new Error(r.status);
-    return await r.json();
-  } catch { return { tickers: {} }; }
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return { error: data.error || `HTTP ${r.status}` };
+    return data;
+  } catch (e) { return { error: e.message || "Network error" }; }
 }
 
 async function fetchOhlc(pair, interval) {
@@ -108,22 +101,6 @@ async function placeOrder(payload) {
   });
   if (r.status === 401) { clearSignalToken(); return { error: "Invalid token — try again." }; }
   return r.json();
-}
-
-// ── build enriched holdings ────────────────────────────────────────────────────
-function mergeTickerIntoHoldings(rawBalances, rawTickers) {
-  return rawBalances.map(b => {
-    const pair   = ASSET_TO_PAIR[b.asset] || (b.asset + "USD");
-    // Find ticker by trying multiple key formats Kraken returns
-    const ticker = rawTickers[pair]
-      || rawTickers["X" + b.raw_asset + "ZUSD"]
-      || rawTickers[b.raw_asset + "USD"]
-      || null;
-    const last           = ticker?.last ?? 0;
-    const change_24h_pct = ticker?.change_24h_pct ?? 0;
-    const value          = b.balance * last;
-    return { ...b, last, change_24h_pct, value, pair };
-  });
 }
 
 // ── stats strip ───────────────────────────────────────────────────────────────
@@ -158,13 +135,13 @@ function renderTable(h) {
   tbody.innerHTML = rows.map(r => {
     const pct = r.change_24h_pct;
     const cls = pct >= 0 ? "up" : "down";
-    const isActive = (r.pair === activePair) ? " active" : "";
+    const isActive = (r.pair && r.pair === activePair) ? " active" : "";
     // Format balance with appropriate decimals
     const balFmt = r.balance >= 1 ? fmt(r.balance, 4) : r.balance.toFixed(8).replace(/0+$/, "");
-    return `<tr class="holding-row${isActive}" data-pair="${r.pair}" data-asset="${r.asset}">
+    return `<tr class="holding-row${isActive}" data-pair="${r.pair || ""}" data-asset="${r.asset}">
       <td><span class="asset-sym">${r.asset}</span></td>
       <td class="right">${balFmt}</td>
-      <td class="right">${r.last >= 1 ? fmtUsd(r.last) : "$" + r.last.toFixed(6)}</td>
+      <td class="right">${r.last == null ? "—" : r.last >= 1 ? fmtUsd(r.last) : "$" + r.last.toFixed(6)}</td>
       <td class="right ${cls}">${fmtPct(pct)}</td>
       <td class="right">${fmtUsd(r.value)}</td>
     </tr>`;
@@ -389,6 +366,17 @@ async function refresh() {
     return;
   }
 
+  if (balData.error) {
+    setStatus("error");
+    const text = document.getElementById("status-text");
+    if (text) text.textContent = "Kraken error";
+    const tbody = document.getElementById("holdings-tbody");
+    if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="loading">Kraken error: ${String(balData.error).replace(/[<>&]/g, "")}</td></tr>`;
+    holdings = [];
+    renderStats(holdings);
+    return;
+  }
+
   if (balData.demo) {
     setStatus("demo");
     rawBalances = SEED_HOLDINGS.map(h => ({
@@ -401,28 +389,24 @@ async function refresh() {
     holdings = rawBalances;
   } else {
     setStatus("live");
-    // Fetch tickers for all held assets
-    const pairs = balData.balances
-      .map(b => ASSET_TO_PAIR[b.asset] || "")
-      .filter(Boolean)
-      .join(",");
-
-    if (pairs) {
-      const tkData = await fetchTicker(pairs);
-      tickers = tkData.tickers || {};
-    }
-
-    holdings = mergeTickerIntoHoldings(balData.balances, tickers);
+    // The server prices every balance (crypto + fiat cash) in USD.
+    holdings = balData.balances.map(b => ({
+      ...b,
+      last: b.last,
+      change_24h_pct: b.change_24h_pct || 0,
+      value: b.value_usd || 0,
+      pair: b.fiat ? null : (ASSET_TO_PAIR[b.asset] || b.asset + "USD"),
+    }));
+    tickers = Object.fromEntries(holdings.filter(h => h.pair && h.last != null)
+      .map(h => [h.pair, { last: h.last, change_24h_pct: h.change_24h_pct }]));
   }
 
   renderStats(holdings);
   renderTable(holdings);
 
-  // auto-open first row chart
-  if (!activePair && holdings.length) {
-    const first = holdings[0];
-    openChart(first.pair, first.asset);
-  }
+  // auto-open first chartable row (fiat cash has no chart)
+  const first = holdings.find(h => h.pair);
+  if (!activePair && first) openChart(first.pair, first.asset);
 }
 
 // ── boot ──────────────────────────────────────────────────────────────────────
