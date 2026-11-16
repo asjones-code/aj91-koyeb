@@ -787,16 +787,34 @@ function collectBody(req) {
 }
 
 // ——— MailerSend ———
+// Env values pasted into dashboards often carry stray whitespace/newlines or quotes;
+// MailerSend then sees a different (unverified) domain. Normalize before use.
+function cleanEnvValue(v) {
+	return String(v ?? "").trim().replace(/^["']+|["']+$/g, "").trim();
+}
+function mailerSendFrom() {
+	const raw = process.env.MAILERSEND_FROM_EMAIL;
+	const email = cleanEnvValue(raw);
+	return {
+		email: email || "noreply@yourdomain.com",
+		name: cleanEnvValue(process.env.MAILERSEND_FROM_NAME) || "PM",
+		isSet: Boolean(email),
+		wasCleaned: raw != null && raw !== email,
+		domain: email.includes("@") ? email.split("@").pop().toLowerCase() : null,
+	};
+}
+
 async function sendMailerSendEmail({ to, subject, html, text }) {
 	const token = (process.env.MAILERSEND_API_TOKEN || "").trim();
 	if (!token) {
 		console.warn("[mailersend] MAILERSEND_API_TOKEN not set; email skipped. Set it in .env (local) and in the Koyeb dashboard env vars (production).");
 		return { ok: false, error: "MAILERSEND_API_TOKEN not set" };
 	}
-	const fromEmail = process.env.MAILERSEND_FROM_EMAIL || "noreply@yourdomain.com";
-	const fromName = process.env.MAILERSEND_FROM_NAME || "PM";
-	console.log("[mailersend] sending", { to, from: fromEmail, tokenLen: token.length, usingDefaultFrom: !process.env.MAILERSEND_FROM_EMAIL });
-	if (!process.env.MAILERSEND_FROM_EMAIL) {
+	const from = mailerSendFrom();
+	const fromEmail = from.email;
+	const fromName = from.name;
+	console.log("[mailersend] sending", { to, from: fromEmail, tokenLen: token.length, usingDefaultFrom: !from.isSet, cleanedFromEnv: from.wasCleaned });
+	if (!from.isSet) {
 		console.warn("[mailersend] MAILERSEND_FROM_EMAIL not set — falling back to noreply@yourdomain.com, which is NOT a verified domain and will be rejected (422). Set it to an address on a domain you've verified in MailerSend.");
 	}
 	try {
@@ -2478,6 +2496,9 @@ Respond with ONLY valid JSON, no markdown or explanation:
 				.filter(k => /KRAKEN|ANTHROPIC|ALPACA|MAILERSEND|SIGNAL|DATABASE|OPENAI|^PM_|^CMS_/i.test(k))
 				.sort()
 				.map(k => JSON.stringify(k)),
+			// Sender domain only (it's public in every email's From header) + whether the raw
+			// env value had stray whitespace/quotes. Must match a domain verified in MailerSend.
+			mailersend: (() => { const f = mailerSendFrom(); return { fromDomain: f.domain, fromValueHadWhitespaceOrQuotes: f.wasCleaned }; })(),
 			krakenAi: { enabled: cfg.enabled, mode: cfg.mode, model: cfg.model, maxPositions: cfg.maxPositions, decisionHoursUtc: cfg.decisionHoursUtc, reportHourUtc: cfg.reportHourUtc },
 			signalEmailHourUtc: SIGNAL_EMAIL_HOUR,
 			now: new Date().toISOString(),

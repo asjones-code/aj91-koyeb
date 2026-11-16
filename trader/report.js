@@ -18,7 +18,9 @@ export function createReporter({ cfgFn, store, engine, brain, sendEmail, emailTo
 		try { r = await sendEmail({ to: emailTo, subject, html, text }); }
 		catch (e) { r = { ok: false, error: e.message }; }
 		const ok = Boolean(r && r.ok);
-		const error = ok ? null : String(r?.error || "unknown error").slice(0, 500);
+		let error = ok ? null : String(r?.error || "unknown error");
+		// MailerSend returns JSON like {"message": "...", "errors": {...}} — keep the readable message.
+		if (error) { try { error = JSON.parse(error).message || error; } catch { /* not JSON */ } error = error.slice(0, 500); }
 		if (!ok) log.warn?.(`[ai-trader] email "${subject}" failed:`, error);
 		try { await store.updateFund({ last_email: { at: new Date().toISOString(), ok, subject, error } }); } catch { /* best effort */ }
 		return { ok, error, to: emailTo };

@@ -132,8 +132,8 @@ export function createTrader(deps) {
 			}
 			if (pathname === "/api/ai/kraken/report" && method === "POST") return send(200, await reporter.dailyReport({ send: true }));
 			if (pathname === "/api/ai/kraken/test-email" && method === "POST") {
-				const r = await reporter.testEmail();
-				return send(r.ok ? 200 : 502, r);
+				// Always 200: the hosting edge replaces 5xx bodies with its own page, which hid the reason.
+				return send(200, await reporter.testEmail());
 			}
 			return send(404, { error: "Not found" });
 		} catch (e) {
