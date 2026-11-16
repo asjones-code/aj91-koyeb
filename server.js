@@ -3161,7 +3161,7 @@ Respond with ONLY valid JSON, no markdown or explanation:
 	else if (pathname === "/project") pathToServe = "/project.html";
 	else if (pathname === "/portfolio") pathToServe = "/portfolio.html";
 	else if (pathname === "/crypto") pathToServe = "/crypto.html";
-	else if (pathname === "/reading-notes" || pathname === "/reading_notes") pathToServe = "/reading_notes.html";
+	else if (pathname === "/commonplace" || pathname === "/reading-notes" || pathname === "/reading_notes") pathToServe = "/reading_notes.html";
 	else if (pathname === "/tools" || pathname === "/tools/" || pathname === "/tools/invoice") pathToServe = "/tools.html";
 	const status = await serveStatic(res, pathToServe, method);
 	if (status !== 200) {

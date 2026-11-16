@@ -35,10 +35,10 @@ async function loadDocs(pool) {
 	if (pool) {
 		try {
 			const { rows } = await pool.query(
-				"SELECT title, author, kind, content, location, added_at FROM kindle_highlights ORDER BY id",
+				"SELECT * FROM kindle_highlights ORDER BY id",
 			);
 			if (rows.length) {
-				return rows.map((r) => ({ ...r, addedAt: r.added_at ? new Date(r.added_at).toISOString() : null }));
+				return rows.map((r) => ({ ...r, coverId: r.cover_id ?? null, addedAt: r.added_at ? new Date(r.added_at).toISOString() : null }));
 			}
 		} catch (err) {
 			if (err.code !== "42P01") console.error("[kindle] DB load failed:", err.message); // 42P01 = table missing
@@ -69,6 +69,8 @@ async function getCorpus(pool) {
 	});
 	return loading;
 }
+
+const coverUrl = (id, size = "M") => (id ? `https://covers.openlibrary.org/b/id/${id}-${size}.jpg` : null);
 
 // ——— BM25 ———
 const STOP = new Set(
@@ -118,7 +120,7 @@ function buildCorpus(docs) {
 	let notes = 0;
 	for (const d of docs) {
 		if (d.kind === "note") notes++;
-		const b = perBook.get(d.title) || { title: d.title, author: d.author, count: 0 };
+		const b = perBook.get(d.title) || { title: d.title, author: d.author, cover: coverUrl(d.coverId), count: 0 };
 		b.count++;
 		perBook.set(d.title, b);
 		const y = d.addedAt ? new Date(d.addedAt).getUTCFullYear() : null;
@@ -140,7 +142,8 @@ function buildCorpus(docs) {
 			firstYear: years[0] || null,
 			lastYear: years[years.length - 1] || null,
 			perYear,
-			topBooks: [...perBook.values()].sort((a, b) => b.count - a.count).slice(0, 8),
+			topBooks: [...perBook.values()].sort((a, b) => b.count - a.count).slice(0, 12),
+			coverWall: [...perBook.values()].filter((b) => b.cover).sort((a, b) => b.count - a.count).slice(0, 36).map((b) => ({ title: b.title, cover: b.cover })),
 		},
 	};
 }
@@ -168,6 +171,7 @@ const toQuote = (d) => ({
 	text: d.content,
 	kind: d.kind,
 	location: d.location || "",
+	cover: coverUrl(d.coverId),
 	year: d.addedAt ? new Date(d.addedAt).getUTCFullYear() : null,
 });
 
@@ -200,6 +204,7 @@ function recommendBooks(c, ranked, n) {
 		.map((a) => ({
 			title: a.title,
 			author: a.author,
+			cover: coverUrl(a.best.coverId),
 			highlights: c.perBook.get(a.title)?.count || a.matches,
 			matches: a.matches,
 			quote: a.best.content.length > 280 ? a.best.content.slice(0, 277) + "…" : a.best.content,

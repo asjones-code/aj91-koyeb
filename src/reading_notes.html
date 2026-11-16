@@ -3,72 +3,131 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reading Notes — a decade of Kindle highlights, searchable — AJ91</title>
-  <meta name="description" content="Ask a question and get advice, quotes and book recommendations drawn from years of AJ's Kindle highlights. A small, free retrieval-augmented (RAG) project.">
+  <title>Commonplace — years of Kindle highlights, made askable — AJ91</title>
+  <meta name="description" content="Commonplace: ask a question and get advice, quotes and book recommendations drawn from over a decade of AJ's Kindle highlights. A small, free RAG project.">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&display=swap">
   <style>
-    .page-rn { padding: 0 2rem 6rem; max-width: 1100px; width: 100%; margin-inline: auto; }
-    @media (max-width: 760px) { .page-rn { padding-inline: 1.15rem; } }
+    :root {
+      --cp-display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+      --cp-text: "Newsreader", "Iowan Old Style", Georgia, serif;
+      --cp-mono: ui-monospace, "Cascadia Code", Menlo, monospace;
+      --cp-paper: #f3ece0;
+      --cp-ink: rgba(243, 236, 224, 0.9);
+      --cp-ink-2: rgba(243, 236, 224, 0.6);
+      --cp-ink-3: rgba(243, 236, 224, 0.36);
+      --cp-rule: rgba(243, 236, 224, 0.1);
+      --cp-accent: var(--c-accent, #abf8fe);
+    }
+    .cp { color: var(--cp-ink); }
+    .cp-wrap { max-width: 1120px; margin-inline: auto; padding-inline: 2rem; }
+    @media (max-width: 760px) { .cp-wrap { padding-inline: 1.15rem; } }
+    .cp-label { font: 500 .68rem/1 var(--cp-mono); letter-spacing: .18em; text-transform: uppercase; color: var(--cp-ink-3); }
+    .cp-label b { color: var(--cp-accent); font-weight: 500; }
 
-    .rn-hero { padding: 7rem 0 2.5rem; border-bottom: 1px solid var(--c-border); }
-    .rn-label { font-family: monospace; font-size: .7rem; letter-spacing: .15em; text-transform: uppercase; color: var(--c-accent); margin-bottom: 1rem; }
-    .rn-hero h1 { font-size: clamp(2.2rem, 5.5vw, 4rem); font-weight: 700; line-height: 1.05; margin: 0 0 1.25rem; letter-spacing: -.02em; }
-    .rn-hero p { max-width: 62ch; color: var(--c-secondary); line-height: 1.6; margin: 0 0 .9rem; }
+    /* ── Hero with cover wall ── */
+    .cp-hero { position: relative; overflow: hidden; padding: 9rem 0 4rem; border-bottom: 1px solid var(--cp-rule); }
+    .cp-wall { position: absolute; inset: -4rem -2rem auto; display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; transform: rotate(-4deg); opacity: .32; filter: saturate(.55) contrast(1.05); pointer-events: none;
+      -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.65) 45%, transparent 92%); mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.65) 45%, transparent 92%); }
+    .cp-wall img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 3px; box-shadow: 0 6px 18px rgba(0,0,0,.5); opacity: 0; transition: opacity .8s ease; }
+    .cp-wall img.on { opacity: 1; }
+    @media (max-width: 760px) { .cp-wall { grid-template-columns: repeat(6, 1fr); } }
+    .cp-hero-inner { position: relative; }
+    .cp-title { font: 400 clamp(4.2rem, 13vw, 10.5rem)/.86 var(--cp-display); letter-spacing: -.02em; margin: 1.4rem 0 1.2rem; color: var(--cp-paper); }
+    .cp-title i { color: var(--cp-accent); }
+    .cp-sub { font: italic 400 clamp(1.35rem, 2.6vw, 2rem)/1.25 var(--cp-display); color: var(--cp-ink); max-width: 30ch; margin: 0 0 1.6rem; }
+    .cp-lede { font: 300 1.12rem/1.65 var(--cp-text); color: var(--cp-ink-2); max-width: 60ch; margin: 0 0 .8rem; }
+    .cp-lede em { color: var(--cp-ink); }
 
-    .rn-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1px; background: var(--c-border); border: 1px solid var(--c-border); border-radius: 12px; overflow: hidden; margin: 2rem 0 0; }
-    .rn-stat { background: #000; padding: 1.1rem 1.2rem; }
-    .rn-stat b { display: block; font-size: 1.6rem; font-variant-numeric: tabular-nums; }
-    .rn-stat span { font-family: monospace; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--c-tertiary); }
+    .cp-stats { display: flex; flex-wrap: wrap; gap: 2.5rem 3.5rem; margin-top: 2.8rem; }
+    .cp-stat b { display: block; font: 400 clamp(2.4rem, 5vw, 3.4rem)/1 var(--cp-display); color: var(--cp-paper); font-variant-numeric: lining-nums; }
+    .cp-stat span { font: .64rem var(--cp-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--cp-ink-3); }
+    .cp-years { display: flex; align-items: flex-end; gap: 3px; height: 44px; margin-top: 2.2rem; max-width: 520px; }
+    .cp-years div { flex: 1; background: linear-gradient(to top, rgba(171,248,254,.08), rgba(171,248,254,.45)); border-radius: 2px 2px 0 0; min-height: 2px; position: relative; }
+    .cp-years div:hover { background: var(--cp-accent); }
+    .cp-years div:hover::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); font: .68rem var(--cp-mono); white-space: nowrap; color: #000; background: var(--cp-paper); padding: 2px 6px; border-radius: 3px; }
+    .cp-years-axis { display: flex; justify-content: space-between; max-width: 520px; font: .62rem var(--cp-mono); color: var(--cp-ink-3); margin-top: .4rem; }
 
-    .rn-years { display: flex; align-items: flex-end; gap: 4px; height: 56px; margin-top: 1.25rem; }
-    .rn-years div { flex: 1; background: var(--c-accent-dim); border-top: 2px solid var(--c-accent); border-radius: 2px 2px 0 0; min-height: 3px; position: relative; }
-    .rn-years div:hover::after { content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); font: .7rem monospace; white-space: nowrap; color: var(--c-text); background: #111; padding: 2px 6px; border-radius: 4px; }
-    .rn-years-axis { display: flex; justify-content: space-between; font: .65rem monospace; color: var(--c-tertiary); margin-top: .35rem; }
+    /* ── Ask ── */
+    .cp-ask { padding: 4.5rem 0 1rem; }
+    .cp-modes { display: flex; gap: 1.8rem; margin: 1.2rem 0 1.4rem; border-bottom: 1px solid var(--cp-rule); }
+    .cp-mode { font: 400 1.25rem/1 var(--cp-display); background: none; border: 0; color: var(--cp-ink-3); padding: 0 0 .8rem; cursor: pointer; border-bottom: 1px solid transparent; margin-bottom: -1px; }
+    .cp-mode:hover { color: var(--cp-ink); }
+    .cp-mode[aria-pressed="true"] { color: var(--cp-paper); border-color: var(--cp-accent); }
+    .cp-form { display: flex; align-items: flex-end; gap: 1rem; }
+    .cp-form input { flex: 1; min-width: 0; font: 300 clamp(1.3rem, 2.8vw, 1.9rem)/1.3 var(--cp-text); padding: .6rem 0; border: 0; border-bottom: 1px solid var(--cp-ink-3); background: none; color: var(--cp-paper); outline: none; }
+    .cp-form input::placeholder { color: var(--cp-ink-3); font-style: italic; }
+    .cp-form input:focus { border-color: var(--cp-accent); }
+    .cp-go { font: .74rem var(--cp-mono); letter-spacing: .12em; text-transform: uppercase; padding: .85rem 1.3rem; border-radius: 999px; border: 1px solid var(--cp-accent); background: none; color: var(--cp-accent); cursor: pointer; white-space: nowrap; }
+    .cp-go:hover { background: var(--cp-accent); color: #000; }
+    .cp-go:disabled { opacity: .45; cursor: wait; }
+    .cp-suggest { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; margin-top: 1rem; }
+    .cp-suggest button { font: italic 400 1rem var(--cp-text); background: none; border: 0; padding: 0; color: var(--cp-ink-3); cursor: pointer; }
+    .cp-suggest button:hover { color: var(--cp-paper); text-decoration: underline; text-underline-offset: 3px; }
 
-    .rn-ask { padding: 3rem 0 1rem; }
-    .rn-modes { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
-    .rn-mode { font-family: monospace; font-size: .78rem; padding: .45rem .85rem; border-radius: 999px; border: 1px solid var(--c-border); background: var(--c-surface); color: var(--c-secondary); cursor: pointer; }
-    .rn-mode[aria-pressed="true"] { border-color: var(--c-accent); color: var(--c-accent); background: var(--c-accent-dim); }
-    .rn-form { display: flex; gap: .6rem; }
-    .rn-form input { flex: 1; font: inherit; font-size: 1.05rem; padding: .95rem 1.1rem; border-radius: 12px; border: 1px solid var(--c-border); background: var(--c-surface); color: var(--c-text); outline: none; }
-    .rn-form input:focus { border-color: var(--c-accent); }
-    .rn-form button { font-family: monospace; padding: 0 1.3rem; border-radius: 12px; border: 1px solid var(--c-accent); background: var(--c-accent-dim); color: var(--c-accent); cursor: pointer; }
-    .rn-form button:disabled { opacity: .5; cursor: wait; }
-    .rn-suggest { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .8rem; }
-    .rn-suggest button { font-size: .8rem; padding: .3rem .7rem; border-radius: 8px; border: 1px dashed var(--c-border); background: none; color: var(--c-tertiary); cursor: pointer; }
-    .rn-suggest button:hover { color: var(--c-text); border-color: var(--c-secondary); }
+    /* ── Results ── */
+    .cp-out { min-height: 3rem; }
+    .cp-status { font: italic 300 1.05rem var(--cp-text); color: var(--cp-ink-3); margin: 2.5rem 0; }
+    .cp-status::before { content: ""; display: inline-block; width: .6rem; height: .6rem; margin-right: .6rem; border-radius: 50%; background: var(--cp-accent); animation: cp-pulse 1s ease-in-out infinite; vertical-align: middle; }
+    .cp-status.err::before { background: #f57; animation: none; }
+    @keyframes cp-pulse { 50% { opacity: .2; transform: scale(.7); } }
+    .cp-answer { margin: 3rem 0 0; padding: 0 0 2.5rem; border-bottom: 1px solid var(--cp-rule); }
+    .cp-answer p { font: 300 clamp(1.25rem, 2.2vw, 1.55rem)/1.6 var(--cp-text); color: var(--cp-paper); margin: .8rem 0 0; max-width: 62ch; }
+    .cp-answer p:first-of-type::first-letter { font: 400 3.6em/.8 var(--cp-display); float: left; margin: .08em .1em 0 0; color: var(--cp-accent); }
+    .cp-answer em { font-style: italic; }
+    .cp-cite { display: inline-block; font: 500 .62rem/1 var(--cp-mono); color: #000; background: var(--cp-accent); border-radius: 3px; padding: 3px 4px 2px; margin: 0 2px; vertical-align: .35em; text-decoration: none; }
+    .cp-cite:hover { background: var(--cp-paper); }
+    .cp-section { margin-top: 3rem; }
+    .cp-section > .cp-label { display: block; margin-bottom: 1.2rem; }
 
-    .rn-out { min-height: 2rem; }
-    .rn-status { font-family: monospace; font-size: .8rem; color: var(--c-tertiary); margin: 1.5rem 0; }
-    .rn-answer { font-size: 1.12rem; line-height: 1.7; padding: 1.4rem 1.5rem; border-left: 2px solid var(--c-accent); background: var(--c-surface); border-radius: 0 12px 12px 0; margin: 1.5rem 0; white-space: pre-wrap; }
-    .rn-h { font-family: monospace; font-size: .7rem; letter-spacing: .15em; text-transform: uppercase; color: var(--c-tertiary); margin: 2rem 0 .8rem; }
-    .rn-quotes { display: grid; gap: .8rem; }
-    .rn-quote { padding: 1.1rem 1.25rem; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface); }
-    .rn-quote blockquote { margin: 0 0 .6rem; line-height: 1.6; }
-    .rn-quote blockquote::before { content: "“"; color: var(--c-accent); }
-    .rn-quote blockquote::after { content: "”"; color: var(--c-accent); }
-    .rn-quote.note blockquote::before, .rn-quote.note blockquote::after { content: ""; }
-    .rn-cite { font-size: .82rem; color: var(--c-secondary); }
-    .rn-cite i { color: var(--c-tertiary); font-style: normal; font-family: monospace; font-size: .72rem; margin-left: .4rem; }
-    .rn-tag { font: .62rem monospace; text-transform: uppercase; letter-spacing: .1em; color: var(--c-magenta); margin-right: .4rem; }
-    .rn-books { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .8rem; }
-    .rn-book { padding: 1.1rem 1.25rem; border: 1px solid var(--c-border); border-radius: 12px; }
-    .rn-book h3 { margin: 0 0 .15rem; font-size: 1rem; line-height: 1.35; }
-    .rn-book .by { font-size: .82rem; color: var(--c-secondary); }
-    .rn-book .n { font: .7rem monospace; color: var(--c-accent); margin: .5rem 0; }
-    .rn-book p { font-size: .85rem; color: var(--c-tertiary); line-height: 1.5; margin: 0; }
+    .cp-quotes { display: grid; gap: 1px; background: var(--cp-rule); border-top: 1px solid var(--cp-rule); border-bottom: 1px solid var(--cp-rule); }
+    .cp-quote { display: grid; grid-template-columns: 64px 1fr; gap: 1.4rem; padding: 1.6rem 0; background: #151513; scroll-margin-top: 6rem; transition: background .4s; }
+    .cp-quote.flash { background: #1c2526; }
+    .cp-quote blockquote { margin: 0 0 .7rem; font: 300 1.18rem/1.6 var(--cp-text); color: var(--cp-paper); }
+    .cp-quote .n { font: .62rem var(--cp-mono); color: var(--cp-accent); margin-right: .5rem; vertical-align: .3em; }
+    .cp-by { font: 400 .95rem var(--cp-display); font-style: italic; color: var(--cp-ink-2); }
+    .cp-by small { font: .62rem var(--cp-mono); font-style: normal; letter-spacing: .08em; color: var(--cp-ink-3); margin-left: .6rem; text-transform: uppercase; }
+    .cp-note-tag { font: .58rem var(--cp-mono); letter-spacing: .14em; text-transform: uppercase; color: #000; background: var(--c-magenta, #ed6ff5); padding: 2px 5px; border-radius: 2px; margin-right: .5rem; vertical-align: .25em; }
 
-    .rn-how { padding: 3rem 0 0; border-top: 1px solid var(--c-border); margin-top: 3rem; }
-    .rn-how ol { padding-left: 1.2rem; color: var(--c-secondary); line-height: 1.7; max-width: 70ch; }
-    .rn-how li { margin-bottom: .6rem; }
-    .rn-how code { font-size: .85em; color: var(--c-accent); }
-    .rn-top { columns: 2 260px; gap: 2rem; padding: 0; list-style: none; color: var(--c-secondary); font-size: .9rem; }
-    .rn-top li { break-inside: avoid; padding: .3rem 0; border-bottom: 1px solid var(--c-border); display: flex; justify-content: space-between; gap: 1rem; }
-    .rn-top li span:last-child { font-family: monospace; color: var(--c-tertiary); }
+    .cp-shelf { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 2rem 1.4rem; }
+    .cp-book { display: flex; flex-direction: column; gap: .7rem; }
+    .cp-book h3 { font: 400 1.15rem/1.2 var(--cp-display); color: var(--cp-paper); margin: 0; }
+    .cp-book .by { font: italic 300 .9rem var(--cp-text); color: var(--cp-ink-2); }
+    .cp-book .n { font: .62rem var(--cp-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--cp-accent); }
+    .cp-book p { font: italic 300 .9rem/1.5 var(--cp-text); color: var(--cp-ink-3); margin: 0; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+    /* covers */
+    .cover { position: relative; width: 100%; aspect-ratio: 2/3; border-radius: 2px 5px 5px 2px; overflow: hidden; background: #111;
+      box-shadow: inset 4px 0 6px -3px rgba(0,0,0,.6), 0 10px 24px -8px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.06); transition: transform .35s ease; }
+    .cp-book:hover .cover { transform: translateY(-4px) rotate(-1deg); }
+    .cover img { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover; display: block; }
+    .cover-fallback { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 12% 10%; color: rgba(255,255,255,.92); }
+    .cover-fallback b { font: 400 clamp(.75rem, 1.35vw, 1.05rem)/1.12 var(--cp-display); display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+    .cover-fallback span { font: .5rem var(--cp-mono); letter-spacing: .1em; text-transform: uppercase; opacity: .75; }
+    .cover-fallback::before { content: ""; position: absolute; left: 10%; right: 10%; top: 50%; height: 1px; background: rgba(255,255,255,.35); }
+    .cp-quote .cover-fallback b { font-size: .5rem; -webkit-line-clamp: 5; }
+    .cp-quote .cover-fallback span { display: none; }
+
+    /* ── How / top ── */
+    .cp-how { margin-top: 6rem; padding: 4rem 0 6rem; border-top: 1px solid var(--cp-rule); }
+    .cp-how h2 { font: 400 clamp(2.2rem, 5vw, 3.6rem)/1 var(--cp-display); color: var(--cp-paper); margin: 1rem 0 2.5rem; }
+    .cp-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 2.2rem; counter-reset: s; }
+    .cp-steps li { list-style: none; counter-increment: s; }
+    .cp-steps li::before { content: "0" counter(s); display: block; font: .7rem var(--cp-mono); color: var(--cp-accent); margin-bottom: .8rem; }
+    .cp-steps h3 { font: 400 1.5rem var(--cp-display); margin: 0 0 .5rem; color: var(--cp-paper); }
+    .cp-steps p { font: 300 1rem/1.6 var(--cp-text); color: var(--cp-ink-2); margin: 0; }
+    .cp-steps code { font: .85em var(--cp-mono); color: var(--cp-accent); }
+    .cp-engine { font: italic 300 1rem var(--cp-text); color: var(--cp-ink-3); margin-top: 2.5rem; }
+    .cp-top { margin-top: 4.5rem; }
+    .cp-top .cp-shelf { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 1.6rem 1.1rem; }
+    .cp-top .cp-book h3 { font-size: .98rem; }
+    .cp-top .cp-book .by { font-size: .8rem; }
   </style>
 </head>
-<body data-barba="wrapper" class="page-is-reading-notes">
+<body data-barba="wrapper" class="page-is-commonplace">
   <div class="container">
     <header class="header">
       <div class="header-inner">
@@ -82,61 +141,65 @@
       </div>
     </header>
 
-    <main data-barba="container" data-barba-namespace="reading-notes">
-      <div class="page-rn">
+    <main data-barba="container" data-barba-namespace="commonplace" class="cp">
+      <section class="cp-hero">
+        <div class="cp-wall" id="cp-wall" aria-hidden="true"></div>
+        <div class="cp-wrap cp-hero-inner">
+          <div class="cp-label"><b>Project</b> &nbsp;·&nbsp; Retrieval-augmented reading</div>
+          <h1 class="cp-title">Common<i>place</i></h1>
+          <p class="cp-sub">Every line that stopped me, <span data-stat="span-words">for over a decade</span>, made askable.</p>
+          <p class="cp-lede">A <em>commonplace book</em> is the old habit of copying the passages that matter into one place. Since <span data-stat="firstYear">2014</span> my Kindle has been doing it for me: philosophy, sailing, startups, attention, Africa and its diaspora, utopias, how to live.</p>
+          <p class="cp-lede">Ask it something. It finds the passages that answer back, the books they came from, and (when a model is connected) writes a short reply built only from those lines.</p>
 
-        <section class="rn-hero">
-          <div class="rn-label">Project · Reading Notes</div>
-          <h1>Years of Kindle highlights, <br>turned into something you can ask.</h1>
-          <p>Since <span data-stat="firstYear">2014</span> I've highlighted the lines that stopped me: philosophy, sailing, startups, attention, Africa and its diaspora, utopias, how to live. This page is a small retrieval-augmented (RAG) system built on <span data-stat="years">those years</span> of reading.</p>
-          <p>Ask a question and it finds the passages that speak to it, recommends the books they came from, and (when a model is connected) writes a short answer grounded only in those passages.</p>
-
-          <div class="rn-stats" aria-live="polite">
-            <div class="rn-stat"><b data-stat="highlights">—</b><span>Highlights</span></div>
-            <div class="rn-stat"><b data-stat="books">—</b><span>Books</span></div>
-            <div class="rn-stat"><b data-stat="authors">—</b><span>Authors</span></div>
-            <div class="rn-stat"><b data-stat="span">—</b><span>Years of reading</span></div>
+          <div class="cp-stats" aria-live="polite">
+            <div class="cp-stat"><b data-stat="highlights">—</b><span>Passages</span></div>
+            <div class="cp-stat"><b data-stat="books">—</b><span>Books</span></div>
+            <div class="cp-stat"><b data-stat="authors">—</b><span>Authors</span></div>
+            <div class="cp-stat"><b data-stat="span">—</b><span>Years</span></div>
           </div>
-          <div class="rn-years" id="rn-years" aria-hidden="true"></div>
-          <div class="rn-years-axis" id="rn-years-axis" aria-hidden="true"></div>
-        </section>
+          <div class="cp-years" id="cp-years" aria-hidden="true"></div>
+          <div class="cp-years-axis" id="cp-years-axis" aria-hidden="true"></div>
+        </div>
+      </section>
 
-        <section class="rn-ask" aria-label="Ask the reading notes">
-          <div class="rn-modes" role="group" aria-label="Mode">
-            <button class="rn-mode" data-mode="advice" aria-pressed="true">Advice &amp; answers</button>
-            <button class="rn-mode" data-mode="books" aria-pressed="false">Recommend books</button>
-            <button class="rn-mode" data-mode="surprise" aria-pressed="false">Surprise me</button>
-          </div>
-          <form class="rn-form" id="rn-form">
-            <label for="rn-q" class="visually-hidden" style="position:absolute;left:-9999px">Your question</label>
-            <input id="rn-q" name="q" maxlength="500" autocomplete="off" placeholder="How do I stay focused when everything is pulling at my attention?">
-            <button type="submit" id="rn-go">Ask</button>
-          </form>
-          <div class="rn-suggest" id="rn-suggest">
-            <button type="button">How do I deal with fear of failure?</button>
-            <button type="button">What makes a good leader?</button>
-            <button type="button">Building a startup from nothing</button>
-            <button type="button">Living a simpler, slower life</button>
-            <button type="button">Solitude at sea</button>
-          </div>
-          <div class="rn-out" id="rn-out" aria-live="polite"></div>
-        </section>
+      <section class="cp-ask cp-wrap" aria-label="Ask Commonplace">
+        <div class="cp-label">Ask the library</div>
+        <div class="cp-modes" role="group" aria-label="Mode">
+          <button class="cp-mode" data-mode="advice" aria-pressed="true">Advice</button>
+          <button class="cp-mode" data-mode="books" aria-pressed="false">What to read</button>
+          <button class="cp-mode" data-mode="surprise" aria-pressed="false">Open at random</button>
+        </div>
+        <form class="cp-form" id="cp-form">
+          <label for="cp-q" style="position:absolute;left:-9999px">Your question</label>
+          <input id="cp-q" name="q" maxlength="500" autocomplete="off" placeholder="How do I stay focused when everything pulls at me?">
+          <button type="submit" class="cp-go" id="cp-go">Ask</button>
+        </form>
+        <div class="cp-suggest" id="cp-suggest">
+          <button type="button">How do I deal with fear of failure?</button>
+          <button type="button">What makes a good leader?</button>
+          <button type="button">Building something from nothing</button>
+          <button type="button">Living slower</button>
+          <button type="button">Solitude at sea</button>
+        </div>
+        <div class="cp-out" id="cp-out" aria-live="polite"></div>
+      </section>
 
-        <section class="rn-how">
-          <div class="rn-label">How it works</div>
-          <ol>
-            <li><b>Collect.</b> Every highlight and note from my Kindle's <code>My Clippings.txt</code>, parsed, de-duplicated (Kindle re-saves a highlight every time you extend it) and cleaned up.</li>
-            <li><b>Retrieve.</b> Your question is matched against every passage with BM25, the classic search ranking. It's fast, free, and runs on the same small server as this site. No vector database, no paid embeddings.</li>
-            <li><b>Recommend.</b> Matching passages are grouped by book, so the books that keep answering your question rise to the top.</li>
-            <li><b>Generate (optional).</b> The top passages go to a language model with strict instructions: answer only from these excerpts, and cite them. The model is pluggable: a local model or any OpenAI-compatible endpoint.</li>
-          </ol>
-          <p class="rn-cite" id="rn-engine"></p>
+      <section class="cp-how cp-wrap">
+        <div class="cp-label">How it works</div>
+        <h2>Four steps, no magic.</h2>
+        <ol class="cp-steps">
+          <li><h3>Collect</h3><p>Every highlight and note from my Kindle's <code>My Clippings.txt</code>, de-duplicated (Kindle re-saves a line each time you extend it) and cleaned up.</p></li>
+          <li><h3>Retrieve</h3><p>Your question is matched against every passage with BM25, the classic search ranking. Fast, free, and it runs on this site's own small server.</p></li>
+          <li><h3>Recommend</h3><p>Passages are grouped by book, so the books that keep answering your question rise to the top of the shelf.</p></li>
+          <li><h3>Reply</h3><p>The best passages go to a language model with one rule: answer only from these lines, and cite them. The model is pluggable.</p></li>
+        </ol>
+        <p class="cp-engine" id="cp-engine"></p>
 
-          <div class="rn-h">Most highlighted</div>
-          <ul class="rn-top" id="rn-top"></ul>
-        </section>
-
-      </div>
+        <div class="cp-top">
+          <div class="cp-label">Most underlined</div>
+          <div class="cp-shelf" id="cp-top" style="margin-top:1.4rem"></div>
+        </div>
+      </section>
     </main>
   </div>
   <script type="module" src="reading_notes.js"></script>
