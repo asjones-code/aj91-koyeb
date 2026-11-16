@@ -47,6 +47,8 @@ const SEED_HOLDINGS = [
 let holdings    = [];
 let tickers     = {};
 let sortKey     = "value";
+const DUST_USD  = 1;      // rows worth less than this are hidden behind a toggle
+let showDust    = false;
 let sortDir     = -1;
 let activePair  = null;
 let chartInst   = null;
@@ -67,17 +69,10 @@ async function fetchBalances() {
   try {
     const r = await fetch("/api/kraken/balances", { headers: authHeaders() });
     if (r.status === 401) return { locked: true };
-    if (!r.ok) throw new Error(r.status);
-    return await r.json();
-  } catch { return { demo: true }; }
-}
-
-async function fetchTicker(pairs) {
-  try {
-    const r = await fetch(`/api/kraken/ticker?pairs=${encodeURIComponent(pairs)}`);
-    if (!r.ok) throw new Error(r.status);
-    return await r.json();
-  } catch { return { tickers: {} }; }
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return { error: data.error || `HTTP ${r.status}` };
+    return data;
+  } catch (e) { return { error: e.message || "Network error" }; }
 }
 
 async function fetchOhlc(pair, interval) {
@@ -110,22 +105,6 @@ async function placeOrder(payload) {
   return r.json();
 }
 
-// ── build enriched holdings ────────────────────────────────────────────────────
-function mergeTickerIntoHoldings(rawBalances, rawTickers) {
-  return rawBalances.map(b => {
-    const pair   = ASSET_TO_PAIR[b.asset] || (b.asset + "USD");
-    // Find ticker by trying multiple key formats Kraken returns
-    const ticker = rawTickers[pair]
-      || rawTickers["X" + b.raw_asset + "ZUSD"]
-      || rawTickers[b.raw_asset + "USD"]
-      || null;
-    const last           = ticker?.last ?? 0;
-    const change_24h_pct = ticker?.change_24h_pct ?? 0;
-    const value          = b.balance * last;
-    return { ...b, last, change_24h_pct, value, pair };
-  });
-}
-
 // ── stats strip ───────────────────────────────────────────────────────────────
 function renderStats(h) {
   const totalValue = h.reduce((s, p) => s + p.value, 0);
@@ -133,7 +112,7 @@ function renderStats(h) {
 
   set("stat-value",   fmtUsd(totalValue));
   set("stat-change",  (change24h >= 0 ? "+" : "") + fmtUsd(change24h));
-  set("stat-assets",  h.length.toString());
+  set("stat-assets",  h.filter(p => (p.value || 0) >= DUST_USD).length.toString());
   set("stat-refresh", new Date().toLocaleTimeString());
 
   const chEl = document.getElementById("stat-change");
@@ -145,30 +124,37 @@ function renderTable(h) {
   const tbody = document.getElementById("holdings-tbody");
   if (!tbody) return;
 
-  const rows = [...h].sort((a, b) => {
+  const total = h.reduce((s, p) => s + (p.value || 0), 0);
+  const all = h.map(p => ({ ...p, alloc: total > 0 ? ((p.value || 0) / total) * 100 : 0 }));
+  const sorted = all.sort((a, b) => {
     const av = a[sortKey] ?? 0, bv = b[sortKey] ?? 0;
     return av > bv ? sortDir : av < bv ? -sortDir : 0;
   });
+  const dust = sorted.filter(r => (r.value || 0) < DUST_USD);
+  const rows = showDust ? sorted : sorted.filter(r => (r.value || 0) >= DUST_USD);
 
-  if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="loading">No holdings found</td></tr>`;
+  if (!sorted.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="loading">No holdings found</td></tr>`;
     return;
   }
 
   tbody.innerHTML = rows.map(r => {
     const pct = r.change_24h_pct;
     const cls = pct >= 0 ? "up" : "down";
-    const isActive = (r.pair === activePair) ? " active" : "";
+    const isActive = (r.pair && r.pair === activePair) ? " active" : "";
     // Format balance with appropriate decimals
     const balFmt = r.balance >= 1 ? fmt(r.balance, 4) : r.balance.toFixed(8).replace(/0+$/, "");
-    return `<tr class="holding-row${isActive}" data-pair="${r.pair}" data-asset="${r.asset}">
+    return `<tr class="holding-row${isActive}" data-pair="${r.pair || ""}" data-asset="${r.asset}">
       <td><span class="asset-sym">${r.asset}</span></td>
       <td class="right">${balFmt}</td>
-      <td class="right">${r.last >= 1 ? fmtUsd(r.last) : "$" + r.last.toFixed(6)}</td>
+      <td class="right">${r.last == null ? "—" : r.last >= 1 ? fmtUsd(r.last) : "$" + r.last.toFixed(6)}</td>
       <td class="right ${cls}">${fmtPct(pct)}</td>
       <td class="right">${fmtUsd(r.value)}</td>
+      <td class="right alloc"><span class="alloc-bar" style="width:${Math.min(100, r.alloc).toFixed(1)}%"></span>${r.alloc >= 0.1 ? r.alloc.toFixed(1) + "%" : "<0.1%"}</td>
     </tr>`;
-  }).join("");
+  }).join("") + (dust.length ? `<tr class="dust-toggle"><td colspan="6">${showDust ? "Hide" : "Show"} ${dust.length} dust holding${dust.length === 1 ? "" : "s"} under $${DUST_USD} (${fmtUsd(dust.reduce((s, r) => s + (r.value || 0), 0))})</td></tr>` : "");
+
+  tbody.querySelector("tr.dust-toggle")?.addEventListener("click", () => { showDust = !showDust; renderTable(h); });
 
   tbody.querySelectorAll("tr.holding-row").forEach(tr => {
     tr.addEventListener("click", () => openChart(tr.dataset.pair, tr.dataset.asset));
@@ -385,7 +371,18 @@ async function refresh() {
     holdings = [];
     renderStats(holdings);
     const tbody = document.getElementById("holdings-tbody");
-    if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="loading">Locked — click “unlock” (top right) and enter your signal token</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="loading">Locked — click “unlock” (top right) and enter your signal token</td></tr>`;
+    return;
+  }
+
+  if (balData.error) {
+    setStatus("error");
+    const text = document.getElementById("status-text");
+    if (text) text.textContent = "Kraken error";
+    const tbody = document.getElementById("holdings-tbody");
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="loading">Kraken error: ${String(balData.error).replace(/[<>&]/g, "")}</td></tr>`;
+    holdings = [];
+    renderStats(holdings);
     return;
   }
 
@@ -401,28 +398,24 @@ async function refresh() {
     holdings = rawBalances;
   } else {
     setStatus("live");
-    // Fetch tickers for all held assets
-    const pairs = balData.balances
-      .map(b => ASSET_TO_PAIR[b.asset] || "")
-      .filter(Boolean)
-      .join(",");
-
-    if (pairs) {
-      const tkData = await fetchTicker(pairs);
-      tickers = tkData.tickers || {};
-    }
-
-    holdings = mergeTickerIntoHoldings(balData.balances, tickers);
+    // The server prices every balance (crypto + fiat cash) in USD.
+    holdings = balData.balances.map(b => ({
+      ...b,
+      last: b.last,
+      change_24h_pct: b.change_24h_pct || 0,
+      value: b.value_usd || 0,
+      pair: b.fiat ? null : (ASSET_TO_PAIR[b.asset] || b.asset + "USD"),
+    }));
+    tickers = Object.fromEntries(holdings.filter(h => h.pair && h.last != null)
+      .map(h => [h.pair, { last: h.last, change_24h_pct: h.change_24h_pct }]));
   }
 
   renderStats(holdings);
   renderTable(holdings);
 
-  // auto-open first row chart
-  if (!activePair && holdings.length) {
-    const first = holdings[0];
-    openChart(first.pair, first.asset);
-  }
+  // auto-open first chartable row (fiat cash has no chart)
+  const first = holdings.find(h => h.pair);
+  if (!activePair && first) openChart(first.pair, first.asset);
 }
 
 // ── boot ──────────────────────────────────────────────────────────────────────
