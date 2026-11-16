@@ -3,6 +3,12 @@ const API = String(process.env.API_ORIGIN || "").trim().replace(/\/$/, "");
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
+// Escape first, then allow only **bold** and *italic* (models like to italicize titles).
+const inlineMd = (s) =>
+	esc(s)
+		.replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
+		.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>");
+
 let mode = "advice";
 
 // ——— Stats ———
@@ -73,7 +79,7 @@ function bookCard(b) {
 
 function render(data) {
 	const parts = [];
-	if (data.answer) parts.push(`<div class="rn-answer">${esc(data.answer)}</div>`);
+	if (data.answer) parts.push(`<div class="rn-answer">${inlineMd(data.answer)}</div>`);
 	if (data.mode === "books" && data.books.length) {
 		parts.push(`<div class="rn-h">Books to read</div><div class="rn-books">${data.books.map(bookCard).join("")}</div>`);
 	}
