@@ -24,7 +24,7 @@ const LOCAL_DATA = path.join(ROOT, "data", "kindle-highlights.json");
 const MAX_BODY = 4 * 1024;
 const MAX_QUESTION = 500;
 const RATE_LIMIT = { windowMs: 60_000, max: 12 };
-const LLM_TIMEOUT_MS = 45_000;
+const LLM_TIMEOUT_MS = 20_000; // stay well under the browser's 30s limit; on timeout we fall back to retrieval
 
 // ——— Data loading ———
 let corpus = null; // { docs, index, stats }
