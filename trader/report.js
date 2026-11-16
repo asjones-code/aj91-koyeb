@@ -12,6 +12,23 @@ const color = (n) => (n == null ? "#555" : n >= 0 ? "#1f9d55" : "#d6336c");
 const today = () => new Date().toISOString().slice(0, 10);
 
 export function createReporter({ cfgFn, store, engine, brain, sendEmail, emailTo, log = console }) {
+	/** Send an email and record the outcome (MailerSend failures don't throw — they return {ok:false}). */
+	async function deliver(subject, html, text) {
+		let r;
+		try { r = await sendEmail({ to: emailTo, subject, html, text }); }
+		catch (e) { r = { ok: false, error: e.message }; }
+		const ok = Boolean(r && r.ok);
+		const error = ok ? null : String(r?.error || "unknown error").slice(0, 500);
+		if (!ok) log.warn?.(`[ai-trader] email "${subject}" failed:`, error);
+		try { await store.updateFund({ last_email: { at: new Date().toISOString(), ok, subject, error } }); } catch { /* best effort */ }
+		return { ok, error, to: emailTo };
+	}
+	async function testEmail() {
+		return deliver("AI Trader — test email",
+			`<div style="font-family:sans-serif">If you can read this, the AI trader's email path works. Daily reports go out at ${cfgFn().reportHourUtc}:00 UTC.</div>`,
+			`If you can read this, the AI trader's email path works. Daily reports go out at ${cfgFn().reportHourUtc}:00 UTC.`);
+	}
+
 	async function metrics() {
 		const fund = await store.getFund();
 		const open = await store.openTrades();
@@ -66,11 +83,12 @@ export function createReporter({ cfgFn, store, engine, brain, sendEmail, emailTo
 			btc_price: m.prices.BTC || null, basket_value_usd: m.basket, recap,
 		});
 
+		let email = null;
 		if (send) {
 			const subject = `AI Trader day ${Math.max(1, Math.ceil(m.daysRunning))}: ${pct(r2(m.returnPct))} vs BTC ${pct(r2(m.btcPct))}`;
-			await sendEmail({ to: emailTo, subject, html: reportHtml({ cfg, m, summary, recap, dayPct, goalPct, doublings, closed24, decisions24 }), text: reportText({ m, summary, recap, dayPct, goalPct }) });
+			email = await deliver(subject, reportHtml({ cfg, m, summary, recap, dayPct, goalPct, doublings, closed24, decisions24 }), reportText({ m, summary, recap, dayPct, goalPct }));
 		}
-		return { ok: true, summary, recap };
+		return { ok: true, summary, recap, email };
 	}
 
 	function reportHtml({ cfg, m, summary, recap, dayPct, goalPct, doublings, closed24, decisions24 }) {
@@ -125,8 +143,7 @@ ${journal ? `<h3 style="margin:18px 0 6px;font-size:14px">AI journal</h3>${journ
 	}
 
 	// ── notifications ────────────────────────────────────────────────────────
-	const simple = (subject, body) => sendEmail({ to: emailTo, subject, text: body, html: `<div style="font-family:sans-serif;font-size:14px;max-width:620px">${esc(body).replace(/\n/g, "<br>")}</div>` })
-		.catch((e) => log.warn?.("[ai-trader] email failed:", e.message));
+	const simple = (subject, body) => deliver(subject, `<div style="font-family:sans-serif;font-size:14px;max-width:620px">${esc(body).replace(/\n/g, "<br>")}</div>`, body);
 	const notify = {
 		alert: (subject, body) => simple(`⚠️ ${subject}`, body),
 		info: (subject, body) => simple(subject, body),
@@ -154,6 +171,7 @@ ${journal ? `<h3 style="margin:18px 0 6px;font-size:14px">AI journal</h3>${journ
 				equity_usd: m ? r2(m.val.equity) : null, return_pct: m ? r2(m.returnPct) : null,
 				btc_pct: m ? r2(m.btcPct) : null, hold_pct: m ? r2(m.holdPct) : null, drawdown_pct: m ? r2(m.drawdownPct) : null,
 				win_rate_pct: m ? r2(m.winRate) : null, trades_closed: m ? m.stats.n : 0,
+				watchlist: fund.watchlist || [], last_email: fund.last_email || null,
 			},
 			positions: m ? m.val.positions.map((p) => ({
 				id: p.id, asset: p.asset, qty: p.qty, entry_price: p.entry_price, price: p.price, value_usd: r2(p.value),
@@ -206,6 +224,7 @@ ${journal ? `<h3 style="margin:18px 0 6px;font-size:14px">AI journal</h3>${journ
 					...snaps.filter((s) => s.recap).slice(-7).map((s) => ({ at: s.day, kind: "daily recap", text: s.recap })),
 					...decisions.filter((d) => d.journal && d.mode === "live").map((d) => ({ at: d.created_at, kind: "decision", text: d.journal })),
 				].sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 12),
+				watching: (fund.watchlist || []).map((w) => ({ asset: w.asset, direction: w.direction, price: w.price, reason: w.reason })),
 				universe: cfg.universe,
 				model: cfg.model,
 				updated_at: new Date().toISOString(),
@@ -215,5 +234,5 @@ ${journal ? `<h3 style="margin:18px 0 6px;font-size:14px">AI journal</h3>${journ
 		return data;
 	}
 
-	return { dailyReport, notify, state, publicView, metrics };
+	return { dailyReport, notify, state, publicView, metrics, testEmail };
 }

@@ -38,6 +38,10 @@ export function traderConfig(env = process.env) {
 		decisionHoursUtc: hours.length ? hours : [13, 21],
 		reportHourUtc: clamp(Math.round(num("KRAKEN_AI_REPORT_HOUR_UTC", 12)), 0, 23),
 		monitorMinutes: clamp(Math.round(num("KRAKEN_AI_MONITOR_MIN", 15)), 1, 120),
+		// Early (trigger-driven) AI runs: free price/indicator checks every monitor tick
+		// can call the model between scheduled runs, capped to keep API cost down.
+		maxEarlyRunsPerDay: clamp(Math.round(num("KRAKEN_AI_MAX_EARLY_RUNS_PER_DAY", 2)), 0, 12),
+		earlyRunGapHours: clamp(num("KRAKEN_AI_EARLY_RUN_GAP_HOURS", 3), 0.5, 24),
 		seedFraction: 0.5,
 		goalUsd: 1_000_000,
 		universe: Object.keys(UNIVERSE),

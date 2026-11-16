@@ -322,17 +322,54 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 		}
 
 		await store.updateDecisionResults(rec.id, results);
+		const watch = sanitizeWatch(decision.watch, cfg);
+		if (live) await store.updateFund({ watchlist: watch });
 		if (live) {
 			const after = valuation(await store.getFund(), await store.openTrades(), prices);
 			await checkDrawdown(await store.getFund(), after.equity);
 			const traded = results.filter((r) => ["opened", "closed", "partial"].includes(r.status));
 			if (traded.length) await notify.trades(decision, results);
 		}
-		return { ok: true, decision_id: rec.id, mode: live ? "live" : "dry_run", hypothetical_cash: hypothetical, market_note: decision.market_note, journal: decision.journal, results };
+		return { ok: true, decision_id: rec.id, mode: live ? "live" : "dry_run", hypothetical_cash: hypothetical, market_note: decision.market_note, journal: decision.journal, results, watch };
 	});
 
+	function sanitizeWatch(list, cfg) {
+		return (Array.isArray(list) ? list : [])
+			.filter((w) => cfg.universe.includes(w.asset) && (w.direction === "above" || w.direction === "below") && Number(w.price) > 0)
+			.slice(0, 6)
+			.map((w) => ({ asset: w.asset, direction: w.direction, price: Number(w.price), reason: String(w.reason || "").slice(0, 200), set_at: new Date().toISOString() }));
+	}
+
+	/**
+	 * Free (no model call) check for a reason to run the AI early:
+	 *  1. a price level the AI asked to watch has been crossed, or
+	 *  2. a coin passes the alignment screen: above 4h SMA20, volume ≥ 7d average, 24h positive.
+	 * Only when the fund could actually open something.
+	 */
+	async function findTrigger(fund, open, prices) {
+		const cfg = cfgFn();
+		if (fund.status !== "active" || fund.halted) return null;
+		if (open.length >= cfg.maxPositions || fund.cash_usd < cfg.minTradeUsd) return null;
+		const held = new Set(open.map((t) => t.asset));
+		const watch = (fund.watchlist || []).filter((w) => !held.has(w.asset));
+		if (watch.length) {
+			const px = { ...prices, ...(await priceMap(watch.map((w) => w.asset))) };
+			const hit = watch.find((w) => px[w.asset] && (w.direction === "above" ? px[w.asset] >= w.price : px[w.asset] <= w.price));
+			if (hit) {
+				await store.updateFund({ watchlist: (fund.watchlist || []).filter((w) => w !== hit && !(w.asset === hit.asset && w.price === hit.price && w.direction === hit.direction)) });
+				return { kind: "watch", asset: hit.asset, reason: `${hit.asset} crossed ${hit.direction} ${hit.price} (now ${px[hit.asset]}): ${hit.reason}` };
+			}
+		}
+		const market = await kraken.marketData(cfg.universe.filter((a) => !held.has(a)));
+		const aligned = Object.entries(market)
+			.filter(([, m]) => !m.error && m.vs_sma20_4h_pct > 0 && m.volume_vs_7d_avg >= 1 && m.ret_24h_pct > 0)
+			.map(([a, m]) => `${a} (24h ${m.ret_24h_pct}%, vol ${m.volume_vs_7d_avg}x, ${m.vs_sma20_4h_pct}% above 4h SMA20)`);
+		if (aligned.length) return { kind: "screen", reason: `alignment screen: ${aligned.join("; ")}` };
+		return null;
+	}
+
 	// ── risk monitor (no model calls) ────────────────────────────────────────
-	const monitor = () => withLock("monitor", async () => {
+	const monitor = ({ checkTriggers = true } = {}) => withLock("monitor", async () => {
 		const fund = await store.getFund();
 		if (fund.status !== "active") return { ok: true, skipped: "not seeded" };
 		const open = await store.openTrades();
@@ -352,10 +389,16 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 				exits.push({ trade_id: t.id, asset: t.asset, reason, status: c.status, pnl_pct: c.pnl_pct != null ? r2(c.pnl_pct) : null });
 			} catch (e) { exits.push({ trade_id: t.id, asset: t.asset, reason, status: "failed", error: e.message }); }
 		}
-		const val = valuation(await store.getFund(), await store.openTrades(), prices);
-		await checkDrawdown(await store.getFund(), val.equity);
+		const stillOpen = await store.openTrades();
+		const val = valuation(await store.getFund(), stillOpen, prices);
+		const fundNow = await checkDrawdown(await store.getFund(), val.equity);
 		if (exits.some((e) => e.status === "closed" || e.status === "failed")) await notify.exits(exits);
-		return { ok: true, exits, equity: r2(val.equity) };
+		let trigger = null;
+		if (checkTriggers) {
+			try { trigger = await findTrigger(fundNow, stillOpen, prices); }
+			catch (e) { log.warn?.("[ai-trader] trigger check failed:", e.message); }
+		}
+		return { ok: true, exits, equity: r2(val.equity), trigger };
 	});
 
 	const setPaused = (paused) => withLock("pause", async () => {

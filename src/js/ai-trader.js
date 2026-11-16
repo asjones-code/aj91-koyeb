@@ -55,6 +55,18 @@ function seedHtml() {
     ${canSeed ? `<button class="ai-btn danger" id="ai-seed-exec">Execute seed sale</button>` : `<span class="ai-dim">fund is ${esc(seedPreview.fund_status)}</span>`}</div>`;
 }
 
+function emailHtml(e) {
+  if (!e) return `<div class="ai-dim">Email: nothing sent yet · use Test email to check delivery.</div>`;
+  return e.ok
+    ? `<div class="ai-dim">Last email ${ago(e.at)}: <span class="ai-up">sent</span> — ${esc(e.subject)}</div>`
+    : `<div class="ai-warn">Last email ${ago(e.at)} FAILED — ${esc(e.subject)}: ${esc(e.error)}</div>`;
+}
+
+function watchHtml(list = []) {
+  if (!list.length) return `<div class="ai-dim">No price levels set — the alignment screen still runs.</div>`;
+  return `<table class="ai-table"><tbody>${list.map((w) => `<tr><td>${esc(w.asset)}</td><td>${esc(w.direction)} ${px(w.price)}</td><td class="ai-why">${esc(w.reason)}</td></tr>`).join("")}</tbody></table>`;
+}
+
 function positionsHtml(list) {
   if (!list.length) return `<div class="ai-dim">No open positions — in cash.</div>`;
   return `<table class="ai-table"><thead><tr><th>#</th><th>Asset</th><th class="right">Value</th><th class="right">P&amp;L</th><th class="right">Entry → now</th><th class="right">Stop / target</th><th class="right">Left</th><th>Thesis</th></tr></thead><tbody>${
@@ -97,7 +109,7 @@ function render() {
   $("ai-summary").textContent = `${c.mode === "live" ? "LIVE" : "dry run"} · ${f.status === "active" ? (f.halted ? "HALTED" : "trading") : "not funded"} · ${c.model} · ≤${c.maxPositions} pos`;
   const pauseBtn = $("ai-pause");
   if (pauseBtn) pauseBtn.textContent = f.halted ? "Resume" : "Pause";
-  ["ai-dry", "ai-run", "ai-pause", "ai-report", "ai-seed-preview", "ai-reload"].forEach((id) => { const b = $(id); if (b) b.disabled = busy; });
+  ["ai-dry", "ai-run", "ai-pause", "ai-report", "ai-seed-preview", "ai-reload", "ai-test-email"].forEach((id) => { const b = $(id); if (b) b.disabled = busy; });
   if ($("ai-run")) $("ai-run").disabled = busy || f.status !== "active";
   if ($("ai-pause")) $("ai-pause").disabled = busy || f.status !== "active";
   if ($("ai-report")) $("ai-report").disabled = busy || f.status !== "active";
@@ -107,9 +119,11 @@ function render() {
     ${statsHtml(f, c)}
     ${f.halted ? `<div class="ai-warn">Halted: ${esc(f.halted_reason)} — no new trades; open positions keep their stops.</div>` : ""}
     ${state.busy ? `<div class="ai-warn">Busy: ${esc(state.busy)}…</div>` : ""}
+    ${emailHtml(f.last_email)}
     ${seedHtml()}
     ${lastRun ? `<div class="ai-h">Last run (${esc(lastRun.mode)})${lastRun.hypothetical_cash ? ` · hypothetical fund ${usd(lastRun.hypothetical_cash)}` : ""}</div>
       ${lastRun.journal ? `<div>${esc(lastRun.journal)}</div>` : ""}<div class="ai-dim ai-note">${esc(lastRun.market_note || "")}</div>${resultsHtml(lastRun.results)}` : ""}
+    ${f.status === "active" ? `<div class="ai-h">Watching (free price check every ${c.monitorMinutes}m · early AI runs ≤${c.maxEarlyRunsPerDay}/day)</div>${watchHtml(f.watchlist)}` : ""}
     ${f.status === "active" ? `<div class="ai-h">Open positions</div>${positionsHtml(state.positions)}<div class="ai-h">Closed trades</div>${closedHtml(state.closed)}` : ""}
     <div class="ai-h">Recent decisions</div>${decisionsHtml(state.decisions)}`;
   $("ai-seed-exec")?.addEventListener("click", executeSeed);
@@ -170,6 +184,14 @@ const sendReport = () => act("Building the daily report", async () => {
   setMsg("Report emailed.", "ok");
 });
 
+const testEmail = () => act("Sending a test email", async () => {
+  const r = await fetch("/api/ai/kraken/test-email", { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: "{}" });
+  if (r.status === 401) { clearSignalToken(); throw new Error("Locked — enter your signal token"); }
+  const d = await r.json().catch(() => ({}));
+  if (d.ok) setMsg(`Test email sent to ${d.to} — check inbox and spam.`, "ok");
+  else setMsg(`Email failed: ${d.error || r.status}`, "err");
+});
+
 export function initAiTrader() {
   const details = $("ai-trader");
   if (!details) return;
@@ -181,6 +203,7 @@ export function initAiTrader() {
     $("ai-run")?.addEventListener("click", () => runDecision(false));
     $("ai-pause")?.addEventListener("click", togglePause);
     $("ai-report")?.addEventListener("click", sendReport);
+    $("ai-test-email")?.addEventListener("click", testEmail);
     details.addEventListener("toggle", () => { if (details.open) loadState(); });
   }
   render();

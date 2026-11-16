@@ -110,6 +110,8 @@ async function load() {
       <div class="panel"><div class="panel-h"><span class="panel-t">Open positions</span></div>${positionsTable(d)}</div>
       <div class="panel"><div class="panel-h"><span class="panel-t">Recent trades</span><span class="panel-t">avg win ${pct(d.avg_win_pct)} · avg loss ${pct(d.avg_loss_pct)}</span></div>${tradesTable(d)}</div>
     </div>
+    ${(d.watching || []).length ? `<div class="panel"><div class="panel-h"><span class="panel-t">What the AI is watching</span><span class="panel-t">it gets called early if these cross</span></div>
+      <table><tbody>${d.watching.map((w) => `<tr><td><span class="sym">${esc(w.asset)}</span></td><td>${esc(w.direction)} ${Number(w.price).toLocaleString("en-US", { maximumFractionDigits: 4 })}</td><td class="thesis">${esc(w.reason)}</td></tr>`).join("")}</tbody></table></div>` : ""}
     <div class="panel"><div class="panel-h"><span class="panel-t">The AI's journal</span></div>${journal(d)}</div>`;
   drawChart(d.curve || []);
 }

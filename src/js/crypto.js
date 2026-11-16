@@ -47,6 +47,8 @@ const SEED_HOLDINGS = [
 let holdings    = [];
 let tickers     = {};
 let sortKey     = "value";
+const DUST_USD  = 1;      // rows worth less than this are hidden behind a toggle
+let showDust    = false;
 let sortDir     = -1;
 let activePair  = null;
 let chartInst   = null;
@@ -110,7 +112,7 @@ function renderStats(h) {
 
   set("stat-value",   fmtUsd(totalValue));
   set("stat-change",  (change24h >= 0 ? "+" : "") + fmtUsd(change24h));
-  set("stat-assets",  h.length.toString());
+  set("stat-assets",  h.filter(p => (p.value || 0) >= DUST_USD).length.toString());
   set("stat-refresh", new Date().toLocaleTimeString());
 
   const chEl = document.getElementById("stat-change");
@@ -122,13 +124,17 @@ function renderTable(h) {
   const tbody = document.getElementById("holdings-tbody");
   if (!tbody) return;
 
-  const rows = [...h].sort((a, b) => {
+  const total = h.reduce((s, p) => s + (p.value || 0), 0);
+  const all = h.map(p => ({ ...p, alloc: total > 0 ? ((p.value || 0) / total) * 100 : 0 }));
+  const sorted = all.sort((a, b) => {
     const av = a[sortKey] ?? 0, bv = b[sortKey] ?? 0;
     return av > bv ? sortDir : av < bv ? -sortDir : 0;
   });
+  const dust = sorted.filter(r => (r.value || 0) < DUST_USD);
+  const rows = showDust ? sorted : sorted.filter(r => (r.value || 0) >= DUST_USD);
 
-  if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="loading">No holdings found</td></tr>`;
+  if (!sorted.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="loading">No holdings found</td></tr>`;
     return;
   }
 
@@ -144,8 +150,11 @@ function renderTable(h) {
       <td class="right">${r.last == null ? "—" : r.last >= 1 ? fmtUsd(r.last) : "$" + r.last.toFixed(6)}</td>
       <td class="right ${cls}">${fmtPct(pct)}</td>
       <td class="right">${fmtUsd(r.value)}</td>
+      <td class="right alloc"><span class="alloc-bar" style="width:${Math.min(100, r.alloc).toFixed(1)}%"></span>${r.alloc >= 0.1 ? r.alloc.toFixed(1) + "%" : "<0.1%"}</td>
     </tr>`;
-  }).join("");
+  }).join("") + (dust.length ? `<tr class="dust-toggle"><td colspan="6">${showDust ? "Hide" : "Show"} ${dust.length} dust holding${dust.length === 1 ? "" : "s"} under $${DUST_USD} (${fmtUsd(dust.reduce((s, r) => s + (r.value || 0), 0))})</td></tr>` : "");
+
+  tbody.querySelector("tr.dust-toggle")?.addEventListener("click", () => { showDust = !showDust; renderTable(h); });
 
   tbody.querySelectorAll("tr.holding-row").forEach(tr => {
     tr.addEventListener("click", () => openChart(tr.dataset.pair, tr.dataset.asset));
@@ -362,7 +371,7 @@ async function refresh() {
     holdings = [];
     renderStats(holdings);
     const tbody = document.getElementById("holdings-tbody");
-    if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="loading">Locked — click “unlock” (top right) and enter your signal token</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="loading">Locked — click “unlock” (top right) and enter your signal token</td></tr>`;
     return;
   }
 
@@ -371,7 +380,7 @@ async function refresh() {
     const text = document.getElementById("status-text");
     if (text) text.textContent = "Kraken error";
     const tbody = document.getElementById("holdings-tbody");
-    if (tbody) tbody.innerHTML = `<tr><td colspan="5" class="loading">Kraken error: ${String(balData.error).replace(/[<>&]/g, "")}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="loading">Kraken error: ${String(balData.error).replace(/[<>&]/g, "")}</td></tr>`;
     holdings = [];
     renderStats(holdings);
     return;
