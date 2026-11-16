@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Commonplace — years of Kindle highlights, made askable — AJ91</title>
-  <meta name="description" content="Commonplace: ask a question and get advice, quotes and book recommendations drawn from over a decade of AJ's Kindle highlights. A small, free RAG project.">
+  <title>Marginalia — years of Kindle highlights, made askable — AJ91</title>
+  <meta name="description" content="Marginalia: ask a question and get advice, quotes and book recommendations drawn from over a decade of AJ's Kindle highlights. A small, free RAG project.">
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30,11 +30,24 @@
 
     /* ── Hero with cover wall ── */
     .cp-hero { position: relative; overflow: hidden; padding: 9rem 0 4rem; border-bottom: 1px solid var(--cp-rule); }
-    .cp-wall { position: absolute; inset: -4rem -2rem auto; display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; transform: rotate(-4deg); opacity: .32; filter: saturate(.55) contrast(1.05); pointer-events: none;
-      -webkit-mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.65) 45%, transparent 92%); mask-image: linear-gradient(to bottom, #000 0%, rgba(0,0,0,.65) 45%, transparent 92%); }
-    .cp-wall img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 3px; box-shadow: 0 6px 18px rgba(0,0,0,.5); opacity: 0; transition: opacity .8s ease; }
+    /* Cover wall. Motion is transform-only (GPU-composited, no layout/paint per frame):
+       the whole wall drifts slowly; alternate columns float against it. A static gradient
+       overlay does the fade-out (cheaper than masking an animated layer). */
+    .cp-wall { position: absolute; z-index: 0; inset: -6rem -4rem auto; display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; opacity: .34; pointer-events: none;
+      transform: rotate(-4deg); will-change: transform; animation: cp-drift 70s ease-in-out infinite alternate; }
+    .cp-wall img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 3px; box-shadow: 0 6px 18px rgba(0,0,0,.5); filter: saturate(.55) contrast(1.05);
+      opacity: 0; transition: opacity .8s ease; animation: cp-float 18s ease-in-out infinite alternate; }
+    .cp-wall img:nth-child(even) { animation-direction: alternate-reverse; animation-duration: 22s; }
+    .cp-wall img:nth-child(3n) { animation-duration: 26s; }
     .cp-wall img.on { opacity: 1; }
+    .cp-wall.paused, .cp-wall.paused img { animation-play-state: paused; }
+    .cp-hero::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background: linear-gradient(to bottom, rgba(21,21,19,0) 0%, rgba(21,21,19,.35) 40%, #151513 88%); }
+    .cp-hero-inner { z-index: 2; }
+    @keyframes cp-drift { from { transform: rotate(-4deg) translate3d(0, 0, 0); } to { transform: rotate(-4deg) translate3d(-3%, -7%, 0); } }
+    @keyframes cp-float { from { transform: translate3d(0, -14px, 0); } to { transform: translate3d(0, 14px, 0); } }
     @media (max-width: 760px) { .cp-wall { grid-template-columns: repeat(6, 1fr); } }
+    @media (prefers-reduced-motion: reduce) { .cp-wall, .cp-wall img { animation: none; } }
     .cp-hero-inner { position: relative; }
     .cp-title { font: 400 clamp(4.2rem, 13vw, 10.5rem)/.86 var(--cp-display); letter-spacing: -.02em; margin: 1.4rem 0 1.2rem; color: var(--cp-paper); }
     .cp-title i { color: var(--cp-accent); }
@@ -67,6 +80,10 @@
     .cp-suggest { display: flex; flex-wrap: wrap; gap: .4rem 1.2rem; margin-top: 1rem; }
     .cp-suggest button { font: italic 400 1rem var(--cp-text); background: none; border: 0; padding: 0; color: var(--cp-ink-3); cursor: pointer; }
     .cp-suggest button:hover { color: var(--cp-paper); text-decoration: underline; text-underline-offset: 3px; }
+    .cp-suggest .cp-more { font: .68rem var(--cp-mono); font-style: normal; letter-spacing: .1em; text-transform: uppercase; color: var(--cp-accent); opacity: .7; }
+    .cp-suggest .cp-more:hover { opacity: 1; text-decoration: none; }
+    .cp-suggest button { animation: cp-in .45s ease both; }
+    @keyframes cp-in { from { opacity: 0; transform: translateY(4px); } }
 
     /* ── Results ── */
     .cp-out { min-height: 3rem; }
@@ -127,7 +144,7 @@
     .cp-top .cp-book .by { font-size: .8rem; }
   </style>
 </head>
-<body data-barba="wrapper" class="page-is-commonplace">
+<body data-barba="wrapper" class="page-is-marginalia">
   <div class="container">
     <header class="header">
       <div class="header-inner">
@@ -141,14 +158,14 @@
       </div>
     </header>
 
-    <main data-barba="container" data-barba-namespace="commonplace" class="cp">
+    <main data-barba="container" data-barba-namespace="marginalia" class="cp">
       <section class="cp-hero">
         <div class="cp-wall" id="cp-wall" aria-hidden="true"></div>
         <div class="cp-wrap cp-hero-inner">
           <div class="cp-label"><b>Project</b> &nbsp;·&nbsp; Retrieval-augmented reading</div>
-          <h1 class="cp-title">Common<i>place</i></h1>
+          <h1 class="cp-title">Margin<i>alia</i></h1>
           <p class="cp-sub">Every line that stopped me, <span data-stat="span-words">for over a decade</span>, made askable.</p>
-          <p class="cp-lede">A <em>commonplace book</em> is the old habit of copying the passages that matter into one place. Since <span data-stat="firstYear">2014</span> my Kindle has been doing it for me: philosophy, sailing, startups, attention, Africa and its diaspora, utopias, how to live.</p>
+          <p class="cp-lede"><em>Marginalia</em> are the marks readers leave in the edges of a book: the underlines, the stars, the arguments scribbled back at the author. Since <span data-stat="firstYear">2014</span> my Kindle has been keeping mine: philosophy, sailing, startups, attention, Africa and its diaspora, utopias, how to live.</p>
           <p class="cp-lede">Ask it something. It finds the passages that answer back, the books they came from, and (when a model is connected) writes a short reply built only from those lines.</p>
 
           <div class="cp-stats" aria-live="polite">
@@ -162,7 +179,7 @@
         </div>
       </section>
 
-      <section class="cp-ask cp-wrap" aria-label="Ask Commonplace">
+      <section class="cp-ask cp-wrap" aria-label="Ask Marginalia">
         <div class="cp-label">Ask the library</div>
         <div class="cp-modes" role="group" aria-label="Mode">
           <button class="cp-mode" data-mode="advice" aria-pressed="true">Advice</button>
@@ -174,13 +191,7 @@
           <input id="cp-q" name="q" maxlength="500" autocomplete="off" placeholder="How do I stay focused when everything pulls at me?">
           <button type="submit" class="cp-go" id="cp-go">Ask</button>
         </form>
-        <div class="cp-suggest" id="cp-suggest">
-          <button type="button">How do I deal with fear of failure?</button>
-          <button type="button">What makes a good leader?</button>
-          <button type="button">Building something from nothing</button>
-          <button type="button">Living slower</button>
-          <button type="button">Solitude at sea</button>
-        </div>
+        <div class="cp-suggest" id="cp-suggest" aria-label="Suggested questions"></div>
         <div class="cp-out" id="cp-out" aria-live="polite"></div>
       </section>
 

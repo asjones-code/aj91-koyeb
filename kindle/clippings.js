@@ -74,8 +74,12 @@ export function tidyBook(rawTitle, rawAuthor) {
 		if (rightIsAuthor) {
 			title = left; // "Title - Author"
 		} else if (leftIsAuthor) {
-			if (!author) author = cleanAuthor(left.replace(/_/g, ";").split(";")[0]);
-			title = right;
+			// "Corp Name_Last, First_" -> prefer the "Last, First" person over a garbled corporate name
+			const person = left.split("_").map((s) => s.trim()).find((s) => /^[^,]+,\s*[^,]+$/.test(s));
+			if (person) author = cleanAuthor(person);
+			else if (!author) author = cleanAuthor(left.replace(/_/g, ";").split(";")[0]);
+			// "Title-Series Name" where the series repeats the left-hand names (e.g. "-The School of Life")
+			title = right.replace(/-([^-]+)$/, (m, tail) => (overlaps(tail, left) ? "" : m));
 		}
 	}
 

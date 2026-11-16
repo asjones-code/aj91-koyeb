@@ -1,4 +1,4 @@
-// Commonplace (/commonplace, /reading-notes): UI for the Kindle highlights RAG (backend: kindle/index.js).
+// Marginalia (/marginalia, /reading-notes): UI for the Kindle highlights RAG (backend: kindle/index.js).
 const API = String(process.env.API_ORIGIN || "").trim().replace(/\/$/, "");
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -29,6 +29,35 @@ function cover(book) {
 	if (!book.cover) return `<div class="cover">${fallback}</div>`;
 	// Open Library returns a 1x1 image when it has nothing; treat tiny images as missing.
 	return `<div class="cover">${fallback}<img src="${esc(book.cover)}" alt="" loading="lazy" onload="if(this.naturalWidth<10)this.remove()" onerror="this.remove()"></div>`;
+}
+
+// Suggested questions: a fixed pool, each pre-checked to return strong matches from the
+// highlights (BM25 only, no model). Shuffled client-side, so rotating them costs nothing.
+const SUGGESTIONS = [
+	"How do I deal with fear of failure?", "What makes a good leader?", "Building something from nothing",
+	"Solitude at sea", "How do I get my attention back?", "What does it mean to live a good life?",
+	"How should I think about money?", "How do I make better decisions?", "How do I start a company?",
+	"Finding product–market fit", "How do I handle uncertainty?", "Learning to sail across an ocean",
+	"How do I build discipline?", "How do communities govern themselves?", "Imagining a better society",
+	"What did colonialism take from Africa?", "Black identity and the diaspora", "Yoruba spirituality and Ifá",
+	"Growing your own food", "How to live closer to the land", "The internet and our minds",
+	"What makes work meaningful?", "Plant medicine and consciousness", "Healing from trauma",
+	"Raising children well", "How to be alone without being lonely", "Meaning in suffering",
+	"How do I change my habits?", "On death and dying", "What does it mean to be free of distraction?",
+	"How do I talk to people better?", "Designing products people love", "Revolution and change",
+	"Utopian communities that worked", "Order and chaos", "What is the value of boredom?",
+];
+let shown = [];
+function shuffleSuggestions() {
+	const fresh = SUGGESTIONS.filter((q) => !shown.includes(q));
+	for (let i = fresh.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[fresh[i], fresh[j]] = [fresh[j], fresh[i]];
+	}
+	shown = fresh.slice(0, 5);
+	$("#cp-suggest").innerHTML =
+		shown.map((q, i) => `<button type="button" style="animation-delay:${i * 60}ms">${esc(q)}</button>`).join("") +
+		'<button type="button" class="cp-more" data-more aria-label="Show other questions">↻ more</button>';
 }
 
 let mode = "advice";
@@ -162,6 +191,7 @@ $("#cp-form").addEventListener("submit", (e) => {
 });
 $("#cp-suggest").addEventListener("click", (e) => {
 	if (e.target.tagName !== "BUTTON") return;
+	if (e.target.dataset.more !== undefined) return shuffleSuggestions();
 	$("#cp-q").value = e.target.textContent;
 	if (mode === "surprise") setMode("advice");
 	ask();
@@ -178,4 +208,11 @@ $("#cp-out").addEventListener("click", (e) => {
 	setTimeout(() => el.classList.remove("flash"), 1400);
 });
 
+// Pause the cover-wall animation while the hero is off-screen.
+const wall = $("#cp-wall");
+if (wall && "IntersectionObserver" in window) {
+	new IntersectionObserver(([entry]) => wall.classList.toggle("paused", !entry.isIntersecting)).observe(wall);
+}
+
+shuffleSuggestions();
 loadStats();

@@ -4,7 +4,8 @@
  *
  *   node scripts/seed-kindle.mjs "<path to My Clippings.txt>"        # -> data/kindle-highlights.json (local dev, gitignored)
  *   node scripts/seed-kindle.mjs "<path to My Clippings.txt>" --db   # -> kindle_highlights table in DATABASE_URL (production)
- *   add --no-covers to skip the Open Library cover lookup (cached in data/kindle-covers.json)
+ *   --no-covers     skip cover lookup     --retry-covers  retry books that had no cover
+ *   Covers: kindle/cover-overrides.json > Open Library > Apple Books (cached in data/kindle-covers.json)
  *
  * The repo is public, so highlights live in Postgres or a gitignored file, never in git.
  * Re-running replaces the previous load.
@@ -22,6 +23,7 @@ const args = process.argv.slice(2);
 const src = args.find((a) => !a.startsWith("--"));
 const toDb = args.includes("--db");
 const withCovers = !args.includes("--no-covers");
+const retryMissing = args.includes("--retry-covers");
 
 if (!src) {
 	console.error('Usage: node scripts/seed-kindle.mjs "<My Clippings.txt>" [--db]');
@@ -34,7 +36,7 @@ const notes = entries.filter((e) => e.kind === "note").length;
 console.log(`Parsed ${entries.length - notes} highlights + ${notes} notes from ${books} books`);
 if (withCovers) {
 	await fs.mkdir(path.join(ROOT, "data"), { recursive: true });
-	await attachCovers(entries, path.join(ROOT, "data", "kindle-covers.json"));
+	await attachCovers(entries, path.join(ROOT, "data", "kindle-covers.json"), { retryMissing });
 }
 
 if (!toDb) {
@@ -64,14 +66,14 @@ try {
 			location   TEXT,
 			added_at   TIMESTAMPTZ
 		);
-		ALTER TABLE kindle_highlights ADD COLUMN IF NOT EXISTS cover_id INTEGER`);
+		ALTER TABLE kindle_highlights ADD COLUMN IF NOT EXISTS cover_url TEXT`);
 	await client.query("BEGIN");
 	await client.query("DELETE FROM kindle_highlights");
 	for (let i = 0; i < entries.length; i += 500) {
 		const batch = entries.slice(i, i + 500);
 		await client.query(
-			`INSERT INTO kindle_highlights (title, author, kind, content, location, added_at, cover_id)
-			 SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::timestamptz[], $7::int[])`,
+			`INSERT INTO kindle_highlights (title, author, kind, content, location, added_at, cover_url)
+			 SELECT * FROM unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[], $6::timestamptz[], $7::text[])`,
 			[
 				batch.map((e) => e.title),
 				batch.map((e) => e.author),
@@ -79,7 +81,7 @@ try {
 				batch.map((e) => e.content),
 				batch.map((e) => e.location),
 				batch.map((e) => e.addedAt),
-				batch.map((e) => e.coverId ?? null),
+				batch.map((e) => e.cover ?? null),
 			],
 		);
 	}
