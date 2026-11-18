@@ -1,0 +1,436 @@
+/**
+ * Crypto Dashboard — Kraken-backed terminal
+ * Holdings table, candlestick chart, trade panel, order log.
+ */
+import { getSignalToken, clearSignalToken, authHeaders } from "./signal-token.js";
+import { initAiTrader } from "./ai-trader.js";
+
+const POLL_MS = 30_000;
+
+// ── Kraken pair → base asset mapping ─────────────────────────────────────────
+const PAIR_TO_ASSET = {
+  XXBTZUSD: "BTC", XBTUSD: "BTC",
+  XETHZUSD: "ETH", ETHUSD: "ETH",
+  SOLUSD:   "SOL",
+  XXRPZUSD: "XRP", XRPUSD: "XRP",
+  XDGUSD:   "DOGE", DOGEUSD: "DOGE",
+  ADAUSD:   "ADA",
+  DOTUSD:   "DOT",
+  LINKUSD:  "LINK",
+  AVAXUSD:  "AVAX",
+  XLTCZUSD: "LTC", LTCUSD: "LTC",
+  MATICUSD: "MATIC",
+  XXMRZUSD: "XMR", XMRUSD: "XMR",
+  NEARUSD:  "NEAR",
+  UNIUSD:   "UNI",
+};
+
+// Asset → Kraken pair for chart lookups
+const ASSET_TO_PAIR = {
+  BTC: "XBTUSD", ETH: "ETHUSD", SOL: "SOLUSD", XRP: "XRPUSD",
+  DOGE: "DOGEUSD", ADA: "ADAUSD", DOT: "DOTUSD", LINK: "LINKUSD",
+  AVAX: "AVAXUSD", LTC: "LTCUSD", MATIC: "MATICUSD", XMR: "XMRUSD",
+  NEAR: "NEARUSD", UNI: "UNIUSD",
+};
+
+// ── seed data (shown when Kraken keys aren't set) ─────────────────────────────
+const SEED_HOLDINGS = [
+  { asset: "BTC",   balance: 0.05,    last: 76926,   change_24h_pct:  2.3  },
+  { asset: "ETH",   balance: 0.80,    last: 2099,    change_24h_pct: -1.2  },
+  { asset: "SOL",   balance: 5.00,    last: 84.44,   change_24h_pct:  4.1  },
+  { asset: "XRP",   balance: 100.0,   last: 1.34,    change_24h_pct:  0.8  },
+  { asset: "DOGE",  balance: 500.0,   last: 0.1014,  change_24h_pct: -0.5  },
+  { asset: "LINK",  balance: 10.0,    last: 9.45,    change_24h_pct:  1.4  },
+];
+
+// ── state ─────────────────────────────────────────────────────────────────────
+let holdings    = [];
+let tickers     = {};
+let sortKey     = "value";
+const DUST_USD  = 1;      // rows worth less than this are hidden behind a toggle
+let showDust    = false;
+let sortDir     = -1;
+let activePair  = null;
+let chartInst   = null;
+let chartSeries = null;
+let tradeSide   = "buy";
+let currentInterval = "1440";
+
+// ── formatting ────────────────────────────────────────────────────────────────
+const fmt  = (n, d = 2) => typeof n === "number" && isFinite(n)
+  ? n.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }) : "—";
+const fmtPct = (n) => (isFinite(n) ? (n >= 0 ? "+" : "") + fmt(n) + "%" : "—");
+const fmtUsd = (n) => "$" + fmt(n);
+const set    = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+const setClass = (id, cls) => { const el = document.getElementById(id); if (el) el.className = cls; };
+
+// ── API calls ─────────────────────────────────────────────────────────────────
+async function fetchBalances() {
+  try {
+    const r = await fetch("/api/kraken/balances", { headers: authHeaders() });
+    if (r.status === 401) return { locked: true };
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) return { error: data.error || `HTTP ${r.status}` };
+    return data;
+  } catch (e) { return { error: e.message || "Network error" }; }
+}
+
+async function fetchOhlc(pair, interval) {
+  try {
+    const r = await fetch(`/api/kraken/ohlc/${encodeURIComponent(pair)}?interval=${interval}`);
+    if (!r.ok) throw new Error(r.status);
+    return await r.json();
+  } catch { return null; }
+}
+
+async function fetchOrders() {
+  try {
+    const r = await fetch("/api/kraken/orders", { headers: authHeaders() });
+    if (r.status === 401) return { locked: true };
+    if (!r.ok) throw new Error(r.status);
+    return await r.json();
+  } catch { return { demo: true }; }
+}
+
+async function placeOrder(payload) {
+  if (!getSignalToken("Placing a real Kraken order.\nEnter your signal access token:")) {
+    return { error: "Token required to place orders." };
+  }
+  const r = await fetch("/api/kraken/order", {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(payload),
+  });
+  if (r.status === 401) { clearSignalToken(); return { error: "Invalid token — try again." }; }
+  return r.json();
+}
+
+// ── stats strip ───────────────────────────────────────────────────────────────
+function renderStats(h) {
+  const totalValue = h.reduce((s, p) => s + p.value, 0);
+  const change24h  = h.reduce((s, p) => s + (p.value * (p.change_24h_pct / 100)), 0);
+
+  set("stat-value",   fmtUsd(totalValue));
+  set("stat-change",  (change24h >= 0 ? "+" : "") + fmtUsd(change24h));
+  set("stat-assets",  h.filter(p => (p.value || 0) >= DUST_USD).length.toString());
+  set("stat-refresh", new Date().toLocaleTimeString());
+
+  const chEl = document.getElementById("stat-change");
+  if (chEl) chEl.className = "stat-value " + (change24h >= 0 ? "up" : "down");
+}
+
+// ── holdings table ────────────────────────────────────────────────────────────
+function renderTable(h) {
+  const tbody = document.getElementById("holdings-tbody");
+  if (!tbody) return;
+
+  const total = h.reduce((s, p) => s + (p.value || 0), 0);
+  const all = h.map(p => ({ ...p, alloc: total > 0 ? ((p.value || 0) / total) * 100 : 0 }));
+  const sorted = all.sort((a, b) => {
+    const av = a[sortKey] ?? 0, bv = b[sortKey] ?? 0;
+    return av > bv ? sortDir : av < bv ? -sortDir : 0;
+  });
+  const dust = sorted.filter(r => (r.value || 0) < DUST_USD);
+  const rows = showDust ? sorted : sorted.filter(r => (r.value || 0) >= DUST_USD);
+
+  if (!sorted.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="loading">No holdings found</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => {
+    const pct = r.change_24h_pct;
+    const cls = pct >= 0 ? "up" : "down";
+    const isActive = (r.pair && r.pair === activePair) ? " active" : "";
+    // Format balance with appropriate decimals
+    const balFmt = r.balance >= 1 ? fmt(r.balance, 4) : r.balance.toFixed(8).replace(/0+$/, "");
+    return `<tr class="holding-row${isActive}" data-pair="${r.pair || ""}" data-asset="${r.asset}">
+      <td><span class="asset-sym">${r.asset}</span></td>
+      <td class="right">${balFmt}</td>
+      <td class="right">${r.last == null ? "—" : r.last >= 1 ? fmtUsd(r.last) : "$" + r.last.toFixed(6)}</td>
+      <td class="right ${cls}">${fmtPct(pct)}</td>
+      <td class="right">${fmtUsd(r.value)}</td>
+      <td class="right alloc"><span class="alloc-bar" style="width:${Math.min(100, r.alloc).toFixed(1)}%"></span>${r.alloc >= 0.1 ? r.alloc.toFixed(1) + "%" : "<0.1%"}</td>
+    </tr>`;
+  }).join("") + (dust.length ? `<tr class="dust-toggle"><td colspan="6">${showDust ? "Hide" : "Show"} ${dust.length} dust holding${dust.length === 1 ? "" : "s"} under $${DUST_USD} (${fmtUsd(dust.reduce((s, r) => s + (r.value || 0), 0))})</td></tr>` : "");
+
+  tbody.querySelector("tr.dust-toggle")?.addEventListener("click", () => { showDust = !showDust; renderTable(h); });
+
+  tbody.querySelectorAll("tr.holding-row").forEach(tr => {
+    tr.addEventListener("click", () => openChart(tr.dataset.pair, tr.dataset.asset));
+  });
+}
+
+// ── chart ─────────────────────────────────────────────────────────────────────
+function initChart() {
+  const container = document.getElementById("chart-container");
+  if (!container || !window.LightweightCharts) return;
+  chartInst = LightweightCharts.createChart(container, {
+    layout: { background: { color: "#000000" }, textColor: "rgba(255,255,255,0.5)" },
+    grid: {
+      vertLines: { color: "rgba(255,255,255,0.04)" },
+      horzLines: { color: "rgba(255,255,255,0.04)" },
+    },
+    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+    rightPriceScale: { borderColor: "rgba(255,255,255,0.08)" },
+    timeScale: { borderColor: "rgba(255,255,255,0.08)", timeVisible: true },
+    width:  container.clientWidth,
+    height: container.clientHeight || 280,
+  });
+  chartSeries = chartInst.addCandlestickSeries({
+    upColor:       "#ABF8FE",
+    downColor:     "#ED6FF5",
+    borderVisible: false,
+    wickUpColor:   "#ABF8FE",
+    wickDownColor: "#ED6FF5",
+  });
+  window.addEventListener("resize", () => {
+    chartInst.applyOptions({ width: container.clientWidth });
+  });
+}
+
+async function openChart(pair, asset) {
+  if (!pair) return;
+  activePair = pair;
+
+  document.querySelectorAll(".holding-row").forEach(r =>
+    r.classList.toggle("active", r.dataset.pair === pair)
+  );
+
+  // sync trade pair select
+  const tradePairSel = document.getElementById("trade-pair");
+  if (tradePairSel) {
+    const opt = [...tradePairSel.options].find(o => o.value === pair);
+    if (opt) tradePairSel.value = pair;
+  }
+
+  const ticker = Object.entries(tickers).find(([k]) => k === pair)?.[1];
+  set("chart-pair",         asset + "/USD");
+  set("chart-price",        ticker ? fmtUsd(ticker.last) : "");
+  set("chart-change-label", ticker ? fmtPct(ticker.change_24h_pct) : "");
+
+  const changeEl = document.getElementById("chart-change-label");
+  if (changeEl && ticker) changeEl.className = "chart-change " + (ticker.change_24h_pct >= 0 ? "up" : "down");
+
+  const emptyEl = document.getElementById("chart-empty");
+  if (emptyEl) emptyEl.textContent = "Loading chart…";
+
+  if (!chartInst) initChart();
+  else chartSeries.setData([]);
+
+  const data = await fetchOhlc(pair, currentInterval);
+  if (!data?.bars?.length) {
+    if (emptyEl) emptyEl.textContent = "No chart data available";
+    return;
+  }
+  if (emptyEl) emptyEl.style.display = "none";
+
+  chartSeries.setData(data.bars);
+  chartInst.timeScale().fitContent();
+}
+
+// ── orders log ────────────────────────────────────────────────────────────────
+async function renderOrders() {
+  const el = document.getElementById("orders-list");
+  if (!el) return;
+  const data = await fetchOrders();
+  if (data.locked) {
+    el.innerHTML = `<div class="loading">Locked — unlock to see order history</div>`;
+    return;
+  }
+  if (data.demo || !data.orders?.length) {
+    el.innerHTML = `<div class="loading">No order history — add Kraken keys to see trades</div>`;
+    return;
+  }
+  el.innerHTML = data.orders.map(o => {
+    const dt = o.closed_at ? new Date(o.closed_at * 1000).toLocaleDateString() : "";
+    return `<div class="order-row">
+      <span class="order-side ${o.type}">${(o.type || "").toUpperCase()}</span>
+      <span class="order-pair">${o.pair || "—"}</span>
+      <span>${fmt(o.filled, 6)} @ $${fmt(o.price)}</span>
+      <span class="order-meta">${dt} · ${o.order_type || ""}</span>
+    </div>`;
+  }).join("");
+}
+
+// ── trade panel ───────────────────────────────────────────────────────────────
+function initTrade() {
+  const tabs   = document.querySelectorAll(".trade-tab");
+  const submit = document.getElementById("trade-submit");
+  const otSel  = document.getElementById("trade-ordertype");
+  const priceFl = document.getElementById("price-field");
+
+  tabs.forEach(tab => {
+    tab.addEventListener("click", () => {
+      tradeSide = tab.dataset.side;
+      tabs.forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      if (submit) {
+        submit.className = "trade-submit " + tradeSide;
+        submit.textContent = tradeSide.charAt(0).toUpperCase() + tradeSide.slice(1);
+      }
+    });
+  });
+
+  if (otSel && priceFl) {
+    otSel.addEventListener("change", () => {
+      priceFl.style.display = otSel.value === "limit" ? "flex" : "none";
+    });
+  }
+
+  if (submit) {
+    submit.addEventListener("click", async () => {
+      const msg     = document.getElementById("trade-msg");
+      const pair    = document.getElementById("trade-pair")?.value;
+      const ordertype = document.getElementById("trade-ordertype")?.value;
+      const volume  = document.getElementById("trade-volume")?.value;
+      const price   = document.getElementById("trade-price")?.value;
+
+      if (!pair || !volume || parseFloat(volume) <= 0) {
+        if (msg) { msg.textContent = "Enter a valid pair and volume."; msg.className = "trade-msg err"; }
+        return;
+      }
+
+      submit.disabled = true;
+      if (msg) { msg.textContent = "Placing order…"; msg.className = "trade-msg"; }
+
+      const payload = { pair, type: tradeSide, ordertype, volume: parseFloat(volume) };
+      if (ordertype === "limit" && price) payload.price = parseFloat(price);
+
+      try {
+        const result = await placeOrder(payload);
+        if (result.error) {
+          if (msg) { msg.textContent = result.error; msg.className = "trade-msg err"; }
+        } else {
+          const desc = result.result?.descr?.order || "Order placed";
+          if (msg) { msg.textContent = desc; msg.className = "trade-msg ok"; }
+          setTimeout(() => renderOrders(), 1500);
+        }
+      } catch (e) {
+        if (msg) { msg.textContent = e.message || "Order failed."; msg.className = "trade-msg err"; }
+      } finally {
+        submit.disabled = false;
+      }
+    });
+  }
+
+  // interval buttons
+  document.querySelectorAll(".interval-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".interval-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentInterval = btn.dataset.interval;
+      if (activePair) {
+        const holding = holdings.find(h => h.pair === activePair);
+        openChart(activePair, holding?.asset || activePair.replace("USD", ""));
+      }
+    });
+  });
+}
+
+// ── table sort headers ────────────────────────────────────────────────────────
+function initSort() {
+  document.querySelectorAll("th[data-sort]").forEach(th => {
+    th.addEventListener("click", () => {
+      const key = th.dataset.sort;
+      sortDir = (sortKey === key) ? -sortDir : -1;
+      sortKey = key;
+      renderTable(holdings);
+    });
+  });
+}
+
+// ── status indicator ──────────────────────────────────────────────────────────
+function setStatus(state) {
+  const dot  = document.getElementById("status-dot");
+  const text = document.getElementById("status-text");
+  const live = state === "live";
+  if (dot)  dot.className  = "status-dot" + (live ? " live" : "");
+  if (text) {
+    text.textContent = live ? "Live" : state === "locked" ? "Locked · unlock" : "Demo mode";
+    text.style.cursor = state === "locked" ? "pointer" : "";
+    text.onclick = state === "locked" ? unlock : null;
+  }
+}
+
+function unlock() {
+  clearSignalToken();
+  if (!getSignalToken()) return;
+  refresh();
+  renderOrders();
+  initAiTrader();
+}
+
+// ── refresh loop ──────────────────────────────────────────────────────────────
+async function refresh() {
+  const balData = await fetchBalances();
+  let rawBalances;
+
+  if (balData.locked) {
+    setStatus("locked");
+    holdings = [];
+    renderStats(holdings);
+    const tbody = document.getElementById("holdings-tbody");
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="loading">Locked — click “unlock” (top right) and enter your signal token</td></tr>`;
+    return;
+  }
+
+  if (balData.error) {
+    setStatus("error");
+    const text = document.getElementById("status-text");
+    if (text) text.textContent = "Kraken error";
+    const tbody = document.getElementById("holdings-tbody");
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="loading">Kraken error: ${String(balData.error).replace(/[<>&]/g, "")}</td></tr>`;
+    holdings = [];
+    renderStats(holdings);
+    return;
+  }
+
+  if (balData.demo) {
+    setStatus("demo");
+    rawBalances = SEED_HOLDINGS.map(h => ({
+      asset: h.asset, raw_asset: h.asset,
+      balance: h.balance,
+      last: h.last, change_24h_pct: h.change_24h_pct,
+      value: h.balance * h.last,
+      pair: ASSET_TO_PAIR[h.asset] || h.asset + "USD",
+    }));
+    holdings = rawBalances;
+  } else {
+    setStatus("live");
+    // The server prices every balance (crypto + fiat cash) in USD.
+    holdings = balData.balances.map(b => ({
+      ...b,
+      last: b.last,
+      change_24h_pct: b.change_24h_pct || 0,
+      value: b.value_usd || 0,
+      pair: b.fiat ? null : (ASSET_TO_PAIR[b.asset] || b.asset + "USD"),
+    }));
+    tickers = Object.fromEntries(holdings.filter(h => h.pair && h.last != null)
+      .map(h => [h.pair, { last: h.last, change_24h_pct: h.change_24h_pct }]));
+  }
+
+  renderStats(holdings);
+  renderTable(holdings);
+
+  // auto-open first chartable row (fiat cash has no chart)
+  const first = holdings.find(h => h.pair);
+  if (!activePair && first) openChart(first.pair, first.asset);
+}
+
+// ── boot ──────────────────────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", async () => {
+  initSort();
+  initTrade();
+
+  document.getElementById("btn-refresh")?.addEventListener("click", () => {
+    refresh();
+    renderOrders();
+  });
+
+  // AI notes sit at the top: start them first so a holdings/orders failure can't leave them blank.
+  initAiTrader();
+  await refresh();
+  await renderOrders();
+  setInterval(refresh, POLL_MS);
+});
