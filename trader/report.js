@@ -1,6 +1,6 @@
 /**
  * Daily report (private email), trade/exit/alert notifications, and the
- * public %-only view for /ai-trader.
+ * public %-only view for /crypto.
  */
 
 import { CONVICTION_CAP_PCT } from "./config.js";
@@ -216,6 +216,10 @@ ${journal ? `<h3 style="margin:18px 0 6px;font-size:14px">AI journal</h3>${journ
 				vs_sma20_4h_pct: m.vs_sma20_4h_pct, vs_sma50_4h_pct: m.vs_sma50_4h_pct, volume_vs_7d_avg: m.volume_vs_7d_avg,
 				rsi_14_4h: m.rsi_14_4h, rel_strength_vs_btc_7d_pct: m.rel_strength_vs_btc_7d_pct,
 				checks, aligned: checks.trend && checks.volume && checks.momentum,
+				structure: m.structure_4h && !m.structure_4h.error ? {
+					trend: m.structure_4h.trend, effort: m.structure_4h.last_bar?.effort,
+					spring: Boolean(m.structure_4h.spring), upthrust: Boolean(m.structure_4h.upthrust),
+				} : null,
 			};
 		});
 		const priceOf = Object.fromEntries(coins.filter((c) => c.price).map((c) => [c.asset, c.price]));

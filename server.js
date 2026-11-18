@@ -1571,6 +1571,24 @@ Step 2 — Signal strength classification:
 - MEDIUM: 24h move 0.5-2% OR conflicting timeframe signals
 - LOW: < 0.5% move OR trend reversal signal
 
+Step 2b — Price structure (when 4h candles or structure_4h data are provided; Villahermosa, price action / VSA / Wyckoff):
+Momentum tells you how fast; structure tells you whose market it is and where you're wrong.
+1. Market structure (pivots). A pivot is a bar whose high (low) is beyond the 2 bars on each side; pivots are liquidity zones where orders and stops rest.
+- Higher highs + higher lows = uptrend; lower highs + lower lows = downtrend; otherwise range.
+- Change of character: in a downtrend the reference pivot is the swing high that started the latest low. A close above it ends the downtrend's character, but a new uptrend needs a higher high after it; until then treat it as a range.
+- Projection: impulse legs getting longer = trend strengthening; shorter = tiring.
+- Only buy in an uptrend, or in a range after a confirmed false breakout. Never buy a downtrend just because it bounced.
+2. Effort vs result (volume against price). Volume is effort; price movement is result.
+- Harmony (wide bars on high volume; impulses on rising volume, pullbacks on falling volume) = genuine move.
+- Divergence = warning: high volume on a narrow bar is effort without result (absorption); a new high on falling volume is a weak impulse.
+- A climax (very high volume, very wide bar) ends a move. Do not trade the climax bar itself; wait for what follows.
+- Up waves on more volume than down waves = buyers in control.
+3. False breakouts + the test.
+- Spring/shakeout: price breaks below a pivot low, then closes back above it. Upthrust: breaks above a pivot high, then closes back below (bearish: don't buy into it; an exit warning on an open long).
+- Test: a later return to the level on lower volume confirms it. A retest on high volume means the other side is still active, so wait.
+- Context decides: trade springs in an uptrend or at range support. In a downtrend a spring only counts after a selling climax; otherwise it's a stop on the way down.
+Structural stops: put the stop just beyond the extreme of the bar or pivot that triggered the entry (e.g. below the spring low), not exactly on a pivot, which attracts stop runs. If that stop is wider than the volatility budget, size down or skip.
+
 Step 3 — Multi-timeframe projection (Jegadeesh-Titman momentum persistence):
 - 24h: based purely on current 24h momentum and intraday pattern
 - 7D: momentum typically persists 5-10 days; decay factor ~0.6x per week
@@ -1583,7 +1601,7 @@ Step 4 — Position sizing:
 - If available cash is insufficient for a meaningful entry, recommend monitoring only — no new entries
 
 Step 5 — Risk identification:
-Always name one specific invalidation signal, e.g. "Invalidated if price drops below [X] support" or "Signal fails if volume drops below 24h average on next candle".
+Always name one specific invalidation signal, e.g. "Invalidated if price drops below [X] support" or "Signal fails if volume drops below 24h average on next candle". When structure is available, prefer a structural level: "Invalidated on a 4h close below the spring low at [X]".
 
 BEST PRACTICES
 - Use their exact ticker language: if data shows XRPUSD, say XRP.
@@ -1596,7 +1614,10 @@ ANTI-PATTERNS (never do these)
 - Linear projection (30D = 4x 7D) — apply momentum decay.
 - Recommending an entry when cash is insufficient — say "monitor only".
 - Vague invalidation ("if market turns bad") — be specific about price/volume.
-- Over-fitting a single timeframe — cross-reference 24h, 7D, 30D.`;
+- Over-fitting a single timeframe — cross-reference 24h, 7D, 30D.
+- Buying a bounce inside lower highs / lower lows — wait for a reference-pivot break, or a spring with a low-volume test.
+- Entering on a climax bar — let it finish, then trade the test that follows.
+- A stop placed exactly at a swing low — put it just beyond the trigger's extreme.`;
 
 const SIGNAL_MODEL = (process.env.SIGNAL_MODEL || "claude-haiku-4-5-20251001").trim();
 const SIGNAL_EMAIL_TO = (process.env.SIGNAL_EMAIL_TO || "asjones91@gmail.com").trim();
@@ -2764,15 +2785,26 @@ Respond with ONLY valid JSON, no markdown or explanation:
 		return;
 	}
 
+	// The AI trader lives at /crypto. The stocks/portfolio page is deprecated for now:
+	// 302 (not 301) so browsers don't cache it if the page comes back.
+	if (pathname === "/ai-trader" || pathname === "/ai-trader.html" || pathname === "/long-flat") {
+		res.writeHead(301, { Location: "/crypto" + url.search });
+		res.end();
+		return;
+	}
+	if (pathname === "/portfolio" || pathname === "/portfolio.html") {
+		res.writeHead(302, { Location: "/crypto" });
+		res.end();
+		return;
+	}
+
 	// Clean URLs: /projects -> /projects.html, /admin -> /admin.html, /blog -> /blog.html
 	let pathToServe = pathname;
 	if (pathname === "/projects") pathToServe = "/projects.html";
 	else if (pathname === "/admin") pathToServe = "/admin.html";
 	else if (pathname === "/blog") pathToServe = "/blog.html";
 	else if (pathname === "/project") pathToServe = "/project.html";
-	else if (pathname === "/portfolio") pathToServe = "/portfolio.html";
 	else if (pathname === "/crypto") pathToServe = "/crypto.html";
-	else if (pathname === "/ai-trader" || pathname === "/long-flat") pathToServe = "/ai-trader.html";
 	else if (pathname === "/marginalia" || pathname === "/reading-notes" || pathname === "/reading_notes") pathToServe = "/reading_notes.html";
 	else if (pathname === "/tools" || pathname === "/tools/" || pathname === "/tools/invoice") pathToServe = "/tools.html";
 	const status = await serveStatic(res, pathToServe, method);
