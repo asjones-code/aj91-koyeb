@@ -154,6 +154,10 @@ export function createKraken({ krakenPrivatePost, krakenPublicGet, krakenUsdPric
 		}));
 	}
 
+	// Last indicators per asset, refreshed by every marketData() call (decisions and
+	// the 15-min monitor), so the public page can show them without extra Kraken calls.
+	const marketCache = new Map(); // asset -> { data, at }
+
 	async function marketData(assets) {
 		const out = {};
 		for (const a of assets) {
@@ -161,14 +165,37 @@ export function createKraken({ krakenPrivatePost, krakenPublicGet, krakenUsdPric
 			catch (e) { out[a] = { error: e.message }; }
 			await sleep(350); // stay well under Kraken's public rate limit
 		}
-		const btc7 = out.BTC?.ret_7d_pct;
+		const btc7 = out.BTC?.ret_7d_pct ?? marketCache.get("BTC")?.data?.ret_7d_pct;
 		for (const a of Object.keys(out)) {
 			if (out[a].ret_7d_pct != null && btc7 != null) out[a].rel_strength_vs_btc_7d_pct = round(out[a].ret_7d_pct - btc7, 2);
+			if (!out[a].error) marketCache.set(a, { data: out[a], at: Date.now() });
 		}
 		return out;
 	}
 
-	return { pairInfo, floorTo, buildSpotOrder, marketOrder, getFill, balances, takerFee, prices, marketData };
+	/** Cached indicators for `assets`, fetching only those missing or older than maxAgeMs. */
+	async function marketSnapshot(assets, maxAgeMs = 30 * 60_000) {
+		const stale = assets.filter((a) => !(Date.now() - (marketCache.get(a)?.at || 0) < maxAgeMs));
+		if (stale.length) await marketData(stale);
+		return Object.fromEntries(assets.filter((a) => marketCache.has(a)).map((a) => [a, { ...marketCache.get(a).data, at: new Date(marketCache.get(a).at).toISOString() }]));
+	}
+
+	/** 4h candles (last ~30 days) for charting, cached 10 minutes per asset. */
+	const candleCache = new Map();
+	async function candles4h(asset) {
+		const c = candleCache.get(asset);
+		if (c && Date.now() - c.at < 10 * 60_000) return c.data;
+		const bars = await ohlcHourly(UNIVERSE[asset] || altFor(asset));
+		const data = [];
+		for (let end = bars.length; end - 4 >= 0; end -= 4) {
+			const g = bars.slice(end - 4, end);
+			data.unshift({ time: g[0].t, open: g[0].o, high: Math.max(...g.map((b) => b.h)), low: Math.min(...g.map((b) => b.l)), close: g[3].c, volume: g.reduce((s, b) => s + b.v, 0) });
+		}
+		candleCache.set(asset, { data, at: Date.now() });
+		return data;
+	}
+
+	return { pairInfo, floorTo, buildSpotOrder, marketOrder, getFill, balances, takerFee, prices, marketData, marketSnapshot, candles4h };
 }
 
 // ── pure indicator math (exported for tests) ─────────────────────────────────

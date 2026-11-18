@@ -3,6 +3,8 @@
  * public %-only view for /ai-trader.
  */
 
+import { CONVICTION_CAP_PCT } from "./config.js";
+
 const HOUR = 3600_000;
 const r2 = (v) => (v == null || !Number.isFinite(v) ? null : Math.round(v * 100) / 100);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -11,7 +13,18 @@ const pct = (n) => (n == null ? "—" : `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`);
 const color = (n) => (n == null ? "#555" : n >= 0 ? "#1f9d55" : "#d6336c");
 const today = () => new Date().toISOString().slice(0, 10);
 
-export function createReporter({ cfgFn, store, engine, brain, sendEmail, emailTo, log = console }) {
+/** Next scheduled decision (hh:05 UTC) after `from`. */
+function nextDecisionAt(hours, from = new Date()) {
+	for (let d = 0; d < 2; d++) {
+		for (const h of [...hours].sort((a, b) => a - b)) {
+			const t = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate() + d, h, 5));
+			if (t > from) return t.toISOString();
+		}
+	}
+	return null;
+}
+
+export function createReporter({ cfgFn, store, engine, brain, kraken, sendEmail, emailTo, log = console }) {
 	/** Send an email and record the outcome (MailerSend failures don't throw — they return {ok:false}). */
 	async function deliver(subject, html, text) {
 		let r;
@@ -186,6 +199,46 @@ ${journal ? `<h3 style="margin:18px 0 6px;font-size:14px">AI journal</h3>${journ
 	}
 
 	// ── public view: percentages only, no dollar amounts ─────────────────────
+	/**
+	 * What the AI is waiting for: per-coin alignment screen, watch levels with
+	 * distance from price, schedule, and which conviction sizes clear the minimum.
+	 */
+	async function outlook(cfg, fund, equity) {
+		let market = {};
+		try { market = kraken ? await kraken.marketSnapshot(cfg.universe) : {}; }
+		catch (e) { log.warn?.("[ai-trader] market snapshot failed:", e.message); }
+		const coins = cfg.universe.map((a) => {
+			const m = market[a];
+			if (!m || m.error) return { asset: a };
+			const checks = { trend: m.vs_sma20_4h_pct > 0, volume: m.volume_vs_7d_avg >= 1, momentum: m.ret_24h_pct > 0 };
+			return {
+				asset: a, price: m.price, ret_24h_pct: m.ret_24h_pct, ret_7d_pct: m.ret_7d_pct, ret_30d_pct: m.ret_30d_pct,
+				vs_sma20_4h_pct: m.vs_sma20_4h_pct, vs_sma50_4h_pct: m.vs_sma50_4h_pct, volume_vs_7d_avg: m.volume_vs_7d_avg,
+				rsi_14_4h: m.rsi_14_4h, rel_strength_vs_btc_7d_pct: m.rel_strength_vs_btc_7d_pct,
+				checks, aligned: checks.trend && checks.volume && checks.momentum,
+			};
+		});
+		const priceOf = Object.fromEntries(coins.filter((c) => c.price).map((c) => [c.asset, c.price]));
+		const watching = (fund.watchlist || []).map((w) => ({
+			asset: w.asset, direction: w.direction, price: w.price, reason: w.reason,
+			distance_pct: priceOf[w.asset] ? r2((w.price / priceOf[w.asset] - 1) * 100) : null,
+		}));
+		const cap = (c) => Math.min(CONVICTION_CAP_PCT[c], cfg.maxPositionPct);
+		const tradeable = equity ? Object.keys(CONVICTION_CAP_PCT).filter((c) => (equity * cap(c)) / 100 >= cfg.minTradeUsd) : Object.keys(CONVICTION_CAP_PCT);
+		const lastDecision = fund.status === "active" ? (await store.recentDecisions(1))[0] : null;
+		return {
+			coins, watching,
+			sizing: { caps_pct: Object.fromEntries(Object.keys(CONVICTION_CAP_PCT).map((c) => [c, cap(c)])), tradeable_convictions: tradeable },
+			schedule: {
+				decision_hours_utc: cfg.decisionHoursUtc, next_decision_at: nextDecisionAt(cfg.decisionHoursUtc),
+				monitor_minutes: cfg.monitorMinutes, max_early_runs_per_day: cfg.maxEarlyRunsPerDay, early_run_gap_hours: cfg.earlyRunGapHours,
+				last_decision_at: lastDecision?.created_at || null,
+			},
+			limits: { max_positions: cfg.maxPositions, max_hold_hours: cfg.maxHoldHours, max_drawdown_pct: cfg.maxDrawdown * 100 },
+			market_note: lastDecision?.market_note || null,
+		};
+	}
+
 	let publicCache = null;
 	async function publicView() {
 		if (publicCache && Date.now() - publicCache.at < 5 * 60_000) return publicCache.data;
@@ -193,7 +246,7 @@ ${journal ? `<h3 style="margin:18px 0 6px;font-size:14px">AI journal</h3>${journ
 		const fund = await store.getFund();
 		let data;
 		if (fund.status !== "active") {
-			data = { status: "warming_up", universe: cfg.universe, updated_at: new Date().toISOString() };
+			data = { status: "warming_up", universe: cfg.universe, model: cfg.model, ...(await outlook(cfg, fund, null)), updated_at: new Date().toISOString() };
 		} else {
 			const m = await metrics();
 			const [closed, snaps, decisions] = await Promise.all([store.closedTrades(30), store.snapshots(365), store.recentDecisions(8)]);
@@ -226,7 +279,7 @@ ${journal ? `<h3 style="margin:18px 0 6px;font-size:14px">AI journal</h3>${journ
 					...snaps.filter((s) => s.recap).slice(-7).map((s) => ({ at: s.day, kind: "daily recap", text: s.recap })),
 					...decisions.filter((d) => d.journal && d.mode === "live").map((d) => ({ at: d.created_at, kind: "decision", text: d.journal })),
 				].sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 12),
-				watching: (fund.watchlist || []).map((w) => ({ asset: w.asset, direction: w.direction, price: w.price, reason: w.reason })),
+				...(await outlook(cfg, fund, m.val.equity)),
 				universe: cfg.universe,
 				model: cfg.model,
 				updated_at: new Date().toISOString(),
