@@ -7,6 +7,11 @@ import { CONVICTION_CAP_PCT } from "./config.js";
 const HOUR = 3600_000;
 const r2 = (v) => Math.round(v * 100) / 100;
 
+/** Fund units outstanding: the seed bought `seed_usd` units at 1.00; top-ups buy more at the current price. */
+export const fundUnits = (fund) => fund?.units ?? fund?.seed_usd ?? 0;
+/** Price per unit (1.00 at the seed). Return since inception = nav − 1, unaffected by deposits. */
+export const fundNav = (fund, equity) => { const u = fundUnits(fund); return u > 0 ? equity / u : null; };
+
 export function createEngine({ cfgFn, store, kraken, brain, notify, log = console }) {
 	// ── lock ─────────────────────────────────────────────────────────────────
 	let chain = Promise.resolve();
@@ -164,6 +169,53 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 		}
 	});
 
+	// ── top-ups ──────────────────────────────────────────────────────────────
+	/**
+	 * USD on Kraken that the fund doesn't account for yet: exchange USD minus fund cash.
+	 * A deposit made on Kraken shows up here until it's added to the fund.
+	 */
+	async function depositState() {
+		const fund = await store.getFund();
+		const krakenUsd = (await kraken.balances()).USD || 0;
+		const open = await store.openTrades();
+		const prices = open.length ? await priceMap(open.map((t) => t.asset)) : {};
+		const { equity } = valuation(fund, open, prices);
+		return { fund, krakenUsd, equity, available: Math.max(0, krakenUsd - (fund.cash_usd || 0)) };
+	}
+
+	const depositPreview = () => withLock("deposit-preview", async () => {
+		const { fund, krakenUsd, equity, available } = await depositState();
+		return {
+			fund_status: fund.status, kraken_usd: r2(krakenUsd), fund_cash_usd: r2(fund.cash_usd),
+			available_usd: Math.floor(available * 100) / 100, equity_usd: r2(equity),
+			nav: fund.status === "active" ? fundNav(fund, equity) : null, deposits_usd: r2(fund.deposits_usd || 0),
+		};
+	});
+
+	/** Add `usd` of unallocated Kraken USD to the fund at the current price per unit. */
+	const deposit = (usd) => withLock("deposit", async () => {
+		const amount = Math.floor(Number(usd) * 100) / 100;
+		if (!(amount > 0)) return { ok: false, error: "Amount must be a positive number of dollars" };
+		const { fund, krakenUsd, equity, available } = await depositState();
+		if (fund.status !== "active") return { ok: false, error: "Fund isn't seeded yet — top-ups apply to an active fund" };
+		if (amount > available + 0.01)
+			return { ok: false, error: `Only $${available.toFixed(2)} on Kraken isn't already in the fund (Kraken USD $${krakenUsd.toFixed(2)} − fund cash $${fund.cash_usd.toFixed(2)}). Wait for the deposit to clear on Kraken.` };
+		const units = fundUnits(fund);
+		const nav = fundNav(fund, equity);
+		if (!(nav > 0)) return { ok: false, error: "Fund equity is zero — can't price a top-up" };
+		const newUnits = amount / nav;
+		await store.adjustCash(amount);
+		const after = await store.updateFund({
+			units: units + newUnits,
+			deposits_usd: (fund.deposits_usd || 0) + amount,
+			// Scale the drawdown peak so a deposit neither creates nor hides a drawdown.
+			peak_equity: (fund.peak_equity || equity) * (units + newUnits) / units,
+		});
+		const rec = await store.insertDeposit({ usd: amount, nav, units: newUnits, equity_before: equity, kraken_usd: krakenUsd });
+		log.log?.(`[ai-trader] top-up $${amount} at nav ${nav.toFixed(4)} (${newUnits.toFixed(4)} units)`);
+		return { ok: true, deposit: rec, fund: { cash_usd: r2(after.cash_usd), equity_usd: r2(equity + amount), deposits_usd: r2(after.deposits_usd), nav } };
+	});
+
 	// ── decision run ─────────────────────────────────────────────────────────
 	async function buildContext(fund, open, cfg, hypotheticalCash) {
 		const assets = [...new Set([...cfg.universe, ...open.map((t) => t.asset)])];
@@ -173,14 +225,14 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 		for (const a of cfg.universe) if (market[a]?.price) prices[a] = market[a].price;
 		const effFund = hypotheticalCash != null ? { ...fund, cash_usd: hypotheticalCash } : fund;
 		const val = valuation(effFund, open, prices);
-		const seed = fund.seed_usd || hypotheticalCash || val.equity;
+		const units = fund.status === "active" ? fundUnits(fund) : (hypotheticalCash || val.equity);
 		const peak = Math.max(fund.peak_equity || 0, val.equity);
 		const ctx = {
 			now_utc: new Date().toISOString(),
 			fund: {
 				status: fund.status === "active" ? "active" : "hypothetical (not funded yet)",
 				equity_usd: r2(val.equity), cash_usd: r2(effFund.cash_usd), positions_usd: r2(val.positionsUsd),
-				since_inception_pct: r2((val.equity / seed - 1) * 100),
+				since_inception_pct: r2((val.equity / units - 1) * 100),
 				drawdown_from_peak_pct: r2(peak > 0 ? (1 - val.equity / peak) * 100 : 0),
 				halted: fund.halted, open_slots: cfg.maxPositions - open.length,
 				min_trade_usd: cfg.minTradeUsd,
@@ -411,5 +463,5 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 		return store.updateFund({ halted: false, halted_reason: null, peak_equity: equity || fund.peak_equity });
 	});
 
-	return { withLock, isBusy: () => busy, valuation, basketValue, priceMap, seedPreview, seedExecute, runDecision, monitor, setPaused, closeTrade };
+	return { withLock, isBusy: () => busy, valuation, basketValue, priceMap, seedPreview, seedExecute, depositPreview, deposit, runDecision, monitor, setPaused, closeTrade };
 }

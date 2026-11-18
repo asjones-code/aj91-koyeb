@@ -5,7 +5,8 @@
  *   GET  /api/ai/kraken/state           premium  fund, positions, trades, decisions
  *   POST /api/ai/kraken/seed/preview    premium  what the one-time seed sale would sell
  *   POST /api/ai/kraken/seed/execute    premium  body {confirm:true}; sells half of each coin once
- *   POST /api/ai/kraken/run             premium  body {dry_run?:bool}; one decision run now
+ *   POST /api/ai/kraken/deposit/preview premium  Kraken USD not yet in the fund
+ *   POST /api/ai/kraken/deposit         premium  body {usd, confirm:true}; top up the fund at the current unit price
  *   POST /api/ai/kraken/monitor         premium  run the risk monitor now
  *   POST /api/ai/kraken/pause           premium  body {paused:bool}
  *   POST /api/ai/kraken/report          premium  send the daily report now
@@ -121,8 +122,10 @@ export function createTrader(deps) {
 				const r = await engine.seedExecute();
 				return send(r.ok ? 200 : 400, r);
 			}
-			if (pathname === "/api/ai/kraken/run" && method === "POST") {
-				const r = await engine.runDecision({ dryRun: body.dry_run === true, trigger: "manual" });
+			if (pathname === "/api/ai/kraken/deposit/preview" && method === "POST") return send(200, await engine.depositPreview());
+			if (pathname === "/api/ai/kraken/deposit" && method === "POST") {
+				if (body.confirm !== true) return send(400, { error: "Send {\"usd\": <amount>, \"confirm\": true} to add Kraken USD to the fund" });
+				const r = await engine.deposit(body.usd);
 				return send(r.ok ? 200 : 400, r);
 			}
 			if (pathname === "/api/ai/kraken/monitor" && method === "POST") return send(200, await engine.monitor());

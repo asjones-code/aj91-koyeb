@@ -18,7 +18,6 @@ const STATUS_CLASS = { opened: "ai-up", closed: "ai-up", adjusted: "ai-up", woul
 
 let state = null;
 let seedPreview = null;
-let lastRun = null;
 let busy = false;
 let wired = false;
 
@@ -40,6 +39,7 @@ function statsHtml(f, c) {
     ${cell("Equity", usd(f.equity_usd))}${cell("Return", pct(f.return_pct), tone(f.return_pct))}${cell("BTC", pct(f.btc_pct), tone(f.btc_pct))}
     ${cell("Hold coins", pct(f.hold_pct), tone(f.hold_pct))}${cell("Cash", usd(f.cash_usd))}${cell("Drawdown", `${(f.drawdown_pct ?? 0).toFixed(1)}%`)}
     ${cell("Win rate", f.win_rate_pct == null ? "—" : `${Math.round(f.win_rate_pct)}% · ${f.trades_closed}`)}${cell("Fees", usd(f.fees_paid))}
+    ${f.deposits_usd ? cell("Added", usd(f.deposits_usd)) : ""}
   </div>`;
 }
 
@@ -109,15 +109,14 @@ function render() {
   $("ai-summary").textContent = `${c.mode === "live" ? "LIVE" : "dry run"} · ${f.status === "active" ? (f.halted ? "HALTED" : "trading") : "not funded"} · ${c.model} · ≤${c.maxPositions} pos`;
   const pauseBtn = $("ai-pause");
   if (pauseBtn) pauseBtn.textContent = f.halted ? "Resume" : "Pause";
-  ["ai-dry", "ai-run", "ai-pause", "ai-report", "ai-seed-preview", "ai-reload", "ai-test-email"].forEach((id) => { const b = $(id); if (b) b.disabled = busy; });
-  if ($("ai-run")) $("ai-run").disabled = busy || f.status !== "active";
+  ["ai-pause", "ai-report", "ai-seed-preview", "ai-reload", "ai-test-email"].forEach((id) => { const b = $(id); if (b) b.disabled = busy; });
+  if ($("ai-deposit")) $("ai-deposit").style.display = f.status === "active" ? "" : "none";
+  if ($("ai-deposit")) $("ai-deposit").disabled = busy;
   if ($("ai-pause")) $("ai-pause").disabled = busy || f.status !== "active";
   if ($("ai-report")) $("ai-report").disabled = busy || f.status !== "active";
   if ($("ai-seed-preview")) $("ai-seed-preview").style.display = f.status === "active" ? "none" : "";
 
   body.innerHTML = `
-    ${lastRun ? `<div class="ai-h">Last run (${esc(lastRun.mode)})${lastRun.hypothetical_cash ? ` · hypothetical fund ${usd(lastRun.hypothetical_cash)}` : ""}</div>
-      ${lastRun.journal ? `<div>${esc(lastRun.journal)}</div>` : ""}<div class="ai-dim ai-note">${esc(lastRun.market_note || "")}</div>${resultsHtml(lastRun.results)}` : ""}
     <div class="ai-h">Recent decisions</div>${decisionsHtml(state.decisions)}
     ${statsHtml(f, c)}
     ${f.halted ? `<div class="ai-warn">Halted: ${esc(f.halted_reason)} — no new trades; open positions keep their stops.</div>` : ""}
@@ -165,13 +164,22 @@ async function executeSeed() {
   });
 }
 
-const runDecision = (dryRun) => act(dryRun ? "Asking the model (dry run, ~20–60s)" : "Running a decision (~20–60s)", async () => {
-  if (!dryRun && state?.config?.mode === "live" && !confirm("Run a LIVE decision now? The AI may place real market orders.")) throw new Error("Cancelled");
-  lastRun = await api("/api/ai/kraken/run", { method: "POST", body: JSON.stringify({ dry_run: dryRun }) });
-  const n = (s) => lastRun.results.filter((r) => r.status === s).length;
-  setMsg(dryRun || lastRun.mode !== "live"
-    ? `Dry run done — would open ${n("would_open")}, close ${n("would_close")}; ${n("rejected")} rejected by the guardrails.`
-    : `Done — opened ${n("opened")}, closed ${n("closed")}, ${n("rejected")} rejected, ${n("failed")} failed.`, n("failed") ? "err" : "ok");
+/** Top-up: USD deposited on Kraken only becomes tradeable once it's added to the fund here. */
+const addFunds = () => act("Checking Kraken for new USD", async () => {
+  const p = await api("/api/ai/kraken/deposit/preview", { method: "POST", body: "{}" });
+  if (p.fund_status !== "active") throw new Error("Seed the fund first — top-ups apply to an active fund.");
+  if (!(p.available_usd >= 0.01)) {
+    throw new Error(`No new USD on Kraken. Kraken holds ${usd(p.kraken_usd)} and the fund already accounts for ${usd(p.fund_cash_usd)}. Deposit USD on Kraken, wait for it to clear, then try again.`);
+  }
+  const raw = prompt(`Kraken has ${usd(p.available_usd)} that isn't in the AI's fund yet.\n` +
+    `Fund equity now ${usd(p.equity_usd)}${p.deposits_usd ? ` (${usd(p.deposits_usd)} added so far)` : ""}.\n\n` +
+    `How much should the AI be able to trade? It's added at today's unit price, so the fund's % return doesn't jump.`, p.available_usd.toFixed(2));
+  if (raw == null) throw new Error("Cancelled");
+  const amount = Number(String(raw).replace(/[$,\s]/g, ""));
+  if (!(amount > 0)) throw new Error("Enter a dollar amount.");
+  if (!confirm(`Add ${usd(amount)} to the AI's fund?`)) throw new Error("Cancelled");
+  const r = await api("/api/ai/kraken/deposit", { method: "POST", body: JSON.stringify({ usd: amount, confirm: true }) });
+  setMsg(`Added ${usd(r.deposit.usd)}. Fund cash is now ${usd(r.fund.cash_usd)}; the next decision run can use it.`, "ok");
 });
 
 const togglePause = () => act(state?.fund?.halted ? "Resuming" : "Pausing", async () => {
@@ -199,8 +207,7 @@ export function initAiTrader() {
     wired = true;
     $("ai-reload")?.addEventListener("click", () => loadState({ prompt: true }));
     $("ai-seed-preview")?.addEventListener("click", previewSeed);
-    $("ai-dry")?.addEventListener("click", () => runDecision(true));
-    $("ai-run")?.addEventListener("click", () => runDecision(false));
+    $("ai-deposit")?.addEventListener("click", addFunds);
     $("ai-pause")?.addEventListener("click", togglePause);
     $("ai-report")?.addEventListener("click", sendReport);
     $("ai-test-email")?.addEventListener("click", testEmail);
