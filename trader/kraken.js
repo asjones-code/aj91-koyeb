@@ -263,5 +263,108 @@ export function indicators(bars) {
 		low_7d: low7,
 		from_7d_high_pct: round(pct(last, high7), 2),
 		from_7d_low_pct: round(pct(last, low7), 2),
+		structure_4h: priceStructure(bars),
+	};
+}
+
+// ── price structure (Villahermosa, "Trading and Investing for Beginners", Part 4) ──
+// Three tools on completed 4h bars: market structure from pivots, effort vs result
+// (volume against price), and false breakouts of pivot levels (spring / upthrust) + test.
+
+/** Pivot = bar whose high (low) is strictly beyond the `side` bars on each side. */
+export function pivots(b, side = 2) {
+	const highs = [], lows = [];
+	for (let i = side; i < b.length - side; i++) {
+		const around = [...b.slice(i - side, i), ...b.slice(i + 1, i + 1 + side)];
+		if (around.every((x) => b[i].h > x.h)) highs.push({ i, price: b[i].h });
+		if (around.every((x) => b[i].l < x.l)) lows.push({ i, price: b[i].l });
+	}
+	return { highs, lows };
+}
+
+export function priceStructure(hourly) {
+	// Drop the still-forming hourly bar so the last 4h bar is complete.
+	const b = aggregate(hourly.slice(0, -1), 4);
+	if (b.length < 30) return { error: "not enough history" };
+	const n = b.length, last = b[n - 1], price = last.c;
+	const { highs, lows } = pivots(b);
+	const r = (v) => round(v, 2);
+
+	// 1. Market structure: last two swing highs and lows.
+	const [h1, h2] = highs.slice(-2), [l1, l2] = lows.slice(-2);
+	let trend = "range";
+	if (h1 && h2 && l1 && l2) {
+		if (h2.price > h1.price && l2.price > l1.price) trend = "up";
+		else if (h2.price < h1.price && l2.price < l1.price) trend = "down";
+	}
+	// Reference pivot: in a downtrend the swing high before the latest low (its break = change
+	// of character); in an uptrend the swing low before the latest high.
+	let reference = null;
+	if (trend === "down" && l2) {
+		const ref = [...highs].reverse().find((h) => h.i < l2.i);
+		if (ref) reference = { kind: "swing_high", price: ref.price, broken: b.slice(l2.i + 1).some((x) => x.c > ref.price) };
+	} else if (trend === "up" && h2) {
+		const ref = [...lows].reverse().find((l) => l.i < h2.i);
+		if (ref) reference = { kind: "swing_low", price: ref.price, broken: b.slice(h2.i + 1).some((x) => x.c < ref.price) };
+	}
+	// Projection: is each impulse leg in the trend direction longer or shorter than the last?
+	let impulses = null;
+	if (trend === "down") {
+		const legs = [h1 && l1 ? pct(l1.price, h1.price) : null, h2 && l2 ? pct(l2.price, h2.price) : null];
+		if (legs.every((x) => x != null)) impulses = Math.abs(legs[1]) >= Math.abs(legs[0]) ? "expanding" : "contracting";
+	} else if (trend === "up") {
+		const legs = [l1 && h1 ? pct(h1.price, l1.price) : null, l2 && h2 ? pct(h2.price, l2.price) : null];
+		if (legs.every((x) => x != null)) impulses = legs[1] >= legs[0] ? "expanding" : "contracting";
+	}
+
+	// 2. Effort vs result on the last completed 4h bar, against the prior 20 bars.
+	const prior = b.slice(-21, -1);
+	const avgVol = mean(prior.map((x) => x.v)), avgRange = mean(prior.map((x) => x.h - x.l));
+	const range = last.h - last.l;
+	const volRatio = avgVol ? last.v / avgVol : null, rangeRatio = avgRange ? range / avgRange : null;
+	const closeLoc = range > 0 ? (last.c - last.l) / range : 0.5; // 0 = closed on the low, 1 = on the high
+	const up = last.c >= last.o;
+	let effort = "normal";
+	if (volRatio >= 2 && rangeRatio >= 1.5) effort = up ? "buying_climax" : "selling_climax";
+	else if (volRatio >= 1.5 && rangeRatio <= 0.7) effort = "effort_no_result";
+	else if (volRatio <= 0.7 && rangeRatio <= 0.8) effort = up ? "no_demand" : "no_supply";
+	// Wave volume over the last 12 bars (48h): volume on up bars vs down bars.
+	const w = b.slice(-12);
+	const upV = w.filter((x) => x.c >= x.o).reduce((s, x) => s + x.v, 0), dnV = w.filter((x) => x.c < x.o).reduce((s, x) => s + x.v, 0);
+
+	// 3. False breakouts in the last 6 bars of a pivot formed earlier (within ~10 days).
+	const recent = (list, j) => list.filter((p) => p.i < j - 2 && p.i >= j - 60);
+	const falseBreak = (kind) => {
+		for (let j = n - 1; j >= n - 6; j--) {
+			const x = b[j];
+			const levels = kind === "spring"
+				? recent(lows, j).filter((p) => x.l < p.price && x.c > p.price)
+				: recent(highs, j).filter((p) => x.h > p.price && x.c < p.price);
+			if (!levels.length) continue;
+			// The oldest qualifying pivot holds the most resting orders (the book's preference).
+			const lvl = levels[0];
+			const extreme = kind === "spring" ? x.l : x.h;
+			const after = b.slice(j + 1);
+			const held = kind === "spring" ? after.every((y) => y.l > extreme) : after.every((y) => y.h < extreme);
+			// A test: a later bar back near the level on lower volume than the false break.
+			const test = after.find((y) => (kind === "spring" ? y.l <= lvl.price * 1.01 : y.h >= lvl.price * 0.99) && y.v < x.v);
+			return {
+				bars_ago: n - 1 - j, level: lvl.price, extreme, depth_pct: r(Math.abs(pct(extreme, lvl.price))),
+				// Unknown (null) until at least one bar has closed after the false break.
+				volume_ratio: avgVol ? r(x.v / avgVol) : null, held: after.length ? held : null, tested_on_lower_volume: after.length ? Boolean(test) : null,
+			};
+		}
+		return null;
+	};
+
+	return {
+		trend, impulses,
+		last_swing_high: h2?.price ?? null, last_swing_low: l2?.price ?? null,
+		from_swing_high_pct: h2 ? r(pct(price, h2.price)) : null, from_swing_low_pct: l2 ? r(pct(price, l2.price)) : null,
+		reference_pivot: reference && { ...reference, from_price_pct: r(pct(reference.price, price)) },
+		last_bar: { effort, volume_ratio: r(volRatio), range_ratio: r(rangeRatio), close_location: r(closeLoc), up },
+		up_vs_down_volume_48h: dnV ? r(upV / dnV) : null,
+		spring: falseBreak("spring"),
+		upthrust: falseBreak("upthrust"),
 	};
 }

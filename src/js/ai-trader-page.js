@@ -20,6 +20,7 @@ const until = (iso) => {
 	return m < 60 ? `${Math.round(m)}m` : `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).padStart(2, "0")}m`;
 };
 const EXIT = { take_profit: "hit target", stop_loss: "stopped out", time: "time limit", ai: "closed by AI", manual: "closed manually" };
+const STRUCT = { up: "↑ HH / HL", down: "↓ LH / LL", range: "↔ range" };
 const WORDS = ["none", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -113,6 +114,8 @@ function renderScreen(d) {
 			<div class="row"><span>7d</span><em class="${tone(c.ret_7d_pct)}">${pct(c.ret_7d_pct, 1)}</em></div>
 			<div class="row"><span>4h SMA 20/50</span><em>${pct(c.vs_sma20_4h_pct, 1)} / ${pct(c.vs_sma50_4h_pct, 1)}</em></div>
 			<div class="row"><span>volume vs 7d</span><em>${num(c.volume_vs_7d_avg) ? c.volume_vs_7d_avg.toFixed(2) + "x" : "—"}</em></div>
+			${c.structure ? `<div class="row"><span>4h structure</span><em>${STRUCT[c.structure.trend] || esc(c.structure.trend)}</em></div>` : ""}
+			${c.structure?.spring || c.structure?.upthrust ? `<div class="row"><span>false break</span><em class="${c.structure.spring ? "up" : "down"}">${[c.structure.spring && "spring", c.structure.upthrust && "upthrust"].filter(Boolean).join(" + ")}</em></div>` : ""}
 			<div class="lf-pips">${pip(c.checks.trend, "Trend")}${pip(c.checks.volume, "Volume")}${pip(c.checks.momentum, "Mom.")}</div>
 		</div>`).join("");
 	const w = d.watching || [];

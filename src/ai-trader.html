@@ -119,8 +119,9 @@
     @media (max-width: 700px) { .lf-level { grid-template-columns: 60px 1fr 70px; } .lf-level .why { grid-column: 1 / -1; } }
 
     /* Skills / loop / rules */
-    .lf-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 2.4rem 2rem; counter-reset: s; padding: 0; }
+    .lf-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2.4rem 2.4rem; counter-reset: s; padding: 0; }
     .lf-steps li { list-style: none; counter-increment: s; }
+    @media (max-width: 760px) { .lf-steps { grid-template-columns: 1fr 1fr; } }
     .lf-steps li::before { content: "0" counter(s); display: block; font: .7rem var(--lf-mono); color: var(--lf-accent); margin-bottom: .8rem; }
     .lf-steps h3 { font: 500 1.1rem/1.2 var(--lf-display); margin: 0 0 .5rem; color: var(--lf-paper); }
     .lf-steps p { font: 300 1rem/1.6 var(--lf-text); color: var(--lf-ink-2); margin: 0; }
@@ -242,8 +243,9 @@
           <li><h3>Score momentum</h3><p>Each coin gets a 1–10 score from its 24h move, whether volume confirms it, and strength against BTC.</p></li>
           <li><h3>Grade the signal</h3><p><code>HIGH</code> a move over 2% that agrees with the 7-day trend. <code>MEDIUM</code> smaller or mixed. <code>LOW</code> a reversal or noise.</p></li>
           <li><h3>Check timeframes</h3><p>Momentum persists for days, then decays. 24h, 7d and 30d must agree; a bounce inside a downtrend doesn't count.</p></li>
+          <li><h3>Read the structure</h3><p>Swing highs and lows say whose market it is. Volume against price separates real moves from hollow ones. A false break below support that's retested on light volume (a <code>spring</code>) is the entry, and its low is where the stop goes.</p></li>
           <li><h3>Size by conviction</h3><p id="lf-sizing">LOW ≤ 10% of the fund, MEDIUM ≤ 15%, HIGH ≤ 20%. Never more than a quarter in one coin.</p></li>
-          <li><h3>Name the exit</h3><p>Every position has a stop sized off volatility, a target at least 1.5× the stop and 3× fees, and a time limit.</p></li>
+          <li><h3>Name the exit</h3><p>Every position has a stop beyond a structural level, a target at least 1.5× the stop and 3× fees, and a time limit.</p></li>
         </ol>
 
         <div class="lf-label" style="margin-top:4.5rem">The loop</div>

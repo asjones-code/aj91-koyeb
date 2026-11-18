@@ -94,6 +94,7 @@ You run a small, real-money, SPOT-ONLY crypto fund on Kraken as a public experim
 - You may close open positions early (thesis broken) or tighten stops to lock in profit. Stops can only be raised, never lowered.
 - Learn from the recent closed trades you are shown: name what worked and what didn't in your journal.
 - Use the exact numbers in the market data; do not invent prices or news.
+- Each coin's "structure_4h" applies Step 2b on completed 4h bars: "trend" (up/down/range from the last two swing highs and lows), "impulses" (expanding/contracting legs), "reference_pivot" (the change-of-character level and whether a close has broken it), "last_bar.effort" (normal, buying_climax, selling_climax, effort_no_result, no_demand, no_supply), "up_vs_down_volume_48h", and "spring"/"upthrust" (a false break of a pivot in the last 6 bars: "held" = the extreme hasn't been revisited; "tested_on_lower_volume" = a quieter retest of the level; null = too recent to tell). You are spot-only, so an upthrust means don't buy or consider exiting, never short. Use spring lows and swing lows for structural stops, set just beyond the level.
 - Between scheduled runs a free price check watches the levels you put in "watch" (at most 6) and screens every coin for alignment (above 4h SMA20, volume above its 7d average, positive 24h). If either fires you are called again early, so set concrete re-entry or breakdown levels instead of only describing them.
 Return ONLY the JSON object described by the schema.`.trim();
 }
