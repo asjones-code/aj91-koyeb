@@ -111,7 +111,7 @@ function renderScreen(d) {
 		<div class="lf-coin ${c.aligned ? "aligned" : ""}">
 			<header><h3>${esc(c.asset)}</h3><span class="chg ${tone(c.ret_24h_pct)}">${pct(c.ret_24h_pct)}</span></header>
 			<div class="row"><span>7d</span><em class="${tone(c.ret_7d_pct)}">${pct(c.ret_7d_pct, 1)}</em></div>
-			<div class="row"><span>vs 4h SMA 20/50</span><em>${pct(c.vs_sma20_4h_pct, 1)} / ${pct(c.vs_sma50_4h_pct, 1)}</em></div>
+			<div class="row"><span>4h SMA 20/50</span><em>${pct(c.vs_sma20_4h_pct, 1)} / ${pct(c.vs_sma50_4h_pct, 1)}</em></div>
 			<div class="row"><span>volume vs 7d</span><em>${num(c.volume_vs_7d_avg) ? c.volume_vs_7d_avg.toFixed(2) + "x" : "—"}</em></div>
 			<div class="lf-pips">${pip(c.checks.trend, "Trend")}${pip(c.checks.volume, "Volume")}${pip(c.checks.momentum, "Mom.")}</div>
 		</div>`).join("");
@@ -236,7 +236,7 @@ function renderDesk() {
 
 const chartOpts = (el, height) => ({
 	width: el.clientWidth, height,
-	layout: { background: { color: "transparent" }, textColor: "rgba(243,236,224,0.45)", fontFamily: "JetBrains Mono, ui-monospace, monospace", fontSize: 11 },
+	layout: { background: { color: "transparent" }, textColor: "rgba(243,236,224,0.45)", fontFamily: "IBM Plex Mono, ui-monospace, monospace", fontSize: 11 },
 	grid: { vertLines: { color: "rgba(243,236,224,0.04)" }, horzLines: { color: "rgba(243,236,224,0.04)" } },
 	rightPriceScale: { borderColor: "rgba(243,236,224,0.1)" },
 	timeScale: { borderColor: "rgba(243,236,224,0.1)", timeVisible: true },

@@ -9,13 +9,13 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:ital,opsz,wght@0,6..72,300..600;1,6..72,300..600&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
   <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js" defer></script>
   <style>
     :root {
-      --lf-display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
-      --lf-text: "Newsreader", "Iowan Old Style", Georgia, serif;
-      --lf-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+      --lf-display: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+      --lf-text: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+      --lf-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
       --lf-bg: #151513;
       --lf-bg-2: #1a1a17;
       --lf-paper: #f3ece0;
@@ -53,9 +53,9 @@
     @media (max-width: 760px) { .lf-wall { grid-template-columns: repeat(4, 1fr); } }
     @media (prefers-reduced-motion: reduce) { .lf-wall, .lf-wall div, .lf-tape-track { animation: none !important; } }
     .lf-hero-inner { position: relative; z-index: 2; }
-    .lf-title { font: 400 clamp(4.2rem, 13vw, 10.5rem)/.86 var(--lf-display); letter-spacing: -.02em; margin: 1.4rem 0 1.2rem; color: var(--lf-paper); }
-    .lf-title i { color: var(--lf-accent); }
-    .lf-sub { font: italic 400 clamp(1.35rem, 2.6vw, 2rem)/1.25 var(--lf-display); color: var(--lf-ink); max-width: 32ch; margin: 0 0 1.6rem; }
+    .lf-title { font: 600 clamp(3.4rem, 10vw, 7.5rem)/.9 var(--lf-display); letter-spacing: -.05em; margin: 1.4rem 0 1.2rem; color: var(--lf-paper); }
+    .lf-title i, .lf-h2 i { font-style: normal; color: var(--lf-accent); }
+    .lf-sub { font: 300 clamp(1.2rem, 2.2vw, 1.6rem)/1.3 var(--lf-display); color: var(--lf-ink); max-width: 32ch; margin: 0 0 1.6rem; }
     .lf-lede { font: 300 1.12rem/1.65 var(--lf-text); color: var(--lf-ink-2); max-width: 60ch; margin: 0 0 .8rem; }
     .lf-lede em { color: var(--lf-ink); }
     .lf-status { display: inline-flex; align-items: center; gap: .6rem; margin-top: 1.4rem; font: .72rem var(--lf-mono); letter-spacing: .06em; color: var(--lf-ink-2); }
@@ -65,10 +65,10 @@
     @keyframes lf-pulse { 50% { opacity: .35; } }
 
     .lf-stats { display: flex; flex-wrap: wrap; gap: 2.2rem 3.4rem; margin-top: 2.6rem; }
-    .lf-stat b { display: block; font: 400 clamp(2.4rem, 5vw, 3.4rem)/1 var(--lf-display); color: var(--lf-paper); font-variant-numeric: lining-nums tabular-nums; }
+    .lf-stat b { display: block; font: 500 clamp(1.9rem, 4vw, 2.7rem)/1 var(--lf-mono); letter-spacing: -.03em; color: var(--lf-paper); font-variant-numeric: lining-nums tabular-nums; }
     .lf-stat b.up { color: var(--lf-up); } .lf-stat b.down { color: var(--lf-down); }
     .lf-stat span { font: .64rem var(--lf-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--lf-ink-3); }
-    .lf-verdict { font: italic 300 1.05rem var(--lf-text); color: var(--lf-ink-2); margin-top: 1.4rem; max-width: 60ch; }
+    .lf-verdict { font: 300 1.05rem var(--lf-text); color: var(--lf-ink-2); margin-top: 1.4rem; max-width: 60ch; }
 
     /* ── Ticker tape ── */
     .lf-tape { position: relative; z-index: 2; overflow: hidden; border-block: 1px solid var(--lf-rule); background: rgba(0,0,0,.18);
@@ -81,19 +81,18 @@
 
     /* ── Sections ── */
     .lf-sec { padding: 5rem 0 0; }
-    .lf-h2 { font: 400 clamp(2.2rem, 5vw, 3.6rem)/1 var(--lf-display); color: var(--lf-paper); margin: 1rem 0 1rem; }
-    .lf-h2 i { color: var(--lf-accent); }
+    .lf-h2 { font: 500 clamp(1.8rem, 4vw, 2.8rem)/1.05 var(--lf-display); letter-spacing: -.03em; color: var(--lf-paper); margin: 1rem 0 1rem; }
+    
     .lf-intro { font: 300 1.08rem/1.65 var(--lf-text); color: var(--lf-ink-2); max-width: 62ch; margin: 0 0 2.4rem; }
 
     /* Right now */
     .lf-now { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 3rem; align-items: start; }
-    .lf-journal p { font: 300 clamp(1.2rem, 2.1vw, 1.5rem)/1.6 var(--lf-text); color: var(--lf-paper); margin: 0; max-width: 62ch; }
-    .lf-journal p::first-letter { font: 400 3.6em/.8 var(--lf-display); float: left; margin: .08em .1em 0 0; color: var(--lf-accent); }
+    .lf-journal p { font: 300 clamp(1.05rem, 1.6vw, 1.2rem)/1.65 var(--lf-text); color: var(--lf-paper); margin: 0; max-width: 62ch; }
     .lf-journal .meta { font: .64rem var(--lf-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--lf-ink-3); margin-top: 1.2rem; }
     .lf-side { border-left: 1px solid var(--lf-rule); padding-left: 1.6rem; display: grid; gap: 1.6rem; }
-    .lf-side b { display: block; font: 400 1.9rem/1.05 var(--lf-display); color: var(--lf-paper); }
+    .lf-side b { display: block; font: 500 1.35rem/1.15 var(--lf-display); letter-spacing: -.02em; color: var(--lf-paper); }
     .lf-side span { font: .62rem var(--lf-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--lf-ink-3); }
-    .lf-side small { display: block; font: italic 300 .92rem/1.45 var(--lf-text); color: var(--lf-ink-2); margin-top: .35rem; }
+    .lf-side small { display: block; font: 300 .92rem/1.45 var(--lf-text); color: var(--lf-ink-2); margin-top: .35rem; }
     @media (max-width: 860px) { .lf-now { grid-template-columns: 1fr; } .lf-side { border-left: 0; padding-left: 0; border-top: 1px solid var(--lf-rule); padding-top: 1.6rem; grid-template-columns: 1fr 1fr; } }
 
     /* The screen */
@@ -101,21 +100,21 @@
     .lf-coin { background: var(--lf-bg); padding: 1.2rem 1.2rem 1.1rem; display: grid; gap: .55rem; transition: background .3s; }
     .lf-coin.aligned { background: #18211d; }
     .lf-coin header { display: flex; justify-content: space-between; align-items: baseline; }
-    .lf-coin h3 { font: 400 1.7rem/1 var(--lf-display); color: var(--lf-paper); margin: 0; }
+    .lf-coin h3 { font: 600 1.15rem/1 var(--lf-mono); color: var(--lf-paper); margin: 0; }
     .lf-coin .chg { font: .82rem var(--lf-mono); }
     .lf-coin .row { display: flex; justify-content: space-between; font: .68rem var(--lf-mono); color: var(--lf-ink-3); }
     .lf-coin .row em { font-style: normal; color: var(--lf-ink-2); }
     .lf-pips { display: flex; gap: .35rem; margin-top: .2rem; }
     .lf-pip { flex: 1; font: .56rem/1 var(--lf-mono); letter-spacing: .1em; text-transform: uppercase; text-align: center; padding: .4rem 0 .35rem; border: 1px solid var(--lf-rule); color: var(--lf-ink-3); border-radius: 2px; }
     .lf-pip.on { border-color: rgba(126,232,176,.45); color: var(--lf-up); background: rgba(126,232,176,.06); }
-    .lf-screen-key { font: italic 300 .95rem/1.5 var(--lf-text); color: var(--lf-ink-3); margin-top: 1rem; max-width: 70ch; }
+    .lf-screen-key { font: 300 .95rem/1.5 var(--lf-text); color: var(--lf-ink-3); margin-top: 1rem; max-width: 70ch; }
 
     /* Watch levels */
     .lf-levels { margin-top: 3rem; border-top: 1px solid var(--lf-rule); }
     .lf-level { display: grid; grid-template-columns: 70px 150px 1fr 90px; gap: 1.2rem; align-items: baseline; padding: 1rem 0; border-bottom: 1px solid var(--lf-rule); }
-    .lf-level .a { font: 400 1.25rem var(--lf-display); color: var(--lf-paper); }
+    .lf-level .a { font: 600 .9rem var(--lf-mono); color: var(--lf-paper); }
     .lf-level .p { font: .8rem var(--lf-mono); color: var(--lf-ink); }
-    .lf-level .why { font: italic 300 .98rem/1.45 var(--lf-text); color: var(--lf-ink-2); }
+    .lf-level .why { font: 300 .98rem/1.45 var(--lf-text); color: var(--lf-ink-2); }
     .lf-level .dist { font: .74rem var(--lf-mono); text-align: right; color: var(--lf-ink-3); }
     @media (max-width: 700px) { .lf-level { grid-template-columns: 60px 1fr 70px; } .lf-level .why { grid-column: 1 / -1; } }
 
@@ -123,24 +122,24 @@
     .lf-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 2.4rem 2rem; counter-reset: s; padding: 0; }
     .lf-steps li { list-style: none; counter-increment: s; }
     .lf-steps li::before { content: "0" counter(s); display: block; font: .7rem var(--lf-mono); color: var(--lf-accent); margin-bottom: .8rem; }
-    .lf-steps h3 { font: 400 1.5rem/1.1 var(--lf-display); margin: 0 0 .5rem; color: var(--lf-paper); }
+    .lf-steps h3 { font: 500 1.1rem/1.2 var(--lf-display); margin: 0 0 .5rem; color: var(--lf-paper); }
     .lf-steps p { font: 300 1rem/1.6 var(--lf-text); color: var(--lf-ink-2); margin: 0; }
     .lf-steps code { font: .82em var(--lf-mono); color: var(--lf-accent); }
     .lf-loop { display: grid; grid-template-columns: repeat(5, 1fr); border-top: 1px solid var(--lf-rule); border-bottom: 1px solid var(--lf-rule); }
     .lf-loop div { padding: 1.4rem 1.2rem 1.4rem 0; }
     .lf-loop div + div { padding-left: 1.2rem; border-left: 1px solid var(--lf-rule); }
     .lf-loop b { display: block; font: 500 .66rem var(--lf-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--lf-accent); margin-bottom: .6rem; }
-    .lf-loop strong { display: block; font: 400 1.3rem/1.1 var(--lf-display); color: var(--lf-paper); margin-bottom: .4rem; font-weight: 400; }
+    .lf-loop strong { display: block; font: 500 1rem/1.2 var(--lf-mono); color: var(--lf-paper); margin-bottom: .4rem; font-weight: 400; }
     .lf-loop p { font: 300 .92rem/1.5 var(--lf-text); color: var(--lf-ink-2); margin: 0; }
     @media (max-width: 900px) { .lf-loop { grid-template-columns: 1fr 1fr; } .lf-loop div, .lf-loop div + div { padding: 1.2rem 1rem 1.2rem 0; border-left: 0; border-bottom: 1px solid var(--lf-rule); } }
     .lf-rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 0 2.4rem; }
     .lf-rule { padding: 1.1rem 0; border-top: 1px solid var(--lf-rule); display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: baseline; }
     .lf-rule span { font: 300 1rem var(--lf-text); color: var(--lf-ink-2); }
-    .lf-rule b { font: 400 1.3rem var(--lf-display); color: var(--lf-paper); }
+    .lf-rule b { font: 500 1rem var(--lf-mono); color: var(--lf-paper); }
 
     /* ── The desk (signal token) ── */
     .lf-lock { margin: 6rem 0 0; padding: 3rem 0; border-top: 1px solid var(--lf-rule); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.5rem; }
-    .lf-lock p { font: italic 400 clamp(1.3rem, 2.4vw, 1.8rem)/1.3 var(--lf-display); color: var(--lf-ink-2); margin: 0; max-width: 34ch; }
+    .lf-lock p { font: 300 clamp(1.05rem, 1.8vw, 1.3rem)/1.4 var(--lf-display); color: var(--lf-ink-2); margin: 0; max-width: 34ch; }
     .lf-btn { font: .74rem var(--lf-mono); letter-spacing: .12em; text-transform: uppercase; padding: .85rem 1.3rem; border-radius: 999px; border: 1px solid var(--lf-accent); background: none; color: var(--lf-accent); cursor: pointer; white-space: nowrap; text-decoration: none; display: inline-block; }
     .lf-btn:hover { background: var(--lf-accent); color: #000; }
     .lf-btn.ghost { border-color: var(--lf-rule); color: var(--lf-ink-2); }
@@ -151,7 +150,7 @@
     .lf-book { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1px; background: var(--lf-rule); border: 1px solid var(--lf-rule); margin: 2rem 0 0; }
     .lf-book div { background: var(--lf-bg); padding: 1rem 1.1rem; }
     .lf-book span { display: block; font: .6rem var(--lf-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--lf-ink-3); }
-    .lf-book b { display: block; font: 400 1.7rem/1.1 var(--lf-display); color: var(--lf-paper); margin-top: .3rem; }
+    .lf-book b { display: block; font: 500 1.3rem/1.1 var(--lf-mono); color: var(--lf-paper); margin-top: .3rem; }
     .lf-book b.up { color: var(--lf-up); } .lf-book b.down { color: var(--lf-down); }
     .lf-panel { border: 1px solid var(--lf-rule); margin-top: 2rem; background: var(--lf-bg-2); }
     .lf-panel-h { display: flex; flex-wrap: wrap; gap: .8rem 1.4rem; align-items: center; justify-content: space-between; padding: .9rem 1.1rem; border-bottom: 1px solid var(--lf-rule); }
@@ -172,9 +171,9 @@
     .lf-table th { text-align: left; font-weight: 400; font-size: .6rem; letter-spacing: .12em; text-transform: uppercase; color: var(--lf-ink-3); padding: .6rem 1.1rem; border-bottom: 1px solid var(--lf-rule); }
     .lf-table td { padding: .7rem 1.1rem; border-bottom: 1px solid rgba(243,236,224,.05); vertical-align: top; color: var(--lf-ink); }
     .lf-table .r { text-align: right; }
-    .lf-table .sym { font: 400 1.05rem var(--lf-display); color: var(--lf-paper); }
-    .lf-table .why { font: italic 300 .9rem/1.45 var(--lf-text); color: var(--lf-ink-2); }
-    .empty { font: italic 300 1rem var(--lf-text); color: var(--lf-ink-3); padding: 1.2rem 1.1rem; }
+    .lf-table .sym { font: 600 .8rem var(--lf-mono); color: var(--lf-paper); }
+    .lf-table .why { font: 300 .9rem/1.45 var(--lf-text); color: var(--lf-ink-2); }
+    .empty { font: 300 1rem var(--lf-text); color: var(--lf-ink-3); padding: 1.2rem 1.1rem; }
     .lf-log { padding: 0 1.1rem; }
     .lf-log article { padding: 1.3rem 0; border-bottom: 1px solid var(--lf-rule); }
     .lf-log article:last-child { border-bottom: 0; }
@@ -184,7 +183,7 @@
     .lf-note { font: .7rem var(--lf-mono); color: var(--lf-ink-3); margin-top: 1.2rem; }
     .lf-note.warn { color: var(--lf-down); }
 
-    .lf-foot { margin: 6rem 0 0; padding: 2rem 0 5rem; border-top: 1px solid var(--lf-rule); font: italic 300 .95rem/1.6 var(--lf-text); color: var(--lf-ink-3); max-width: 70ch; }
+    .lf-foot { margin: 6rem 0 0; padding: 2rem 0 5rem; border-top: 1px solid var(--lf-rule); font: 300 .95rem/1.6 var(--lf-text); color: var(--lf-ink-3); max-width: 70ch; }
   </style>
 </head>
 <body data-barba="wrapper" class="page-is-ai-trader">
