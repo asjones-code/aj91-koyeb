@@ -24,6 +24,20 @@ CREATE TABLE IF NOT EXISTS ai_fund (
 INSERT INTO ai_fund (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 ALTER TABLE ai_fund ADD COLUMN IF NOT EXISTS watchlist JSONB;   -- AI-set price levels that trigger an early decision
 ALTER TABLE ai_fund ADD COLUMN IF NOT EXISTS last_email JSONB;  -- {at, ok, subject, error}
+-- Unit accounting: the seed buys units at 1.00; a top-up buys units at the current
+-- price per unit (equity / units), so deposits move equity but not the % return.
+ALTER TABLE ai_fund ADD COLUMN IF NOT EXISTS units DOUBLE PRECISION;          -- NULL = seed_usd (no top-ups yet)
+ALTER TABLE ai_fund ADD COLUMN IF NOT EXISTS deposits_usd DOUBLE PRECISION NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS ai_deposits (
+	id SERIAL PRIMARY KEY,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+	usd DOUBLE PRECISION NOT NULL,
+	nav DOUBLE PRECISION NOT NULL,                     -- price per unit at deposit
+	units DOUBLE PRECISION NOT NULL,                   -- units bought
+	equity_before DOUBLE PRECISION NOT NULL,
+	kraken_usd DOUBLE PRECISION                        -- exchange USD balance at deposit
+);
 
 CREATE TABLE IF NOT EXISTS ai_trades (
 	id SERIAL PRIMARY KEY,
@@ -67,6 +81,7 @@ CREATE TABLE IF NOT EXISTS ai_snapshots (
 	recap TEXT,
 	created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+ALTER TABLE ai_snapshots ADD COLUMN IF NOT EXISTS units DOUBLE PRECISION;     -- NULL = seed_usd
 
 CREATE TABLE IF NOT EXISTS ai_decisions (
 	id SERIAL PRIMARY KEY,
@@ -104,6 +119,7 @@ export function createStore(getPool) {
 		...r,
 		seed_usd: num(r.seed_usd), cash_usd: num(r.cash_usd), peak_equity: num(r.peak_equity),
 		seed_btc_price: num(r.seed_btc_price), fees_paid: num(r.fees_paid),
+		units: num(r.units), deposits_usd: num(r.deposits_usd) || 0,
 	});
 	const tradeRow = (r) => r && Object.fromEntries(Object.entries(r).map(([k, v]) =>
 		[k, typeof v === "string" && /^(qty|entry_price|cost_usd|entry_fee|take_profit|stop_loss|realized_usd|exit_price|exit_value_usd|exit_fee|pnl_usd|pnl_pct)$/.test(k) ? Number(v) : v]));
@@ -193,18 +209,28 @@ export function createStore(getPool) {
 			return r.rows;
 		},
 
+		async insertDeposit(d) {
+			const r = await q(`INSERT INTO ai_deposits (usd, nav, units, equity_before, kraken_usd) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+				[d.usd, d.nav, d.units, d.equity_before, d.kraken_usd ?? null]);
+			return r.rows[0];
+		},
+		async deposits(limit = 20) {
+			const r = await q("SELECT * FROM ai_deposits ORDER BY created_at DESC LIMIT $1", [limit]);
+			return r.rows.map((d) => ({ ...d, usd: num(d.usd), nav: num(d.nav), units: num(d.units), equity_before: num(d.equity_before), kraken_usd: num(d.kraken_usd) }));
+		},
+
 		async upsertSnapshot(s) {
-			await q(`INSERT INTO ai_snapshots (day, equity_usd, cash_usd, positions_usd, btc_price, basket_value_usd, recap)
-				VALUES ($1,$2,$3,$4,$5,$6,$7)
-				ON CONFLICT (day) DO UPDATE SET equity_usd=$2, cash_usd=$3, positions_usd=$4, btc_price=$5, basket_value_usd=$6, recap=coalesce($7, ai_snapshots.recap), created_at=now()`,
-				[s.day, s.equity_usd, s.cash_usd, s.positions_usd, s.btc_price, s.basket_value_usd, s.recap || null]);
+			await q(`INSERT INTO ai_snapshots (day, equity_usd, cash_usd, positions_usd, btc_price, basket_value_usd, recap, units)
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+				ON CONFLICT (day) DO UPDATE SET equity_usd=$2, cash_usd=$3, positions_usd=$4, btc_price=$5, basket_value_usd=$6, recap=coalesce($7, ai_snapshots.recap), units=$8, created_at=now()`,
+				[s.day, s.equity_usd, s.cash_usd, s.positions_usd, s.btc_price, s.basket_value_usd, s.recap || null, s.units ?? null]);
 		},
 		async snapshots(limit = 400) {
 			const r = await q("SELECT * FROM ai_snapshots ORDER BY day DESC LIMIT $1", [limit]);
 			return r.rows.reverse().map((s) => ({
 				...s, day: s.day instanceof Date ? s.day.toISOString().slice(0, 10) : String(s.day).slice(0, 10),
 				equity_usd: num(s.equity_usd), cash_usd: num(s.cash_usd), positions_usd: num(s.positions_usd),
-				btc_price: num(s.btc_price), basket_value_usd: num(s.basket_value_usd),
+				btc_price: num(s.btc_price), basket_value_usd: num(s.basket_value_usd), units: num(s.units),
 			}));
 		},
 

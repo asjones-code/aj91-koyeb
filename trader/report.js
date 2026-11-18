@@ -4,6 +4,7 @@
  */
 
 import { CONVICTION_CAP_PCT } from "./config.js";
+import { fundUnits } from "./engine.js";
 
 const HOUR = 3600_000;
 const r2 = (v) => (v == null || !Number.isFinite(v) ? null : Math.round(v * 100) / 100);
@@ -52,11 +53,14 @@ export function createReporter({ cfgFn, store, engine, brain, kraken, sendEmail,
 		const val = engine.valuation(fund, open, prices);
 		const basket = engine.basketValue(fund, prices);
 		const seed = fund.seed_usd || 0;
+		const units = fundUnits(fund);
+		const nav = units ? val.equity / units : null;   // price per unit, 1.00 at the seed
 		const peak = Math.max(fund.peak_equity || 0, val.equity);
 		const stats = await store.allClosedStats();
 		return {
-			fund, open, prices, val, basket, seed,
-			returnPct: seed ? (val.equity / seed - 1) * 100 : null,
+			fund, open, prices, val, basket, seed, units, nav,
+			// Unit-based, so top-ups don't count as gains.
+			returnPct: nav != null ? (nav - 1) * 100 : null,
 			btcPct: fund.seed_btc_price && prices.BTC ? (prices.BTC / fund.seed_btc_price - 1) * 100 : null,
 			holdPct: seed ? (basket / seed - 1) * 100 : null,
 			drawdownPct: peak > 0 ? (1 - val.equity / peak) * 100 : 0,
@@ -76,7 +80,8 @@ export function createReporter({ cfgFn, store, engine, brain, kraken, sendEmail,
 			store.closedSince(since), store.openedSince(since), store.decisionsSince(since), store.snapshots(60),
 		]);
 		const prev = [...snaps].reverse().find((s) => s.day < today());
-		const dayPct = prev ? (m.val.equity / prev.equity_usd - 1) * 100 : m.returnPct;
+		const prevNav = prev ? prev.equity_usd / (prev.units ?? m.seed) : null;
+		const dayPct = prevNav ? (m.nav / prevNav - 1) * 100 : m.returnPct;
 		const goalPct = (m.val.equity / cfg.goalUsd) * 100;
 		const doublings = m.val.equity > 0 ? Math.log2(cfg.goalUsd / m.val.equity) : null;
 
@@ -95,7 +100,7 @@ export function createReporter({ cfgFn, store, engine, brain, kraken, sendEmail,
 
 		await store.upsertSnapshot({
 			day: today(), equity_usd: m.val.equity, cash_usd: m.fund.cash_usd, positions_usd: m.val.positionsUsd,
-			btc_price: m.prices.BTC || null, basket_value_usd: m.basket, recap,
+			btc_price: m.prices.BTC || null, basket_value_usd: m.basket, recap, units: m.units,
 		});
 
 		let email = null;
@@ -127,7 +132,7 @@ export function createReporter({ cfgFn, store, engine, brain, kraken, sendEmail,
 		return `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:680px;margin:0 auto;color:#111">
 <p style="font:600 11px monospace;letter-spacing:.12em;color:#888;text-transform:uppercase;margin:0 0 4px">AI Trader · daily report · ${summary.day} · ${cfg.mode === "live" ? "LIVE" : "DRY RUN"}</p>
 <h1 style="margin:0 0 4px;font-size:24px">${usd(m.val.equity)} <span style="color:${color(m.returnPct)}">${pct(r2(m.returnPct))}</span></h1>
-<p style="margin:0 0 16px;color:#666;font-size:13px">Day ${Math.max(1, Math.ceil(m.daysRunning))} · seeded with ${usd(m.seed)} · ${m.fund.halted ? `<b style="color:#d6336c">HALTED: ${esc(m.fund.halted_reason)}</b>` : "trading"}</p>
+<p style="margin:0 0 16px;color:#666;font-size:13px">Day ${Math.max(1, Math.ceil(m.daysRunning))} · seeded with ${usd(m.seed)}${m.fund.deposits_usd ? ` + ${usd(m.fund.deposits_usd)} added` : ""} · ${m.fund.halted ? `<b style="color:#d6336c">HALTED: ${esc(m.fund.halted_reason)}</b>` : "trading"}</p>
 ${recap ? `<blockquote style="margin:0 0 18px;padding:12px 14px;border-left:3px solid #111;background:#f7f7f5;font-size:14px;line-height:1.5">${esc(recap)}</blockquote>` : ""}
 <table style="width:100%;border-collapse:collapse;margin-bottom:16px"><tr>
 ${stat("24h", pct(r2(dayPct)), color(dayPct))}${stat("AI since start", pct(r2(m.returnPct)), color(m.returnPct))}${stat("BTC since start", pct(r2(m.btcPct)), color(m.btcPct))}${stat("Hold seed coins", pct(r2(m.holdPct)), color(m.holdPct))}
@@ -183,6 +188,7 @@ ${journal ? `<h3 style="margin:18px 0 6px;font-size:14px">AI journal</h3>${journ
 			fund: {
 				status: fund.status, halted: fund.halted, halted_reason: fund.halted_reason, seeded_at: fund.seeded_at,
 				seed_usd: fund.seed_usd, cash_usd: fund.cash_usd, fees_paid: fund.fees_paid,
+				deposits_usd: fund.deposits_usd || 0, nav: m ? m.nav : null,
 				equity_usd: m ? r2(m.val.equity) : null, return_pct: m ? r2(m.returnPct) : null,
 				btc_pct: m ? r2(m.btcPct) : null, hold_pct: m ? r2(m.holdPct) : null, drawdown_pct: m ? r2(m.drawdownPct) : null,
 				win_rate_pct: m ? r2(m.winRate) : null, trades_closed: m ? m.stats.n : 0,
@@ -257,11 +263,11 @@ ${journal ? `<h3 style="margin:18px 0 6px;font-size:14px">AI journal</h3>${journ
 			const seed = m.seed;
 			const curve = snaps.map((s) => ({
 				day: s.day,
-				ai: r2((s.equity_usd / seed) * 100),
+				ai: r2((s.equity_usd / (s.units ?? seed)) * 100),
 				btc: fund.seed_btc_price && s.btc_price ? r2((s.btc_price / fund.seed_btc_price) * 100) : null,
 				hold: s.basket_value_usd ? r2((s.basket_value_usd / seed) * 100) : null,
 			}));
-			curve.push({ day: "now", ai: r2((m.val.equity / seed) * 100), btc: r2(100 + (m.btcPct || 0)), hold: r2(100 + (m.holdPct || 0)) });
+			curve.push({ day: "now", ai: r2(m.nav * 100), btc: r2(100 + (m.btcPct || 0)), hold: r2(100 + (m.holdPct || 0)) });
 			data = {
 				status: fund.halted ? "halted" : "trading",
 				mode: cfg.mode,
