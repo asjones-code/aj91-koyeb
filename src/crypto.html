@@ -10,7 +10,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
-  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js" defer></script>
   <style>
     :root {
       --lf-display: "IBM Plex Mono", ui-monospace, Menlo, monospace;
@@ -139,52 +138,7 @@
     .lf-btn:hover { background: var(--lf-accent); color: #000; }
     .lf-btn.ghost { border-color: var(--lf-rule); color: var(--lf-ink-2); }
     .lf-btn.ghost:hover { background: var(--lf-ink); color: #000; }
-    .lf-desk { padding-top: 3.5rem; }
-    .lf-desk[hidden], .lf-lock[hidden] { display: none; }
-    .lf-desk-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 1rem; }
-    .lf-book { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1px; background: var(--lf-rule); border: 1px solid var(--lf-rule); margin: 2rem 0 0; }
-    .lf-book div { background: var(--lf-bg); padding: 1rem 1.1rem; }
-    .lf-book span { display: block; font: .6rem var(--lf-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--lf-ink-3); }
-    .lf-book b { display: block; font: 500 1.3rem/1.1 var(--lf-mono); color: var(--lf-paper); margin-top: .3rem; }
-    .lf-book b.up { color: var(--lf-up); } .lf-book b.down { color: var(--lf-down); }
-    .lf-panel { border: 1px solid var(--lf-rule); margin-top: 2rem; background: var(--lf-bg-2); }
-    .lf-panel-h { display: flex; flex-wrap: wrap; gap: .8rem 1.4rem; align-items: center; justify-content: space-between; padding: .9rem 1.1rem; border-bottom: 1px solid var(--lf-rule); }
-    .lf-tabs { display: flex; flex-wrap: wrap; gap: .2rem; }
-    .lf-tab { font: .7rem var(--lf-mono); letter-spacing: .08em; background: none; border: 1px solid transparent; color: var(--lf-ink-3); padding: .35rem .6rem; border-radius: 3px; cursor: pointer; }
-    .lf-tab:hover { color: var(--lf-paper); }
-    .lf-tab[aria-pressed="true"] { color: var(--lf-paper); border-color: var(--lf-rule); background: rgba(255,255,255,.03); }
-    .lf-tab.held::after { content: "•"; color: var(--lf-up); margin-left: .3rem; }
-    .lf-legend { display: flex; flex-wrap: wrap; gap: 1rem; font: .64rem var(--lf-mono); color: var(--lf-ink-3); }
-    .lf-legend i { display: inline-block; width: 14px; height: 2px; vertical-align: middle; margin-right: .4rem; }
-    .lf-legend i.dash { background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px); height: 1px; }
-    .lf-chart { height: 420px; }
-    .lf-chart.small { height: 260px; }
-    .lf-chart .empty { padding: 2rem 1.1rem; }
-    .lf-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 2rem; }
-    @media (max-width: 860px) { .lf-grid2 { grid-template-columns: 1fr; } .lf-chart { height: 340px; } }
-    .lf-table { width: 100%; border-collapse: collapse; font: .74rem/1.45 var(--lf-mono); }
-    .lf-table th { text-align: left; font-weight: 400; font-size: .6rem; letter-spacing: .12em; text-transform: uppercase; color: var(--lf-ink-3); padding: .6rem 1.1rem; border-bottom: 1px solid var(--lf-rule); }
-    .lf-table td { padding: .7rem 1.1rem; border-bottom: 1px solid rgba(243,236,224,.05); vertical-align: top; color: var(--lf-ink); }
-    .lf-table .r { text-align: right; }
-    .lf-table .sym { font: 600 .8rem var(--lf-mono); color: var(--lf-paper); }
-    .lf-table .why { font: 300 .9rem/1.45 var(--lf-text); color: var(--lf-ink-2); }
     .empty { font: 300 1rem var(--lf-text); color: var(--lf-ink-3); padding: 1.2rem 1.1rem; }
-    .lf-log { padding: 0 1.1rem; }
-    .lf-log article { padding: 1.3rem 0; border-bottom: 1px solid var(--lf-rule); }
-    .lf-log article:last-child { border-bottom: 0; }
-    .lf-log .meta { font: .62rem var(--lf-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--lf-ink-3); }
-    .lf-log p { font: 300 1.05rem/1.6 var(--lf-text); color: var(--lf-ink); margin: .5rem 0 0; max-width: 72ch; }
-    .lf-log .acts { font: .7rem var(--lf-mono); color: var(--lf-ink-2); margin-top: .6rem; }
-    .lf-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: 1.6rem; }
-    .lf-ctl .lf-btn { padding: .6rem 1rem; font-size: .66rem; }
-    .lf-btn.warn { border-color: rgba(255,122,147,.5); color: var(--lf-down); }
-    .lf-btn.warn:hover { background: var(--lf-down); color: #000; }
-    .lf-btn:disabled { opacity: .4; cursor: wait; }
-    .lf-btn[hidden] { display: none; }
-    .lf-msg { font: .72rem var(--lf-mono); color: var(--lf-ink-2); min-height: 1.2em; margin-top: .8rem; }
-    .lf-msg.ok { color: var(--lf-up); } .lf-msg.err { color: var(--lf-down); }
-    .lf-note { font: .7rem var(--lf-mono); color: var(--lf-ink-3); margin-top: 1.2rem; }
-    .lf-note.warn { color: var(--lf-down); }
 
     .lf-foot { margin: 4rem 0 0; padding: 2rem 0 5rem; border-top: 1px solid var(--lf-rule); font: 300 .95rem/1.6 var(--lf-text); color: var(--lf-ink-3); max-width: 70ch; }
   </style>
@@ -250,49 +204,11 @@
         <div class="lf-rules" id="lf-rules" style="margin-top:2.4rem"></div>
       </section>
 
-      <div class="lf-wrap" id="lf-private">
+      <div class="lf-wrap">
         <div class="lf-lock" id="lf-lock">
-          <p>Positions, charts, the decision log and controls are private.</p>
+          <p>The trading terminal (holdings, chart, orders and the AI's controls) is private.</p>
           <button class="lf-btn ghost" id="lf-unlock" type="button">Unlock</button>
         </div>
-
-        <section class="lf-desk" id="lf-desk" hidden aria-labelledby="lf-desk-h">
-          <div class="lf-desk-head">
-            <div><div class="lf-label"><b>Private</b></div><h2 class="lf-h2" id="lf-desk-h">The <i>desk</i></h2></div>
-            <button class="lf-btn ghost" id="lf-lockout" type="button">Lock</button>
-          </div>
-          <div class="lf-book" id="lf-book"></div>
-          <div class="lf-ctl" id="lf-ctl">
-            <button class="lf-btn ghost" data-act="dry" type="button">Dry run</button>
-            <button class="lf-btn" data-act="run" type="button">Run now</button>
-            <button class="lf-btn ghost" data-act="pause" type="button">Pause</button>
-            <button class="lf-btn ghost" data-act="report" type="button">Send report</button>
-            <button class="lf-btn ghost" data-act="email" type="button">Test email</button>
-            <button class="lf-btn ghost" data-act="seed" type="button" hidden>Seed preview</button>
-          </div>
-          <div class="lf-msg" id="lf-msg" aria-live="polite"></div>
-          <div id="lf-seed"></div>
-
-          <div class="lf-panel">
-            <div class="lf-panel-h"><div class="lf-tabs" id="lf-tabs" role="group" aria-label="Coin"></div>
-              <div class="lf-legend"><span><i style="background:var(--lf-accent)"></i>SMA20 4h</span><span><i style="background:#ed6ff5"></i>SMA50 4h</span><span style="color:var(--lf-btc)"><i class="dash"></i>watch</span><span style="color:var(--lf-up)"><i class="dash"></i>target</span><span style="color:var(--lf-down)"><i class="dash"></i>stop</span></div></div>
-            <div class="lf-chart" id="lf-candles"></div>
-          </div>
-
-          <div class="lf-panel">
-            <div class="lf-panel-h"><span class="lf-label">Growth of 100</span>
-              <div class="lf-legend"><span><i style="background:var(--lf-accent)"></i>AI fund</span><span><i style="background:var(--lf-btc)"></i>BTC</span><span><i style="background:var(--lf-ink-3)"></i>Hold seed coins</span></div></div>
-            <div class="lf-chart small" id="lf-growth"></div>
-          </div>
-
-          <div class="lf-grid2">
-            <div class="lf-panel"><div class="lf-panel-h"><span class="lf-label">Open positions</span></div><div id="lf-positions"></div></div>
-            <div class="lf-panel"><div class="lf-panel-h"><span class="lf-label">Closed trades</span><span class="lf-label" id="lf-winloss"></span></div><div id="lf-closed"></div></div>
-          </div>
-
-          <div class="lf-panel"><div class="lf-panel-h"><span class="lf-label">Decision log</span></div><div class="lf-log" id="lf-log"></div></div>
-          <p class="lf-note" id="lf-email"></p>
-        </section>
       </div>
 
       <footer class="lf-wrap"><p class="lf-foot">Public figures are percentages only and include trading fees. "Hold seed coins" is what the fund's starting coins would be worth had they never been sold. This is an experiment with a small amount of real money. It can lose it, and none of this is financial advice.</p></footer>

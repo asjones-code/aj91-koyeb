@@ -180,22 +180,7 @@ export function createKraken({ krakenPrivatePost, krakenPublicGet, krakenUsdPric
 		return Object.fromEntries(assets.filter((a) => marketCache.has(a)).map((a) => [a, { ...marketCache.get(a).data, at: new Date(marketCache.get(a).at).toISOString() }]));
 	}
 
-	/** 4h candles (last ~30 days) for charting, cached 10 minutes per asset. */
-	const candleCache = new Map();
-	async function candles4h(asset) {
-		const c = candleCache.get(asset);
-		if (c && Date.now() - c.at < 10 * 60_000) return c.data;
-		const bars = await ohlcHourly(UNIVERSE[asset] || altFor(asset));
-		const data = [];
-		for (let end = bars.length; end - 4 >= 0; end -= 4) {
-			const g = bars.slice(end - 4, end);
-			data.unshift({ time: g[0].t, open: g[0].o, high: Math.max(...g.map((b) => b.h)), low: Math.min(...g.map((b) => b.l)), close: g[3].c, volume: g.reduce((s, b) => s + b.v, 0) });
-		}
-		candleCache.set(asset, { data, at: Date.now() });
-		return data;
-	}
-
-	return { pairInfo, floorTo, buildSpotOrder, marketOrder, getFill, balances, takerFee, prices, marketData, marketSnapshot, candles4h };
+	return { pairInfo, floorTo, buildSpotOrder, marketOrder, getFill, balances, takerFee, prices, marketData, marketSnapshot };
 }
 
 // ── pure indicator math (exported for tests) ─────────────────────────────────

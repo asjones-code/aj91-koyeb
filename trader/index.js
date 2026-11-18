@@ -10,10 +10,9 @@
  *   POST /api/ai/kraken/pause           premium  body {paused:bool}
  *   POST /api/ai/kraken/report          premium  send the daily report now
  *   POST /api/ai/kraken/test-email      premium  send a test email; returns MailerSend's response
- *   GET  /api/ai/kraken/candles?asset=  premium  4h candles (~30d) for the desk chart
  *   GET  /api/ai/kraken/public          public   % only, no dollar amounts
  */
-import { traderConfig, UNIVERSE } from "./config.js";
+import { traderConfig } from "./config.js";
 import { createStore } from "./store.js";
 import { createKraken } from "./kraken.js";
 import { createBrain } from "./brain.js";
@@ -116,11 +115,6 @@ export function createTrader(deps) {
 		try {
 			const body = method === "POST" ? await readJson() : {};
 			if (pathname === "/api/ai/kraken/state" && method === "GET") return send(200, await reporter.state());
-			if (pathname === "/api/ai/kraken/candles" && method === "GET") {
-				const asset = String(new URL(req.url, "http://x").searchParams.get("asset") || "BTC").toUpperCase();
-				if (!UNIVERSE[asset]) return send(400, { error: "asset must be one of " + Object.keys(UNIVERSE).join(", ") });
-				return send(200, { asset, interval: "4h", candles: await kraken.candles4h(asset) });
-			}
 			if (pathname === "/api/ai/kraken/seed/preview" && method === "POST") return send(200, await engine.seedPreview());
 			if (pathname === "/api/ai/kraken/seed/execute" && method === "POST") {
 				if (body.confirm !== true) return send(400, { error: "Send {\"confirm\": true} to run the one-time seed sale" });
