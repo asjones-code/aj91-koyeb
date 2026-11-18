@@ -3,594 +3,301 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Crypto — AJ91</title>
-  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+  <title>AI Trader — can an AI beat just holding Bitcoin? — AJ91</title>
+  <meta name="description" content="An AI runs a small real-money, spot-only crypto fund on Kraken. Can it beat just holding Bitcoin? Live returns, the screen it trades from, and its method.">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js" defer></script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --cyan:    #ABF8FE;
-      --magenta: #ED6FF5;
-      --green:   #4ade80;
-      --red:     #f87171;
-      --bg:      #000000;
-      --bg1:     #0a0a0a;
-      --bg2:     #111111;
-      --bg3:     #1a1a1a;
-      --border:  rgba(255,255,255,0.08);
-      --text:    rgba(255,255,255,0.88);
-      --muted:   rgba(255,255,255,0.4);
-      --mono:    ui-monospace, "Cascadia Code", "Fira Code", monospace;
+      --lf-display: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+      --lf-text: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+      --lf-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+      --lf-bg: #151513;
+      --lf-bg-2: #1a1a17;
+      --lf-paper: #f3ece0;
+      --lf-ink: rgba(243, 236, 224, 0.9);
+      --lf-ink-2: rgba(243, 236, 224, 0.6);
+      --lf-ink-3: rgba(243, 236, 224, 0.36);
+      --lf-rule: rgba(243, 236, 224, 0.1);
+      --lf-accent: var(--c-accent, #abf8fe);
+      --lf-up: #7ee8b0;
+      --lf-down: #ff7a93;
+      --lf-btc: #f2b84b;
     }
+    .lf { color: var(--lf-ink); font-variant-numeric: tabular-nums; }
+    .lf-wrap { max-width: 1120px; margin-inline: auto; padding-inline: 2rem; }
+    @media (max-width: 760px) { .lf-wrap { padding-inline: 1.15rem; } }
+    .lf-label { font: 500 .68rem/1 var(--lf-mono); letter-spacing: .18em; text-transform: uppercase; color: var(--lf-ink-3); }
+    .lf-label b { color: var(--lf-accent); font-weight: 500; }
+    .up { color: var(--lf-up); } .down { color: var(--lf-down); } .dim { color: var(--lf-ink-3); }
 
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: var(--mono);
-      font-size: 13px;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
+    /* ── Hero with a drifting wall of the screen's own numbers ── */
+    .lf-hero { position: relative; overflow: hidden; padding: 7.5rem 0 2.8rem; }
+    /* Transform-only motion (composited, no layout per frame); a static gradient does the fade. */
+    .lf-wall { position: absolute; z-index: 0; inset: -8rem -6rem auto; display: grid; grid-template-columns: repeat(9, 1fr); gap: .2rem 1.2rem;
+      font: 400 .78rem/1.9 var(--lf-mono); color: var(--lf-ink-3); opacity: .5; pointer-events: none; white-space: nowrap;
+      transform: rotate(-4deg); will-change: transform; animation: lf-drift 80s ease-in-out infinite alternate; }
+    .lf-wall div { animation: lf-float 20s ease-in-out infinite alternate; }
+    .lf-wall div:nth-child(even) { animation-direction: alternate-reverse; animation-duration: 26s; }
+    .lf-wall .h { color: var(--lf-paper); }
+    .lf-wall .u { color: var(--lf-up); } .lf-wall .d { color: var(--lf-down); }
+    .lf-wall.paused, .lf-wall.paused div { animation-play-state: paused; }
+    .lf-hero::before { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+      background: linear-gradient(to bottom, rgba(21,21,19,.55) 0%, rgba(21,21,19,.75) 45%, var(--lf-bg) 92%); }
+    @keyframes lf-drift { from { transform: rotate(-4deg) translate3d(0, 0, 0); } to { transform: rotate(-4deg) translate3d(-4%, -9%, 0); } }
+    @keyframes lf-float { from { transform: translate3d(0, -12px, 0); } to { transform: translate3d(0, 12px, 0); } }
+    @media (max-width: 760px) { .lf-wall { grid-template-columns: repeat(4, 1fr); } }
+    @media (prefers-reduced-motion: reduce) { .lf-wall, .lf-wall div, .lf-tape-track { animation: none !important; } }
+    .lf-hero-inner { position: relative; z-index: 2; }
+    .lf-title { font: 600 clamp(2.8rem, 8vw, 5.4rem)/.95 var(--lf-display); letter-spacing: -.06em; margin: 1.2rem 0 1rem; color: var(--lf-paper); }
+    .lf-title i, .lf-h2 i { font-style: normal; color: var(--lf-accent); }
+    .lf-sub { font: 400 clamp(1rem, 1.8vw, 1.25rem)/1.4 var(--lf-display); color: var(--lf-ink); max-width: 44ch; margin: 0 0 1.4rem; }
+    .lf-lede { font: 300 1.02rem/1.65 var(--lf-text); color: var(--lf-ink-2); max-width: 60ch; margin: 0 0 .8rem; }
+    .lf-lede em { color: var(--lf-ink); }
+    .lf-status { display: inline-flex; align-items: center; gap: .6rem; margin-top: 1.4rem; font: .72rem var(--lf-mono); letter-spacing: .06em; color: var(--lf-ink-2); }
+    .lf-dot { width: .55rem; height: .55rem; border-radius: 50%; background: var(--lf-ink-3); }
+    .lf-dot.trading { background: var(--lf-up); box-shadow: 0 0 10px var(--lf-up); animation: lf-pulse 2.4s ease-in-out infinite; }
+    .lf-dot.halted { background: var(--lf-down); }
+    @keyframes lf-pulse { 50% { opacity: .35; } }
 
-    /* ── top bar ── */
-    .topbar {
-      display: flex;
-      align-items: center;
-      gap: 1.5rem;
-      padding: 0.6rem 1.5rem;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg1);
-      flex-shrink: 0;
-    }
-    .topbar-title {
-      color: var(--cyan);
-      font-size: 0.75rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      font-weight: 600;
-    }
-    .topbar-pill {
-      font-size: 0.65rem;
-      padding: 0.15rem 0.5rem;
-      border-radius: 3px;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      letter-spacing: 0.06em;
-    }
-    .topbar-status {
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-      font-size: 0.65rem;
-      color: var(--muted);
-    }
-    .status-dot {
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--muted);
-    }
-    .status-dot.live { background: var(--green); box-shadow: 0 0 6px var(--green); }
-    .topbar-nav { display: flex; gap: 1rem; }
-    .topbar-nav a {
-      font-size: 0.7rem;
-      color: var(--muted);
-      text-decoration: none;
-      letter-spacing: 0.06em;
-    }
-    .topbar-nav a:hover { color: var(--cyan); }
+    .lf-stats { display: flex; flex-wrap: wrap; gap: 2.2rem 3.4rem; margin-top: 2.6rem; }
+    .lf-stat b { display: block; font: 500 clamp(1.9rem, 4vw, 2.7rem)/1 var(--lf-mono); letter-spacing: -.03em; color: var(--lf-paper); font-variant-numeric: lining-nums tabular-nums; }
+    .lf-stat b.up { color: var(--lf-up); } .lf-stat b.down { color: var(--lf-down); }
+    .lf-stat span { font: .64rem var(--lf-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--lf-ink-3); }
+    .lf-verdict { font: 300 1.05rem var(--lf-text); color: var(--lf-ink-2); margin-top: 1.4rem; max-width: 60ch; }
 
-    /* ── stats strip ── */
-    .stats-strip {
-      display: flex;
-      gap: 0;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg1);
-      flex-shrink: 0;
-    }
-    .stat-cell {
-      flex: 1;
-      padding: 0.75rem 1.25rem;
-      border-right: 1px solid var(--border);
-    }
-    .stat-cell:last-child { border-right: none; }
-    .stat-label {
-      font-size: 0.6rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 0.3rem;
-    }
-    .stat-value {
-      font-size: 1.1rem;
-      font-weight: 600;
-      letter-spacing: -0.01em;
-    }
-    .stat-value.up   { color: var(--cyan); }
-    .stat-value.down { color: var(--magenta); }
+    /* ── Ticker tape ── */
+    .lf-tape { position: relative; z-index: 2; overflow: hidden; border-block: 1px solid var(--lf-rule); background: rgba(0,0,0,.18);
+      mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+    .lf-tape-track { display: flex; width: max-content; animation: lf-tape 60s linear infinite; }
+    .lf-tape:hover .lf-tape-track { animation-play-state: paused; }
+    .lf-tape span { font: .76rem var(--lf-mono); padding: .8rem 1.6rem; white-space: nowrap; color: var(--lf-ink-2); border-right: 1px solid var(--lf-rule); }
+    .lf-tape span b { color: var(--lf-paper); font-weight: 500; margin-right: .6rem; }
+    @keyframes lf-tape { to { transform: translate3d(-50%, 0, 0); } }
 
-    /* ── main layout ── */
-    .main {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-      min-height: 0;
-    }
+    /* ── Sections ── */
+    .lf-sec { padding-top: 3.6rem; }
+    .lf-h2 { font: 500 clamp(1.35rem, 2.6vw, 1.9rem)/1.15 var(--lf-display); letter-spacing: -.04em; color: var(--lf-paper); margin: 1rem 0 1rem; }
+    
+    .lf-intro { font: 300 1rem/1.6 var(--lf-text); color: var(--lf-ink-2); max-width: 62ch; margin: 0 0 1.6rem; }
 
-    /* ── left: holdings table ── */
-    .panel-left {
-      width: 480px;
-      flex-shrink: 0;
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .panel-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.6rem 1rem;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg1);
-      flex-shrink: 0;
-    }
-    .panel-title {
-      font-size: 0.65rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .panel-refresh {
-      background: none;
-      border: none;
-      color: var(--muted);
-      cursor: pointer;
-      font-size: 0.65rem;
-      font-family: var(--mono);
-      letter-spacing: 0.06em;
-    }
-    .panel-refresh:hover { color: var(--cyan); }
+    /* Right now */
+    .lf-now { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 3rem; align-items: start; }
+    .lf-journal p { font: 300 1.05rem/1.65 var(--lf-text); color: var(--lf-paper); margin: 0; max-width: 62ch; }
+    .lf-journal .meta { font: .64rem var(--lf-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--lf-ink-3); margin-top: 1.2rem; }
+    .lf-side { border-left: 1px solid var(--lf-rule); padding-left: 1.6rem; display: grid; gap: 1.6rem; }
+    .lf-side b { display: block; font: 500 1.35rem/1.15 var(--lf-display); letter-spacing: -.02em; color: var(--lf-paper); }
+    .lf-side span { font: .62rem var(--lf-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--lf-ink-3); }
+    .lf-side small { display: block; font: 300 .92rem/1.45 var(--lf-text); color: var(--lf-ink-2); margin-top: .35rem; }
+    @media (max-width: 860px) { .lf-now { grid-template-columns: 1fr; } .lf-side { border-left: 0; padding-left: 0; border-top: 1px solid var(--lf-rule); padding-top: 1.6rem; grid-template-columns: 1fr 1fr; } }
 
-    .holdings-table-wrap { overflow-y: auto; flex: 1; }
-    table { width: 100%; border-collapse: collapse; }
-    thead tr {
-      border-bottom: 1px solid var(--border);
-      position: sticky;
-      top: 0;
-      background: var(--bg2);
-      z-index: 1;
-    }
-    th {
-      padding: 0.45rem 0.75rem;
-      text-align: left;
-      font-size: 0.6rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-      cursor: pointer;
-      user-select: none;
-      white-space: nowrap;
-    }
-    th:hover { color: var(--cyan); }
-    th.right, td.right { text-align: right; }
-    td {
-      padding: 0.5rem 0.75rem;
-      font-size: 0.78rem;
-      border-bottom: 1px solid var(--border);
-      white-space: nowrap;
-    }
-    tr.holding-row { cursor: pointer; transition: background 0.1s; }
-    tr.holding-row:hover { background: rgba(171,248,254,0.04); }
-    tr.holding-row.active { background: rgba(171,248,254,0.07); }
-    .asset-sym { color: var(--cyan); font-weight: 700; font-size: 0.85rem; }
-    td.alloc { position: relative; min-width: 4.5rem; }
-    .alloc-bar { position: absolute; right: 0; top: 30%; height: 40%; background: rgba(171,248,254,0.10); border-radius: 2px; pointer-events: none; }
-    tr.dust-toggle td { color: var(--muted); font-size: 0.68rem; cursor: pointer; text-align: center; padding: 0.5rem; }
-    tr.dust-toggle:hover td { color: var(--cyan); }
-    .up   { color: var(--green); }
-    .down { color: var(--magenta); }
+    /* The screen */
+    .lf-screen { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 1px; background: var(--lf-rule); border: 1px solid var(--lf-rule); }
+    .lf-coin { background: var(--lf-bg); padding: 1.2rem 1.2rem 1.1rem; display: grid; gap: .55rem; transition: background .3s; }
+    .lf-coin.aligned { background: #18211d; }
+    .lf-coin header { display: flex; justify-content: space-between; align-items: baseline; }
+    .lf-coin h3 { font: 600 1.15rem/1 var(--lf-mono); color: var(--lf-paper); margin: 0; }
+    .lf-coin .chg { font: .82rem var(--lf-mono); }
+    .lf-coin .row { display: flex; justify-content: space-between; font: .68rem var(--lf-mono); color: var(--lf-ink-3); }
+    .lf-coin .row em { font-style: normal; color: var(--lf-ink-2); }
+    .lf-pips { display: flex; gap: .35rem; margin-top: .2rem; }
+    .lf-pip { flex: 1; font: .56rem/1 var(--lf-mono); letter-spacing: .1em; text-transform: uppercase; text-align: center; padding: .4rem 0 .35rem; border: 1px solid var(--lf-rule); color: var(--lf-ink-3); border-radius: 2px; }
+    .lf-pip.on { border-color: rgba(126,232,176,.45); color: var(--lf-up); background: rgba(126,232,176,.06); }
+    .lf-screen-key { font: 300 .95rem/1.5 var(--lf-text); color: var(--lf-ink-3); margin-top: 1rem; max-width: 70ch; }
 
-    /* ── right panels ── */
-    .panel-right {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      min-width: 0;
-    }
+    /* Watch levels */
+    .lf-levels { margin-top: 3rem; border-top: 1px solid var(--lf-rule); }
+    .lf-level { display: grid; grid-template-columns: 70px 150px 1fr 90px; gap: 1.2rem; align-items: baseline; padding: 1rem 0; border-bottom: 1px solid var(--lf-rule); }
+    .lf-level .a { font: 600 .9rem var(--lf-mono); color: var(--lf-paper); }
+    .lf-level .p { font: .8rem var(--lf-mono); color: var(--lf-ink); }
+    .lf-level .why { font: 300 .98rem/1.45 var(--lf-text); color: var(--lf-ink-2); }
+    .lf-level .dist { font: .74rem var(--lf-mono); text-align: right; color: var(--lf-ink-3); }
+    @media (max-width: 700px) { .lf-level { grid-template-columns: 60px 1fr 70px; } .lf-level .why { grid-column: 1 / -1; } }
 
-    /* chart */
-    .chart-section {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      border-bottom: 1px solid var(--border);
-      min-height: 0;
-    }
-    .chart-header {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding: 0.6rem 1rem;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg1);
-      flex-shrink: 0;
-    }
-    .chart-pair {
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: var(--cyan);
-      letter-spacing: 0.04em;
-    }
-    .chart-price { font-size: 0.85rem; font-weight: 600; }
-    .chart-change { font-size: 0.75rem; }
-    .chart-intervals { margin-left: auto; display: flex; gap: 0.25rem; }
-    .interval-btn {
-      background: none;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      font-family: var(--mono);
-      font-size: 0.6rem;
-      padding: 0.2rem 0.5rem;
-      border-radius: 3px;
-      cursor: pointer;
-      letter-spacing: 0.06em;
-    }
-    .interval-btn:hover, .interval-btn.active { border-color: var(--cyan); color: var(--cyan); }
-    #chart-container {
-      flex: 1;
-      min-height: 0;
-      background: var(--bg);
-    }
-    .chart-empty {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--muted);
-      font-size: 0.75rem;
-      pointer-events: none;
-    }
-    .chart-wrap { flex: 1; position: relative; min-height: 0; display: flex; flex-direction: column; }
+    /* Skills / loop / rules */
+    .lf-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.8rem 2.4rem; counter-reset: s; padding: 0; }
+    .lf-steps li { list-style: none; counter-increment: s; }
+    @media (max-width: 760px) { .lf-steps { grid-template-columns: 1fr 1fr; } }
+    .lf-steps li::before { content: "0" counter(s); display: block; font: .7rem var(--lf-mono); color: var(--lf-accent); margin-bottom: .8rem; }
+    .lf-steps h3 { font: 500 .95rem/1.2 var(--lf-display); margin: 0 0 .5rem; color: var(--lf-paper); }
+    .lf-steps p { font: 300 .94rem/1.55 var(--lf-text); color: var(--lf-ink-2); margin: 0; }
+    .lf-steps code { font: .82em var(--lf-mono); color: var(--lf-accent); }
+    .lf-rules { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 2.4rem; }
+    @media (max-width: 760px) { .lf-rules { grid-template-columns: 1fr; } }
+    .lf-rule { padding: 1.1rem 0; border-top: 1px solid var(--lf-rule); display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: baseline; }
+    .lf-rule span { font: 300 1rem var(--lf-text); color: var(--lf-ink-2); }
+    .lf-rule b { font: 500 1rem var(--lf-mono); color: var(--lf-paper); }
 
-    /* trade panel */
-    .trade-section {
-      flex-shrink: 0;
-      border-top: 1px solid var(--border);
-      background: var(--bg1);
-    }
-    .trade-tabs {
-      display: flex;
-      border-bottom: 1px solid var(--border);
-    }
-    .trade-tab {
-      flex: 1;
-      padding: 0.55rem;
-      text-align: center;
-      font-size: 0.65rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      cursor: pointer;
-      background: none;
-      border: none;
-      color: var(--muted);
-      font-family: var(--mono);
-      border-right: 1px solid var(--border);
-    }
-    .trade-tab:last-child { border-right: none; }
-    .trade-tab.buy.active  { color: var(--green);   background: rgba(74,222,128,0.05); }
-    .trade-tab.sell.active { color: var(--magenta); background: rgba(237,111,245,0.05); }
-    .trade-tab:hover { color: var(--text); }
-    .trade-body { padding: 0.75rem 1rem; display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; }
-    .trade-field { display: flex; flex-direction: column; gap: 0.25rem; }
-    .trade-label {
-      font-size: 0.6rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
-    .trade-input, .trade-select {
-      background: var(--bg3);
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      padding: 0.35rem 0.6rem;
-      border-radius: 3px;
-      outline: none;
-      width: 130px;
-    }
-    .trade-input:focus, .trade-select:focus { border-color: var(--cyan); }
-    .trade-select option { background: var(--bg3); }
-    .trade-submit {
-      padding: 0.4rem 1.25rem;
-      border-radius: 3px;
-      border: none;
-      font-family: var(--mono);
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      cursor: pointer;
-      text-transform: uppercase;
-      transition: opacity 0.15s;
-    }
-    .trade-submit:hover { opacity: 0.85; }
-    .trade-submit.buy  { background: var(--green);   color: #000; }
-    .trade-submit.sell { background: var(--magenta); color: #000; }
-    .trade-msg { font-size: 0.72rem; padding: 0 1rem 0.6rem; min-height: 1.2rem; }
-    .trade-msg.ok  { color: var(--green); }
-    .trade-msg.err { color: var(--red); }
+    /* ── The desk (signal token) ── */
+    .lf-lock { margin: 4rem 0 0; padding: 2.2rem 0; border-top: 1px solid var(--lf-rule); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.5rem; }
+    .lf-lock p { font: 400 .95rem/1.5 var(--lf-display); color: var(--lf-ink-2); margin: 0; }
+    .lf-btn { font: .74rem var(--lf-mono); letter-spacing: .12em; text-transform: uppercase; padding: .85rem 1.3rem; border-radius: 999px; border: 1px solid var(--lf-accent); background: none; color: var(--lf-accent); cursor: pointer; white-space: nowrap; text-decoration: none; display: inline-block; }
+    .lf-btn:hover { background: var(--lf-accent); color: #000; }
+    .lf-btn.ghost { border-color: var(--lf-rule); color: var(--lf-ink-2); }
+    .lf-btn.ghost:hover { background: var(--lf-ink); color: #000; }
+    .lf-desk { padding-top: 3.5rem; }
+    .lf-desk[hidden], .lf-lock[hidden] { display: none; }
+    .lf-desk-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 1rem; }
+    .lf-book { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1px; background: var(--lf-rule); border: 1px solid var(--lf-rule); margin: 2rem 0 0; }
+    .lf-book div { background: var(--lf-bg); padding: 1rem 1.1rem; }
+    .lf-book span { display: block; font: .6rem var(--lf-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--lf-ink-3); }
+    .lf-book b { display: block; font: 500 1.3rem/1.1 var(--lf-mono); color: var(--lf-paper); margin-top: .3rem; }
+    .lf-book b.up { color: var(--lf-up); } .lf-book b.down { color: var(--lf-down); }
+    .lf-panel { border: 1px solid var(--lf-rule); margin-top: 2rem; background: var(--lf-bg-2); }
+    .lf-panel-h { display: flex; flex-wrap: wrap; gap: .8rem 1.4rem; align-items: center; justify-content: space-between; padding: .9rem 1.1rem; border-bottom: 1px solid var(--lf-rule); }
+    .lf-tabs { display: flex; flex-wrap: wrap; gap: .2rem; }
+    .lf-tab { font: .7rem var(--lf-mono); letter-spacing: .08em; background: none; border: 1px solid transparent; color: var(--lf-ink-3); padding: .35rem .6rem; border-radius: 3px; cursor: pointer; }
+    .lf-tab:hover { color: var(--lf-paper); }
+    .lf-tab[aria-pressed="true"] { color: var(--lf-paper); border-color: var(--lf-rule); background: rgba(255,255,255,.03); }
+    .lf-tab.held::after { content: "•"; color: var(--lf-up); margin-left: .3rem; }
+    .lf-legend { display: flex; flex-wrap: wrap; gap: 1rem; font: .64rem var(--lf-mono); color: var(--lf-ink-3); }
+    .lf-legend i { display: inline-block; width: 14px; height: 2px; vertical-align: middle; margin-right: .4rem; }
+    .lf-legend i.dash { background: repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px); height: 1px; }
+    .lf-chart { height: 420px; }
+    .lf-chart.small { height: 260px; }
+    .lf-chart .empty { padding: 2rem 1.1rem; }
+    .lf-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 2rem; }
+    @media (max-width: 860px) { .lf-grid2 { grid-template-columns: 1fr; } .lf-chart { height: 340px; } }
+    .lf-table { width: 100%; border-collapse: collapse; font: .74rem/1.45 var(--lf-mono); }
+    .lf-table th { text-align: left; font-weight: 400; font-size: .6rem; letter-spacing: .12em; text-transform: uppercase; color: var(--lf-ink-3); padding: .6rem 1.1rem; border-bottom: 1px solid var(--lf-rule); }
+    .lf-table td { padding: .7rem 1.1rem; border-bottom: 1px solid rgba(243,236,224,.05); vertical-align: top; color: var(--lf-ink); }
+    .lf-table .r { text-align: right; }
+    .lf-table .sym { font: 600 .8rem var(--lf-mono); color: var(--lf-paper); }
+    .lf-table .why { font: 300 .9rem/1.45 var(--lf-text); color: var(--lf-ink-2); }
+    .empty { font: 300 1rem var(--lf-text); color: var(--lf-ink-3); padding: 1.2rem 1.1rem; }
+    .lf-log { padding: 0 1.1rem; }
+    .lf-log article { padding: 1.3rem 0; border-bottom: 1px solid var(--lf-rule); }
+    .lf-log article:last-child { border-bottom: 0; }
+    .lf-log .meta { font: .62rem var(--lf-mono); letter-spacing: .12em; text-transform: uppercase; color: var(--lf-ink-3); }
+    .lf-log p { font: 300 1.05rem/1.6 var(--lf-text); color: var(--lf-ink); margin: .5rem 0 0; max-width: 72ch; }
+    .lf-log .acts { font: .7rem var(--lf-mono); color: var(--lf-ink-2); margin-top: .6rem; }
+    .lf-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: 1.6rem; }
+    .lf-ctl .lf-btn { padding: .6rem 1rem; font-size: .66rem; }
+    .lf-btn.warn { border-color: rgba(255,122,147,.5); color: var(--lf-down); }
+    .lf-btn.warn:hover { background: var(--lf-down); color: #000; }
+    .lf-btn:disabled { opacity: .4; cursor: wait; }
+    .lf-btn[hidden] { display: none; }
+    .lf-msg { font: .72rem var(--lf-mono); color: var(--lf-ink-2); min-height: 1.2em; margin-top: .8rem; }
+    .lf-msg.ok { color: var(--lf-up); } .lf-msg.err { color: var(--lf-down); }
+    .lf-note { font: .7rem var(--lf-mono); color: var(--lf-ink-3); margin-top: 1.2rem; }
+    .lf-note.warn { color: var(--lf-down); }
 
-    /* ── orders log ── */
-    .orders-section {
-      border-top: 1px solid var(--border);
-      flex-shrink: 0;
-      max-height: 160px;
-      overflow-y: auto;
-      background: var(--bg);
-    }
-    .orders-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.45rem 1rem;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg1);
-      position: sticky;
-      top: 0;
-      z-index: 1;
-    }
-    .order-row {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      padding: 0.4rem 1rem;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.72rem;
-    }
-    .order-row:last-child { border-bottom: none; }
-    .order-side { font-weight: 700; width: 2.5rem; }
-    .order-side.buy  { color: var(--green); }
-    .order-side.sell { color: var(--magenta); }
-    .order-pair  { color: var(--cyan); width: 6rem; }
-    .order-meta  { color: var(--muted); font-size: 0.65rem; margin-left: auto; }
-
-    /* ── scrollbar ── */
-    ::-webkit-scrollbar { width: 4px; height: 4px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
-
-    /* ── loading ── */
-    .loading { color: var(--muted); padding: 1.5rem 1rem; font-size: 0.75rem; text-align: center; }
-
-    /* ── AI trader ── */
-    .ai-trader { border-top: 1px solid var(--border); background: var(--bg1); flex-shrink: 0; }
-    .ai-trader > summary {
-      display: flex; align-items: center; gap: 1rem; padding: 0.55rem 1.25rem;
-      cursor: pointer; list-style: none; user-select: none;
-    }
-    .ai-trader > summary::-webkit-details-marker { display: none; }
-    .ai-trader > summary::before { content: "▸"; color: var(--muted); font-size: 0.7rem; }
-    .ai-trader[open] > summary::before { content: "▾"; }
-    .ai-summary { color: var(--muted); font-size: 0.65rem; }
-    .ai-actions { margin-left: auto; display: flex; gap: 0.5rem; }
-    .ai-btn {
-      background: none; border: 1px solid var(--border); color: var(--text);
-      font-family: var(--mono); font-size: 0.65rem; letter-spacing: 0.06em;
-      padding: 0.3rem 0.7rem; border-radius: 3px; cursor: pointer; text-transform: uppercase;
-    }
-    .ai-btn:hover:not(:disabled) { border-color: var(--cyan); color: var(--cyan); }
-    .ai-btn:disabled { opacity: 0.35; cursor: default; }
-    .ai-btn.primary { border-color: rgba(74,222,128,0.5); color: var(--green); }
-    a.ai-btn { text-decoration: none; display: inline-flex; align-items: center; }
-    .ai-btn.danger { border-color: rgba(248,113,113,0.6); color: var(--red); }
-    .ai-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); border: 1px solid var(--border); }
-    .ai-stat { padding: 0.45rem 0.7rem; border-right: 1px solid var(--border); }
-    .ai-stat:last-child { border-right: none; }
-    .ai-stat .k { font-size: 0.55rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
-    .ai-stat .v { font-size: 0.85rem; font-weight: 700; }
-    .ai-up { color: var(--green); } .ai-down { color: var(--magenta); }
-    .ai-decision { border-top: 1px solid var(--border); padding-top: 0.4rem; display: flex; flex-direction: column; gap: 0.25rem; }
-    .ai-h { font-size: 0.6rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-top: 0.3rem; }
-    .ai-msg { padding: 0 1.25rem; font-size: 0.7rem; min-height: 0; color: var(--muted); }
-    .ai-msg:not(:empty) { padding-bottom: 0.5rem; }
-    .ai-msg.ok { color: var(--green); }
-    .ai-msg.err { color: var(--red); }
-    .ai-body { padding: 0 1.25rem 1rem; max-height: 320px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.6rem; }
-    .ai-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
-    .ai-chip { border: 1px solid var(--border); border-radius: 3px; padding: 0.15rem 0.45rem; font-size: 0.7rem; }
-    .ai-chip b { color: var(--cyan); }
-    .ai-dim { color: var(--muted); font-size: 0.7rem; }
-    .ai-note { font-style: italic; }
-    .ai-warn { color: #fbbf24; font-size: 0.7rem; }
-    .ai-plan-meta { display: flex; flex-wrap: wrap; gap: 1.25rem; font-size: 0.7rem; color: var(--muted); }
-    .ai-plan-meta b { color: var(--text); }
-    .ai-status-pending { color: #fbbf24 !important; }
-    .ai-status-approved, .ai-status-executed { color: var(--green) !important; }
-    .ai-status-expired, .ai-status-executing { color: var(--red) !important; }
-    .ai-table { font-size: 0.7rem; }
-    .ai-table th { font-size: 0.6rem; }
-    .ai-table td { vertical-align: top; }
-    .ai-why { max-width: 28rem; }
-    .ai-buy { color: var(--green); font-weight: 700; white-space: nowrap; }
-    .ai-sell { color: var(--magenta); font-weight: 700; white-space: nowrap; }
-    .ai-st-executed { color: var(--green); }
-    .ai-st-failed { color: var(--red); }
-    .ai-st-skipped, .ai-st-executed_unverified, .ai-st-partial { color: #fbbf24; }
-
-    @media (max-width: 900px) {
-      .main { flex-direction: column; }
-      .panel-left { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 300px; }
-    }
+    .lf-foot { margin: 4rem 0 0; padding: 2rem 0 5rem; border-top: 1px solid var(--lf-rule); font: 300 .95rem/1.6 var(--lf-text); color: var(--lf-ink-3); max-width: 70ch; }
   </style>
 </head>
-<body>
+<body data-barba="wrapper" class="page-is-crypto">
+  <div class="container">
+    <header class="header">
+      <div class="header-inner">
+        <a href="/" class="header-logo logo word font-kihim">aj91</a>
+        <nav class="header-nav navigation" aria-label="Main">
+          <ul>
+            <li><a class="font-mono" href="https://www.linkedin.com/in/asjones91/" aria-label="LinkedIn"><i class="fa-brands fa-linkedin" aria-hidden="true"></i><span class="nav-text">Linkedin</span></a></li>
+            <li><a class="font-mono" href="https://aj91.substack.com/" aria-label="Substack"><i class="fa-solid fa-newspaper" aria-hidden="true"></i><span class="nav-text">Substack</span></a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
 
-  <!-- top bar -->
-  <div class="topbar">
-    <span class="topbar-title">Crypto Terminal</span>
-    <span class="topbar-pill">Kraken</span>
-    <nav class="topbar-nav">
-      <a href="./portfolio.html">Stocks</a>
-      <a href="./index.html">Home</a>
-    </nav>
-    <div class="topbar-status">
-      <span class="status-dot" id="status-dot"></span>
-      <span id="status-text">Connecting…</span>
-    </div>
+    <main data-barba="container" data-barba-namespace="crypto" class="lf">
+      <section class="lf-hero">
+        <div class="lf-wall" id="lf-wall" aria-hidden="true"></div>
+        <div class="lf-wrap lf-hero-inner">
+          <div class="lf-label"><b>Live experiment</b> &nbsp;·&nbsp; Spot crypto on Kraken</div>
+          <h1 class="lf-title">AI Trader<i>_</i></h1>
+          <p class="lf-sub">Can an AI beat just holding Bitcoin?</p>
+          <p class="lf-lede">An AI model runs a small real-money fund. It trades spot only, so it's either <em>long</em> a coin or in cash: no leverage, no shorting. Twice a day it reads hourly data for nine liquid coins and either writes a falsifiable thesis for a trade or explains why it's waiting.</p>
+          <div class="lf-status"><span class="lf-dot" id="lf-dot"></span><span id="lf-status">Loading…</span></div>
+          <div class="lf-stats" id="lf-stats" aria-live="polite"></div>
+          <p class="lf-verdict" id="lf-verdict"></p>
+        </div>
+      </section>
+      <div class="lf-tape" aria-label="Market tape"><div class="lf-tape-track" id="lf-tape"></div></div>
+
+      <section class="lf-sec lf-wrap" aria-labelledby="lf-now-h">
+        <div class="lf-label">Right now</div>
+        <h2 class="lf-h2" id="lf-now-h">Position: <i id="lf-posture">—</i></h2>
+        <div class="lf-now">
+          <div class="lf-journal" id="lf-journal"><p class="dim">Reading the latest journal entry…</p></div>
+          <aside class="lf-side" id="lf-side"></aside>
+        </div>
+      </section>
+
+      <section class="lf-sec lf-wrap" aria-labelledby="lf-screen-h">
+        <div class="lf-label">The screen</div>
+        <h2 class="lf-h2" id="lf-screen-h">What would make it <i>trade</i></h2>
+        <p class="lf-intro">Trend, volume and momentum have to agree. A free check runs every 15 minutes, and a coin passing all three wakes the AI early.</p>
+        <div class="lf-screen" id="lf-screen"></div>
+        <div id="lf-levels"></div>
+      </section>
+
+      <section class="lf-sec lf-wrap" aria-labelledby="lf-method-h">
+        <div class="lf-label">Method</div>
+        <h2 class="lf-h2" id="lf-method-h">A written skill, <i>not a hunch</i></h2>
+        <p class="lf-intro">The model follows a fixed decision procedure and has to cite numbers. If it can't say what would prove a trade wrong, it isn't a trade. The code checks every order against hard limits it can't override.</p>
+        <ol class="lf-steps">
+          <li><h3>Score momentum</h3><p>A 1–10 score from the 24h move, volume confirmation and strength against BTC.</p></li>
+          <li><h3>Grade the signal</h3><p><code>HIGH</code> a move over 2% with the 7-day trend. <code>MEDIUM</code> smaller or mixed. <code>LOW</code> a reversal or noise.</p></li>
+          <li><h3>Check timeframes</h3><p>24h, 7d and 30d must agree. A bounce inside a downtrend doesn't count.</p></li>
+          <li><h3>Read the structure</h3><p>Swing highs and lows, volume against price, and false breaks (<code>springs</code>) that get retested on light volume.</p></li>
+          <li><h3>Size by conviction</h3><p id="lf-sizing">LOW ≤ 10% of the fund, MEDIUM ≤ 15%, HIGH ≤ 20%.</p></li>
+          <li><h3>Name the exit</h3><p>A stop beyond a structural level, a target ≥ 1.5× the stop, and a time limit.</p></li>
+        </ol>
+        <div class="lf-rules" id="lf-rules" style="margin-top:2.4rem"></div>
+      </section>
+
+      <div class="lf-wrap" id="lf-private">
+        <div class="lf-lock" id="lf-lock">
+          <p>Positions, charts, the decision log and controls are private.</p>
+          <button class="lf-btn ghost" id="lf-unlock" type="button">Unlock</button>
+        </div>
+
+        <section class="lf-desk" id="lf-desk" hidden aria-labelledby="lf-desk-h">
+          <div class="lf-desk-head">
+            <div><div class="lf-label"><b>Private</b></div><h2 class="lf-h2" id="lf-desk-h">The <i>desk</i></h2></div>
+            <button class="lf-btn ghost" id="lf-lockout" type="button">Lock</button>
+          </div>
+          <div class="lf-book" id="lf-book"></div>
+          <div class="lf-ctl" id="lf-ctl">
+            <button class="lf-btn ghost" data-act="dry" type="button">Dry run</button>
+            <button class="lf-btn" data-act="run" type="button">Run now</button>
+            <button class="lf-btn ghost" data-act="pause" type="button">Pause</button>
+            <button class="lf-btn ghost" data-act="report" type="button">Send report</button>
+            <button class="lf-btn ghost" data-act="email" type="button">Test email</button>
+            <button class="lf-btn ghost" data-act="seed" type="button" hidden>Seed preview</button>
+          </div>
+          <div class="lf-msg" id="lf-msg" aria-live="polite"></div>
+          <div id="lf-seed"></div>
+
+          <div class="lf-panel">
+            <div class="lf-panel-h"><div class="lf-tabs" id="lf-tabs" role="group" aria-label="Coin"></div>
+              <div class="lf-legend"><span><i style="background:var(--lf-accent)"></i>SMA20 4h</span><span><i style="background:#ed6ff5"></i>SMA50 4h</span><span style="color:var(--lf-btc)"><i class="dash"></i>watch</span><span style="color:var(--lf-up)"><i class="dash"></i>target</span><span style="color:var(--lf-down)"><i class="dash"></i>stop</span></div></div>
+            <div class="lf-chart" id="lf-candles"></div>
+          </div>
+
+          <div class="lf-panel">
+            <div class="lf-panel-h"><span class="lf-label">Growth of 100</span>
+              <div class="lf-legend"><span><i style="background:var(--lf-accent)"></i>AI fund</span><span><i style="background:var(--lf-btc)"></i>BTC</span><span><i style="background:var(--lf-ink-3)"></i>Hold seed coins</span></div></div>
+            <div class="lf-chart small" id="lf-growth"></div>
+          </div>
+
+          <div class="lf-grid2">
+            <div class="lf-panel"><div class="lf-panel-h"><span class="lf-label">Open positions</span></div><div id="lf-positions"></div></div>
+            <div class="lf-panel"><div class="lf-panel-h"><span class="lf-label">Closed trades</span><span class="lf-label" id="lf-winloss"></span></div><div id="lf-closed"></div></div>
+          </div>
+
+          <div class="lf-panel"><div class="lf-panel-h"><span class="lf-label">Decision log</span></div><div class="lf-log" id="lf-log"></div></div>
+          <p class="lf-note" id="lf-email"></p>
+        </section>
+      </div>
+
+      <footer class="lf-wrap"><p class="lf-foot">Public figures are percentages only and include trading fees. "Hold seed coins" is what the fund's starting coins would be worth had they never been sold. This is an experiment with a small amount of real money. It can lose it, and none of this is financial advice.</p></footer>
+    </main>
   </div>
-
-  <!-- stats strip -->
-  <div class="stats-strip">
-    <div class="stat-cell">
-      <div class="stat-label">Portfolio Value</div>
-      <div class="stat-value" id="stat-value">—</div>
-    </div>
-    <div class="stat-cell">
-      <div class="stat-label">24h Change</div>
-      <div class="stat-value" id="stat-change">—</div>
-    </div>
-    <div class="stat-cell">
-      <div class="stat-label">Assets Held</div>
-      <div class="stat-value" id="stat-assets">—</div>
-    </div>
-    <div class="stat-cell">
-      <div class="stat-label">Last Refresh</div>
-      <div class="stat-value" id="stat-refresh" style="font-size:0.8rem;color:var(--muted)">—</div>
-    </div>
-  </div>
-
-  <!-- main -->
-  <div class="main">
-
-    <!-- left: holdings -->
-    <div class="panel-left">
-      <div class="panel-header">
-        <span class="panel-title">Holdings</span>
-        <button class="panel-refresh" id="btn-refresh">↺ refresh</button>
-      </div>
-      <div class="holdings-table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th data-sort="asset">Asset</th>
-              <th data-sort="balance" class="right">Balance</th>
-              <th data-sort="last" class="right">Price</th>
-              <th data-sort="change_24h_pct" class="right">24h</th>
-              <th data-sort="value" class="right">Value</th>
-              <th data-sort="alloc" class="right">Alloc</th>
-            </tr>
-          </thead>
-          <tbody id="holdings-tbody">
-            <tr><td colspan="6" class="loading">Loading holdings…</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- right -->
-    <div class="panel-right">
-
-      <!-- chart -->
-      <div class="chart-section">
-        <div class="chart-header">
-          <span class="chart-pair" id="chart-pair">—</span>
-          <span class="chart-price" id="chart-price"></span>
-          <span class="chart-change" id="chart-change-label"></span>
-          <div class="chart-intervals">
-            <button class="interval-btn" data-interval="60">1H</button>
-            <button class="interval-btn active" data-interval="1440">1D</button>
-            <button class="interval-btn" data-interval="10080">1W</button>
-          </div>
-        </div>
-        <div class="chart-wrap">
-          <div id="chart-container"></div>
-          <div class="chart-empty" id="chart-empty">Select an asset to view chart</div>
-        </div>
-      </div>
-
-      <!-- trade panel -->
-      <div class="trade-section">
-        <div class="trade-tabs">
-          <button class="trade-tab buy active" data-side="buy">Buy</button>
-          <button class="trade-tab sell" data-side="sell">Sell</button>
-        </div>
-        <div class="trade-body">
-          <div class="trade-field">
-            <span class="trade-label">Pair</span>
-            <select class="trade-select" id="trade-pair">
-              <option value="XBTUSD">BTC/USD</option>
-              <option value="ETHUSD">ETH/USD</option>
-              <option value="SOLUSD">SOL/USD</option>
-              <option value="XRPUSD">XRP/USD</option>
-              <option value="DOGEUSD">DOGE/USD</option>
-              <option value="ADAUSD">ADA/USD</option>
-              <option value="DOTUSD">DOT/USD</option>
-              <option value="LINKUSD">LINK/USD</option>
-              <option value="AVAXUSD">AVAX/USD</option>
-              <option value="LTCUSD">LTC/USD</option>
-              <option value="MATICUSD">MATIC/USD</option>
-              <option value="XMRUSD">XMR/USD</option>
-              <option value="NEARUSD">NEAR/USD</option>
-              <option value="UNIUSD">UNI/USD</option>
-            </select>
-          </div>
-          <div class="trade-field">
-            <span class="trade-label">Order Type</span>
-            <select class="trade-select" id="trade-ordertype">
-              <option value="market">Market</option>
-              <option value="limit">Limit</option>
-            </select>
-          </div>
-          <div class="trade-field" id="price-field" style="display:none">
-            <span class="trade-label">Limit Price (USD)</span>
-            <input class="trade-input" type="number" id="trade-price" placeholder="0.00" min="0" step="any">
-          </div>
-          <div class="trade-field">
-            <span class="trade-label">Volume</span>
-            <input class="trade-input" type="number" id="trade-volume" placeholder="0.001" min="0" step="any">
-          </div>
-          <button class="trade-submit buy" id="trade-submit">Buy</button>
-        </div>
-        <div class="trade-msg" id="trade-msg"></div>
-      </div>
-
-      <!-- orders log -->
-      <div class="orders-section">
-        <div class="orders-header">
-          <span class="panel-title">Recent Orders</span>
-        </div>
-        <div id="orders-list">
-          <div class="loading">Loading order history…</div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- AI trader -->
-  <details class="ai-trader" id="ai-trader">
-    <summary>
-      <span class="panel-title">AI Trader</span>
-      <span class="ai-summary" id="ai-summary">spot-only AI fund · click to open</span>
-      <span class="ai-actions" onclick="event.preventDefault()">
-        <button class="ai-btn" id="ai-reload" title="Reload state">↺</button>
-        <a class="ai-btn" href="./ai-trader.html" target="_blank" rel="noopener" title="Public page (% only)">Public ↗</a>
-        <button class="ai-btn" id="ai-seed-preview" title="Preview the one-time seed sale (half of each coin)">Seed preview</button>
-        <button class="ai-btn" id="ai-dry" title="Ask the model now; no orders">Dry run</button>
-        <button class="ai-btn primary" id="ai-run" title="Run a decision now in the configured mode">Run now</button>
-        <button class="ai-btn" id="ai-pause" title="Stop opening new trades (exits keep running)">Pause</button>
-        <button class="ai-btn" id="ai-report" title="Send the daily report email now">Report</button>
-        <button class="ai-btn" id="ai-test-email" title="Send a test email and show MailerSend's response">Test email</button>
-      </span>
-    </summary>
-    <div class="ai-msg" id="ai-msg"></div>
-    <div class="ai-body" id="ai-body"></div>
-  </details>
-
   <script type="module" src="./js/crypto.js"></script>
 </body>
 </html>

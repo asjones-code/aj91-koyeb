@@ -1,6 +1,6 @@
 /**
  * Daily report (private email), trade/exit/alert notifications, and the
- * public %-only view for /ai-trader.
+ * public %-only view for /crypto.
  */
 
 import { CONVICTION_CAP_PCT } from "./config.js";

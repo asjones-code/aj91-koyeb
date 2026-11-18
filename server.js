@@ -2785,15 +2785,26 @@ Respond with ONLY valid JSON, no markdown or explanation:
 		return;
 	}
 
+	// The AI trader lives at /crypto. The stocks/portfolio page is deprecated for now:
+	// 302 (not 301) so browsers don't cache it if the page comes back.
+	if (pathname === "/ai-trader" || pathname === "/ai-trader.html" || pathname === "/long-flat") {
+		res.writeHead(301, { Location: "/crypto" + url.search });
+		res.end();
+		return;
+	}
+	if (pathname === "/portfolio" || pathname === "/portfolio.html") {
+		res.writeHead(302, { Location: "/crypto" });
+		res.end();
+		return;
+	}
+
 	// Clean URLs: /projects -> /projects.html, /admin -> /admin.html, /blog -> /blog.html
 	let pathToServe = pathname;
 	if (pathname === "/projects") pathToServe = "/projects.html";
 	else if (pathname === "/admin") pathToServe = "/admin.html";
 	else if (pathname === "/blog") pathToServe = "/blog.html";
 	else if (pathname === "/project") pathToServe = "/project.html";
-	else if (pathname === "/portfolio") pathToServe = "/portfolio.html";
 	else if (pathname === "/crypto") pathToServe = "/crypto.html";
-	else if (pathname === "/ai-trader" || pathname === "/long-flat") pathToServe = "/ai-trader.html";
 	else if (pathname === "/marginalia" || pathname === "/reading-notes" || pathname === "/reading_notes") pathToServe = "/reading_notes.html";
 	else if (pathname === "/tools" || pathname === "/tools/" || pathname === "/tools/invoice") pathToServe = "/tools.html";
 	const status = await serveStatic(res, pathToServe, method);
