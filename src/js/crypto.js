@@ -1,15 +1,16 @@
 /**
- * AI Trader (/crypto): public overview from /api/ai/kraken/public (percentages only),
- * plus "the desk" — private state, candles and decision log — when the signal token is valid.
+ * AI Trader (/crypto): public overview from /api/ai/kraken/public (percentages only).
+ * Unlocking (signal token) opens the private terminal at /crypto/terminal.
  */
 import { getSignalToken, peekSignalToken, clearSignalToken, authHeaders } from "./signal-token.js";
+
+const TERMINAL = "/crypto/terminal";
 
 const $ = (id) => document.getElementById(id);
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const num = (n) => typeof n === "number" && Number.isFinite(n);
 const pct = (n, d = 2) => (num(n) ? `${n >= 0 ? "+" : "−"}${Math.abs(n).toFixed(d)}%` : "—");
 const tone = (n) => (num(n) ? (n >= 0 ? "up" : "down") : "");
-const usd = (n) => (num(n) ? "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—");
 const px = (n) => (num(n) ? (n >= 100 ? n.toLocaleString("en-US", { maximumFractionDigits: 0 }) : n >= 1 ? n.toLocaleString("en-US", { maximumFractionDigits: 3 }) : n.toPrecision(4)) : "—");
 const ago = (iso) => {
 	const m = (Date.now() - new Date(iso).getTime()) / 60000;
@@ -19,16 +20,11 @@ const until = (iso) => {
 	const m = Math.max(0, (new Date(iso).getTime() - Date.now()) / 60000);
 	return m < 60 ? `${Math.round(m)}m` : `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).padStart(2, "0")}m`;
 };
-const EXIT = { take_profit: "hit target", stop_loss: "stopped out", time: "time limit", ai: "closed by AI", manual: "closed manually" };
 const STRUCT = { up: "↑ HH / HL", down: "↓ LH / LL", range: "↔ range" };
 const WORDS = ["none", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 let pub = null; // public payload
-let desk = null; // private state
-let deskAsset = null;
-let candleChart = null;
-let growthChart = null;
 
 // ── public ──────────────────────────────────────────────────────────────────
 function renderWall(d) {
@@ -152,246 +148,22 @@ async function loadPublic() {
 		pub = await r.json();
 	} catch { pub = { status: "offline" }; }
 	renderWall(pub); renderTape(pub); renderHero(pub); renderNow(pub); renderScreen(pub); renderRules(pub);
-	if (desk) renderGrowth();
 }
 
-// ── the desk (signal token) ─────────────────────────────────────────────────
-async function api(path) {
-	const r = await fetch(path, { headers: authHeaders() });
-	if (r.status === 401) { clearSignalToken(); throw Object.assign(new Error("That token didn't work."), { locked: true }); }
-	const data = await r.json().catch(() => ({}));
-	if (!r.ok || data.ok === false) throw new Error(data.error || `Request failed (${r.status})`);
-	return data;
+// ── unlock → the terminal (signal token) ──────────────────────────────────
+// The token is checked against a private endpoint first, so a typo doesn't land on a locked terminal.
+async function unlock() {
+	const msg = $("lf-lock").querySelector("p");
+	if (!getSignalToken("AI Trader terminal.\nEnter your signal access token:")) return;
+	const r = await fetch("/api/ai/kraken/state", { headers: authHeaders() }).catch(() => null);
+	if (r?.ok) { location.href = TERMINAL; return; }
+	if (r?.status === 401) clearSignalToken();
+	msg.textContent = r?.status === 401 ? "That token didn't work. Try again?" : "Couldn't reach the server. Try again in a moment.";
 }
-
-// Unlocked, the desk moves up under the market tape; locked, the unlock prompt sits above the footer.
-function showDesk(on) {
-	$("lf-desk").hidden = !on;
-	$("lf-lock").hidden = on;
-	const priv = $("lf-private");
-	if (on) $("lf-tape").parentElement.after(priv);
-	else document.querySelector("main footer").before(priv);
-}
-
-async function loadDesk({ prompt = false } = {}) {
-	if (prompt && !getSignalToken("AI Trader.\nEnter your signal access token:")) return;
-	if (!peekSignalToken()) { showDesk(false); return; }
-	try { desk = await api("/api/ai/kraken/state"); }
-	catch (e) {
-		desk = null; showDesk(false);
-		if (prompt) $("lf-lock").querySelector("p").textContent = e.locked ? "That token didn't unlock the desk. Try again?" : e.message;
-		return;
-	}
-	showDesk(true);
-	renderDesk();
-	syncControls();
-}
-
-function renderDesk() {
-	const { fund: f, config: c } = desk;
-	const cell = (k, v, cls = "") => `<div><span>${k}</span><b class="${cls}">${v}</b></div>`;
-	$("lf-book").innerHTML = f.status !== "active"
-		? cell("Fund", f.status === "seeding" ? "Seeding" : "Not funded") + cell("Mode", esc(c.mode)) + cell("Model", esc(c.model))
-		: [cell("Equity", usd(f.equity_usd)), cell("Cash", usd(f.cash_usd)), cell("Return", pct(f.return_pct), tone(f.return_pct)),
-			cell("BTC", pct(f.btc_pct), tone(f.btc_pct)), cell("Hold coins", pct(f.hold_pct), tone(f.hold_pct)),
-			cell("Drawdown", `${(f.drawdown_pct ?? 0).toFixed(1)}%`), cell("Fees", usd(f.fees_paid)),
-			cell("Mode", `${esc(c.mode)}${f.halted ? " · halted" : ""}`)].join("");
-
-	const held = new Set(desk.positions.map((p) => p.asset));
-	const watched = (f.watchlist || []).map((w) => w.asset);
-	if (!deskAsset) deskAsset = desk.positions[0]?.asset || watched[0] || "BTC";
-	$("lf-tabs").innerHTML = c.universe.map((a) => `<button class="lf-tab ${held.has(a) ? "held" : ""}" data-asset="${a}" aria-pressed="${a === deskAsset}">${a}${!held.has(a) && watched.includes(a) ? " ◦" : ""}</button>`).join("");
-	$("lf-tabs").onclick = (e) => {
-		const b = e.target.closest("[data-asset]");
-		if (!b) return;
-		deskAsset = b.dataset.asset;
-		$("lf-tabs").querySelectorAll("[data-asset]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
-		drawCandles();
-	};
-	drawCandles();
-	renderGrowth();
-
-	$("lf-positions").innerHTML = !desk.positions.length ? `<div class="empty">No open positions. The fund is in cash.</div>`
-		: `<table class="lf-table"><thead><tr><th>Coin</th><th class="r">P&amp;L</th><th class="r">Entry → now</th><th class="r">Stop / target</th><th class="r">Left</th></tr></thead><tbody>${
-			desk.positions.map((p) => `<tr><td><span class="sym">${esc(p.asset)}</span><br><span class="dim">${esc(p.conviction)} · ${usd(p.value_usd)}</span></td>
-				<td class="r ${tone(p.unrealized_pct)}">${pct(p.unrealized_pct)}</td><td class="r">${px(p.entry_price)} → ${px(p.price)}</td>
-				<td class="r">${px(p.stop_loss)} / ${px(p.take_profit)}</td><td class="r">${Math.max(0, p.hours_left).toFixed(0)}h</td></tr>
-				<tr><td colspan="5" class="why" style="padding-top:0">${esc(p.thesis)}</td></tr>`).join("")}</tbody></table>`;
-
-	const closed = desk.closed || [];
-	const wins = closed.filter((t) => t.pnl_pct > 0).length;
-	$("lf-winloss").textContent = closed.length ? `${wins}W · ${closed.length - wins}L` : "";
-	$("lf-closed").innerHTML = !closed.length ? `<div class="empty">No closed trades yet.</div>`
-		: `<table class="lf-table"><thead><tr><th>Coin</th><th class="r">Result</th><th>Exit</th><th class="r">Closed</th></tr></thead><tbody>${
-			closed.slice(0, 12).map((t) => `<tr><td class="sym">${esc(t.asset)}</td><td class="r ${tone(t.pnl_pct)}">${pct(t.pnl_pct)}<br><span class="dim">${usd(t.pnl_usd)}</span></td>
-				<td class="dim">${esc(EXIT[t.exit_reason] || t.exit_reason)}</td><td class="r dim">${ago(t.closed_at)}</td></tr>`).join("")}</tbody></table>`;
-
-	const acts = (results) => !results?.length ? "No actions." : results.map((r) =>
-		`${esc(String(r.action).toUpperCase())} ${esc(r.asset || "#" + r.trade_id)} → ${esc(r.status)}${r.size_pct != null ? ` · ${r.size_pct}% · stop ${r.stop_loss_pct}% · target ${r.take_profit_pct}%` : ""}${r.reason ? ` · ${esc(r.reason)}` : ""}`).join("<br>");
-	$("lf-log").innerHTML = !desk.decisions.length ? `<div class="empty">No decisions yet.</div>` : desk.decisions.map((d) => `
-		<article><div class="meta">${ago(d.at)} · ${esc(d.mode)}${d.error ? ` · <span class="down">${esc(d.error)}</span>` : ""}</div>
-		${d.journal ? `<p>${esc(d.journal)}</p>` : ""}${d.market_note ? `<p class="dim" style="font-size:.95rem">${esc(d.market_note)}</p>` : ""}
-		<div class="acts">${acts(d.results)}</div></article>`).join("");
-
-	const e = f.last_email;
-	$("lf-email").className = `lf-note ${e && !e.ok ? "warn" : ""}`;
-	$("lf-email").textContent = !e ? "Email: nothing sent yet." : e.ok ? `Last email ${ago(e.at)}: sent (${e.subject}).` : `Last email ${ago(e.at)} FAILED: ${e.error}`;
-}
-
-const chartOpts = (el, height) => ({
-	width: el.clientWidth, height,
-	layout: { background: { color: "transparent" }, textColor: "rgba(243,236,224,0.45)", fontFamily: "IBM Plex Mono, ui-monospace, monospace", fontSize: 11 },
-	grid: { vertLines: { color: "rgba(243,236,224,0.04)" }, horzLines: { color: "rgba(243,236,224,0.04)" } },
-	rightPriceScale: { borderColor: "rgba(243,236,224,0.1)" },
-	timeScale: { borderColor: "rgba(243,236,224,0.1)", timeVisible: true },
-	crosshair: { mode: 1 },
-});
-function sizeOnResize(chart, el) {
-	new ResizeObserver(() => chart.applyOptions({ width: el.clientWidth })).observe(el);
-}
-const sma = (rows, n) => rows.map((r, i) => (i < n - 1 ? null : { time: r.time, value: rows.slice(i - n + 1, i + 1).reduce((s, x) => s + x.close, 0) / n })).filter(Boolean);
-
-async function drawCandles() {
-	const el = $("lf-candles");
-	const asset = deskAsset;
-	if (!window.LightweightCharts) { el.innerHTML = `<div class="empty">Chart library didn't load.</div>`; return; }
-	let data;
-	try { data = await api(`/api/ai/kraken/candles?asset=${encodeURIComponent(asset)}`); }
-	catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
-	if (asset !== deskAsset) return; // a newer tab was clicked
-	if (candleChart) { candleChart.remove(); candleChart = null; }
-	el.innerHTML = "";
-	const rows = data.candles || [];
-	if (!rows.length) { el.innerHTML = `<div class="empty">No candles for ${esc(asset)}.</div>`; return; }
-	candleChart = LightweightCharts.createChart(el, chartOpts(el, el.clientHeight));
-	const s = candleChart.addCandlestickSeries({
-		upColor: "#7ee8b0", downColor: "#ff7a93", borderVisible: false, wickUpColor: "rgba(126,232,176,.7)", wickDownColor: "rgba(255,122,147,.7)",
-		priceFormat: { type: "price", precision: rows.at(-1).close >= 100 ? 2 : 4, minMove: rows.at(-1).close >= 100 ? 0.01 : 0.0001 },
-	});
-	s.setData(rows.map(({ time, open, high, low, close }) => ({ time, open, high, low, close })));
-	const line = (color, n) => candleChart.addLineSeries({ color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false }).setData(sma(rows, n));
-	line("#abf8fe", 20);
-	line("#ed6ff5", 50);
-	const level = (price, color, title) => s.createPriceLine({ price, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title });
-	for (const w of desk.fund.watchlist || []) if (w.asset === asset) level(w.price, "#f2b84b", `watch ${w.direction === "above" ? "↑" : "↓"}`);
-	for (const p of desk.positions) if (p.asset === asset) {
-		level(p.entry_price, "rgba(243,236,224,.6)", "entry");
-		level(p.stop_loss, "#ff7a93", "stop");
-		level(p.take_profit, "#7ee8b0", "target");
-	}
-	candleChart.timeScale().fitContent();
-	sizeOnResize(candleChart, el);
-}
-
-function renderGrowth() {
-	const el = $("lf-growth");
-	const curve = pub?.curve || [];
-	if (!window.LightweightCharts || curve.length < 2) { el.innerHTML = `<div class="empty">The growth chart fills in after the first daily snapshot.</div>`; return; }
-	if (growthChart) { growthChart.remove(); growthChart = null; }
-	el.innerHTML = "";
-	growthChart = LightweightCharts.createChart(el, { ...chartOpts(el, el.clientHeight), timeScale: { borderColor: "rgba(243,236,224,0.1)" } });
-	const today = new Date().toISOString().slice(0, 10);
-	const byDay = {};
-	for (const c of curve) byDay[c.day === "now" ? today : c.day] = { ...c, day: c.day === "now" ? today : c.day };
-	const rows = Object.values(byDay).sort((a, b) => a.day.localeCompare(b.day));
-	const add = (key, color, width) => growthChart.addLineSeries({ color, lineWidth: width, priceLineVisible: false })
-		.setData(rows.filter((r) => r[key] != null).map((r) => ({ time: r.day, value: r[key] })));
-	add("hold", "rgba(243,236,224,0.36)", 1);
-	add("btc", "#f2b84b", 2);
-	add("ai", "#abf8fe", 3);
-	growthChart.timeScale().fitContent();
-	sizeOnResize(growthChart, el);
-}
-
-// ── controls (signal token) ─────────────────────────────────────────────────
-let busy = false;
-let seedPreview = null;
-function setMsg(text, kind = "") { $("lf-msg").textContent = text; $("lf-msg").className = `lf-msg ${kind}`; }
-async function post(path, body = {}) {
-	const r = await fetch(path, { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: JSON.stringify(body) });
-	if (r.status === 401) { clearSignalToken(); throw new Error("Locked. Unlock again."); }
-	const d = await r.json().catch(() => ({}));
-	if (!r.ok || d.ok === false) throw new Error(d.error || d.skipped || `Request failed (${r.status})`);
-	return d;
-}
-function syncControls() {
-	const f = desk?.fund, live = f?.status === "active";
-	$("lf-ctl").querySelectorAll("[data-act]").forEach((btn) => {
-		const act = btn.dataset.act;
-		btn.disabled = busy || (["run", "pause", "report"].includes(act) && !live);
-		if (act === "pause") btn.textContent = f?.halted ? "Resume" : "Pause";
-		if (act === "seed") btn.hidden = live;
-	});
-	if (desk?.busy && !busy) setMsg(`Server busy: ${desk.busy}…`);
-}
-function renderSeed() {
-	const el = $("lf-seed");
-	if (!seedPreview) { el.innerHTML = ""; return; }
-	const rows = seedPreview.rows.map((r) => `<tr><td class="sym">${esc(r.asset)}</td><td class="r">${px(r.balance)}</td><td class="r">${r.skip ? "—" : px(r.sell_qty)}</td><td class="r">${r.skip ? "—" : usd(r.est_usd)}</td><td class="dim">${r.skip ? esc(r.skip) : "sell"}</td></tr>`).join("");
-	const can = seedPreview.fund_status === "unseeded" && seedPreview.est_total_usd > 0;
-	el.innerHTML = `<div class="lf-panel"><div class="lf-panel-h"><span class="lf-label">Seed sale: ${Math.round(seedPreview.fraction * 100)}% of each coin, once</span>${can ? `<button class="lf-btn warn" id="lf-seed-exec" type="button">Execute ≈ ${usd(seedPreview.est_total_usd)}</button>` : `<span class="lf-label">fund is ${esc(seedPreview.fund_status)}</span>`}</div>
-		<table class="lf-table"><thead><tr><th>Coin</th><th class="r">Balance</th><th class="r">Sell</th><th class="r">≈ USD</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
-	$("lf-seed-exec")?.addEventListener("click", () => act("Selling seed coins", async () => {
-		const sells = seedPreview.rows.filter((r) => !r.skip);
-		if (!confirm(`Sell these on Kraken now (market orders)? This runs once.\n\n${sells.map((r) => `  ${r.asset}: ${px(r.sell_qty)} ≈ ${usd(r.est_usd)}`).join("\n")}`)) throw new Error("Cancelled");
-		const r = await post("/api/ai/kraken/seed/execute", { confirm: true });
-		seedPreview = null;
-		const failed = r.results.filter((x) => !x.ok);
-		setMsg(`Fund seeded with ${usd(r.fund.seed_usd)}.${failed.length ? ` Failed: ${failed.map((x) => x.asset).join(", ")}.` : ""}`, failed.length ? "err" : "ok");
-	}));
-}
-async function act(label, fn) {
-	if (busy) return;
-	busy = true; syncControls(); setMsg(`${label}…`);
-	try { await fn(); }
-	catch (e) { setMsg(e.message, "err"); }
-	finally { busy = false; renderSeed(); await loadDesk(); syncControls(); }
-}
-const ACTIONS = {
-	dry: () => act("Asking the model (dry run, ~20–60s)", async () => {
-		const r = await post("/api/ai/kraken/run", { dry_run: true });
-		const n = (st) => r.results.filter((x) => x.status === st).length;
-		setMsg(`Dry run: would open ${n("would_open")}, close ${n("would_close")}; ${n("rejected")} rejected by guardrails. ${r.journal || ""}`, "ok");
-	}),
-	run: () => act("Running a decision (~20–60s)", async () => {
-		if (desk?.config?.mode === "live" && !confirm("Run a LIVE decision now? The AI may place real market orders.")) throw new Error("Cancelled");
-		const r = await post("/api/ai/kraken/run", { dry_run: false });
-		const n = (st) => r.results.filter((x) => x.status === st).length;
-		setMsg(`Done: opened ${n("opened")}, closed ${n("closed")}, ${n("rejected")} rejected, ${n("failed")} failed.`, n("failed") ? "err" : "ok");
-	}),
-	pause: () => act(desk?.fund?.halted ? "Resuming" : "Pausing", async () => {
-		const r = await post("/api/ai/kraken/pause", { paused: !desk?.fund?.halted });
-		setMsg(r.halted ? "Paused: no new trades; exits keep running." : "Resumed.", "ok");
-	}),
-	report: () => act("Building the daily report", async () => { await post("/api/ai/kraken/report"); setMsg("Report emailed.", "ok"); }),
-	email: () => act("Sending a test email", async () => {
-		const r = await fetch("/api/ai/kraken/test-email", { method: "POST", headers: authHeaders({ "Content-Type": "application/json" }), body: "{}" });
-		const d = await r.json().catch(() => ({}));
-		if (!d.ok) throw new Error(`Email failed: ${d.error || r.status}`);
-		setMsg("Test email sent. Check your inbox and spam.", "ok");
-	}),
-	seed: () => act("Pricing your holdings", async () => {
-		seedPreview = await post("/api/ai/kraken/seed/preview");
-		setMsg(`Seed preview ready: about ${usd(seedPreview.est_total_usd)} would fund the AI.`, "ok");
-	}),
-};
-$("lf-ctl").addEventListener("click", (e) => { const b = e.target.closest("[data-act]"); if (b && !b.disabled) ACTIONS[b.dataset.act](); });
 
 // ── boot ────────────────────────────────────────────────────────────────────
-$("lf-unlock").addEventListener("click", () => loadDesk({ prompt: true }));
-$("lf-lockout").addEventListener("click", () => {
-	clearSignalToken(); desk = null;
-	if (candleChart) { candleChart.remove(); candleChart = null; }
-	if (growthChart) { growthChart.remove(); growthChart = null; }
-	showDesk(false);
-});
+$("lf-unlock").addEventListener("click", unlock);
+if (peekSignalToken()) $("lf-unlock").textContent = "Open terminal";
 if (reduceMotion) $("lf-wall").classList.add("paused");
-
-// The chart library loads with `defer`; module scripts also run after parsing, but order it explicitly.
-const ready = window.LightweightCharts ? Promise.resolve() : new Promise((r) => window.addEventListener("load", r, { once: true }));
-(async () => {
-	await loadPublic();
-	await ready;
-	await loadDesk();
-})();
-setInterval(() => { loadPublic(); if (desk) loadDesk(); }, 5 * 60_000);
+loadPublic();
+setInterval(loadPublic, 5 * 60_000);
