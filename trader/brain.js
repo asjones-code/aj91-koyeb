@@ -93,6 +93,7 @@ You run a small, real-money, SPOT-ONLY crypto fund on Kraken as a public experim
 - Protect the fund: if recent trades are losing, reduce size or stand down. The fund halts automatically at a ${(cfg.maxDrawdown * 100).toFixed(0)}% drawdown.
 - You may close open positions early (thesis broken) or tighten stops to lock in profit. Stops can only be raised, never lowered.
 - Learn from the recent closed trades you are shown: name what worked and what didn't in your journal.
+- You have memory. "track_record" says how many runs you have made; "previous_runs" holds your last runs (trigger, what you wrote, what you did) and "price_change_since_pct" shows how each coin moved after each one. Grade your earlier calls against it: if you stayed flat and the coins fell, say staying flat was right; if a setup you passed on ran, say what you missed and whether your rule should change. Refer back to levels you set before. Never describe a run as a first run or say you have no history unless previous_runs is empty.
 - Use the exact numbers in the market data; do not invent prices or news.
 - Each coin's "structure_4h" applies Step 2b on completed 4h bars: "trend" (up/down/range from the last two swing highs and lows), "impulses" (expanding/contracting legs), "reference_pivot" (the change-of-character level and whether a close has broken it), "last_bar.effort" (normal, buying_climax, selling_climax, effort_no_result, no_demand, no_supply), "up_vs_down_volume_48h", and "spring"/"upthrust" (a false break of a pivot in the last 6 bars: "held" = the extreme hasn't been revisited; "tested_on_lower_volume" = a quieter retest of the level; null = too recent to tell). You are spot-only, so an upthrust means don't buy or consider exiting, never short. Use spring lows and swing lows for structural stops, set just beyond the level.
 - Between scheduled runs a free price check watches the levels you put in "watch" (at most 6) and screens every coin for alignment (above 4h SMA20, volume above its 7d average, positive 24h). If either fires you are called again early, so set concrete re-entry or breakdown levels instead of only describing them.
@@ -145,5 +146,53 @@ export function createBrain({ apiKey, quantSystem, log = console }) {
 		return textOf(resp);
 	}
 
-	return { decide, recap, enabled: Boolean(client) };
+	/**
+	 * YOLO: pick up to `maxPicks` paper day trades from a pre-screened shortlist.
+	 * Paper only — nothing here can place an order. Small prompt, low effort.
+	 */
+	async function yoloPick({ cfg, shortlist, track, feePct }) {
+		const assets = shortlist.map((c) => c.asset);
+		const schema = {
+			type: "object", additionalProperties: false, required: ["note", "picks"],
+			properties: {
+				note: { type: "string", description: "One or two sentences: what the screen shows today and why you picked (or skipped) what you did." },
+				picks: {
+					type: "array",
+					items: {
+						type: "object", additionalProperties: false,
+						required: ["asset", "confidence", "target_pct", "stop_pct", "horizon_hours", "thesis", "invalidation"],
+						properties: {
+							asset: { type: "string", enum: assets },
+							confidence: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] },
+							target_pct: { type: "number", description: "Target above entry, in %." },
+							stop_pct: { type: "number", description: "Stop below entry, in %." },
+							horizon_hours: { type: "number", description: "Hours until the call expires (1-24)." },
+							thesis: { type: "string", description: "The specific signal, citing numbers from the data." },
+							invalidation: { type: "string" },
+						},
+					},
+				},
+			},
+		};
+		const rt = feePct * 2 * 100;
+		const system = `You scout higher-risk crypto on Kraken for a PAPER day-trading log. Nothing you pick is bought; each call is scored automatically against real prices and the record is emailed daily.
+- Long-only day trades: entry is the current price, horizon 1-24h. Give a target and a stop in %; target ≥ 1.5× stop and ≥ ${(rt * 3).toFixed(2)}% (3× the ${rt.toFixed(2)}% round-trip fee). Stops 2-15%, sized off the coin's ATR/realized volatility.
+- Pick at most ${cfg.yoloMaxPicks}. Zero picks is fine when nothing is clean. Prefer fresh attention (volume well above its 7d average), strength vs BTC, price at or breaking recent highs, and an up or range 4h structure. Avoid blow-off moves already far above their 4h SMA20, upthrusts, and coins with little history.
+- Learn from your track record: say what has and hasn't worked and adjust (e.g. tighter stops, fewer picks, different setups).
+Return ONLY the JSON object.`;
+		const resp = await call({
+			model: cfg.yoloModel,
+			max_tokens: 8000,
+			system,
+			messages: [{ role: "user", content: `Shortlist (pre-screened from every Kraken USD pair):\n${JSON.stringify(shortlist)}\n\nYour paper track record:\n${JSON.stringify(track)}` }],
+			output_config: { effort: cfg.yoloEffort, format: { type: "json_schema", schema } },
+		});
+		if (resp.stop_reason === "refusal") throw new Error(`model refused (${resp.stop_details?.category || "unknown"})`);
+		if (resp.stop_reason === "max_tokens") throw new Error("model output truncated (max_tokens)");
+		let parsed;
+		try { parsed = JSON.parse(textOf(resp)); } catch { throw new Error("model returned invalid JSON"); }
+		return { parsed, model: resp.model, usage: resp.usage };
+	}
+
+	return { decide, recap, yoloPick, enabled: Boolean(client) };
 }

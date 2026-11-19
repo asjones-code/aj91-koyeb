@@ -7,7 +7,8 @@
  *   POST /api/ai/kraken/seed/execute    premium  body {confirm:true}; sells half of each coin once
  *   POST /api/ai/kraken/deposit/preview premium  Kraken USD not yet in the fund
  *   POST /api/ai/kraken/deposit         premium  body {usd, confirm:true}; top up the fund at the current unit price
- *   POST /api/ai/kraken/monitor         premium  run the risk monitor now
+ *   POST /api/ai/kraken/yolo            premium  discovery over every Kraken USD pair + paper day trades (no orders)
+ *   POST /api/ai/kraken/monitor        premium  run the risk monitor now
  *   POST /api/ai/kraken/pause           premium  body {paused:bool}
  *   POST /api/ai/kraken/report          premium  send the daily report now
  *   POST /api/ai/kraken/test-email      premium  send a test email; returns MailerSend's response
@@ -19,6 +20,7 @@ import { createKraken } from "./kraken.js";
 import { createBrain } from "./brain.js";
 import { createEngine } from "./engine.js";
 import { createReporter } from "./report.js";
+import { createYolo } from "./yolo.js";
 
 export function createTrader(deps) {
 	const log = deps.log || console;
@@ -34,7 +36,8 @@ export function createTrader(deps) {
 		exits: (...a) => reporter.notify.exits(...a),
 	};
 	const engine = createEngine({ cfgFn, store, kraken, brain, notify, log });
-	reporter = createReporter({ cfgFn, store, engine, brain, kraken, sendEmail: deps.sendEmail, emailTo: deps.emailTo, log });
+	const yolo = createYolo({ cfgFn, store, kraken, brain, log });
+	reporter = createReporter({ cfgFn, store, engine, brain, kraken, yolo, sendEmail: deps.sendEmail, emailTo: deps.emailTo, log });
 
 	// ── scheduler ────────────────────────────────────────────────────────────
 	let timer = null;
@@ -56,6 +59,8 @@ export function createTrader(deps) {
 			if (r?.trigger) r.early = await maybeEarlyRun(r.trigger, cfg, day);
 			return r;
 		}]);
+		// Score YOLO paper calls (public candles only, no model calls, no orders).
+		jobs.push(["paper", String(monitorSlot), () => yolo.resolve()]);
 		if (cfg.decisionHoursUtc.includes(h) && now.getUTCMinutes() >= 5) {
 			jobs.push(["decision", `${day}T${h}`, async () => {
 				const fund = await store.getFund();
@@ -68,7 +73,8 @@ export function createTrader(deps) {
 			try {
 				if (!(await claim(job, slot))) continue;
 				const r = await fn();
-				if (job !== "monitor" || r?.exits?.length || r?.trigger) log.log?.(`[ai-trader] ${job} ${slot}:`, JSON.stringify(r).slice(0, 300));
+				const quiet = (job === "monitor" && !r?.exits?.length && !r?.trigger) || (job === "paper" && !r?.closed?.length);
+				if (!quiet) log.log?.(`[ai-trader] ${job} ${slot}:`, JSON.stringify(r).slice(0, 300));
 			} catch (e) {
 				log.error?.(`[ai-trader] ${job} ${slot} failed:`, e.message);
 			}
@@ -129,6 +135,10 @@ export function createTrader(deps) {
 				return send(r.ok ? 200 : 400, r);
 			}
 			if (pathname === "/api/ai/kraken/monitor" && method === "POST") return send(200, await engine.monitor());
+			if (pathname === "/api/ai/kraken/yolo" && method === "POST") {
+				const r = await yolo.run({ force: body.force === true });
+				return send(r.ok ? 200 : 400, r);
+			}
 			if (pathname === "/api/ai/kraken/pause" && method === "POST") {
 				const fund = await engine.setPaused(body.paused !== false);
 				return send(200, { ok: true, halted: fund.halted, halted_reason: fund.halted_reason });
@@ -145,5 +155,5 @@ export function createTrader(deps) {
 		}
 	}
 
-	return { start, handle, config: cfgFn, tick, engine, reporter, store };
+	return { start, handle, config: cfgFn, tick, engine, reporter, store, yolo };
 }

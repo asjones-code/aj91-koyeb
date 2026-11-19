@@ -42,6 +42,13 @@ export function traderConfig(env = process.env) {
 		// can call the model between scheduled runs, capped to keep API cost down.
 		maxEarlyRunsPerDay: clamp(Math.round(num("KRAKEN_AI_MAX_EARLY_RUNS_PER_DAY", 2)), 0, 12),
 		earlyRunGapHours: clamp(num("KRAKEN_AI_EARLY_RUN_GAP_HOURS", 3), 0.5, 24),
+		// YOLO: discovery across every Kraken USD pair + paper day-trade predictions (no real orders).
+		yoloModel: String(env.KRAKEN_AI_YOLO_MODEL || env.KRAKEN_AI_MODEL || "claude-opus-5-5").trim(),
+		yoloEffort: String(env.KRAKEN_AI_YOLO_EFFORT || "low").trim(),
+		yoloMinVolumeUsd: Math.max(0, num("KRAKEN_AI_YOLO_MIN_VOLUME_USD", 2_000_000)),
+		yoloMaxSpreadPct: clamp(num("KRAKEN_AI_YOLO_MAX_SPREAD_PCT", 0.6), 0.05, 5),
+		yoloCooldownMinutes: clamp(num("KRAKEN_AI_YOLO_COOLDOWN_MIN", 10), 0, 1440),
+		yoloMaxPicks: clamp(Math.round(num("KRAKEN_AI_YOLO_MAX_PICKS", 3)), 1, 5),
 		seedFraction: 0.5,
 		goalUsd: 1_000_000,
 		universe: Object.keys(UNIVERSE),

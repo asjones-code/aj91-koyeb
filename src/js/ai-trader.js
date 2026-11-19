@@ -91,6 +91,28 @@ function resultsHtml(results = []) {
     <td class="ai-dim">${r.usd != null ? usd(r.usd) + " " : ""}${r.size_pct != null ? `${r.size_pct}% · stop ${r.stop_loss_pct}% · target ${r.take_profit_pct}% · ${r.max_hold_hours}h ` : ""}${r.pnl_pct != null ? pct(r.pnl_pct) + " " : ""}${esc(r.reason || r.signal_basis || "")}</td></tr>`).join("")}</tbody></table>`;
 }
 
+const OUTCOME = { target: ["hit target", "ai-up"], stop: ["stopped", "ai-down"], expired: ["expired", ""] };
+function paperRows(list) {
+  return list.map((p) => {
+    const [label, cls] = p.status === "open" ? [`open · best ${pct(p.max_up_pct)} · ${Math.max(0, (new Date(p.expires_at) - Date.now()) / 3600000).toFixed(0)}h left`, ""] : OUTCOME[p.status] || [p.status, ""];
+    return `<tr><td class="ai-buy">${esc(p.asset)}</td><td class="ai-dim">${esc(p.confidence)}</td>
+      <td class="right">${px(p.entry)}</td><td class="right">${pct((p.target / p.entry - 1) * 100)} / ${pct((p.stop / p.entry - 1) * 100)}</td>
+      <td class="${cls}">${esc(label)}${p.status !== "open" ? ` ${pct(p.pnl_pct)}` : ""}</td><td class="ai-why">${esc(p.thesis)}</td></tr>`;
+  }).join("");
+}
+function yoloHtml(y) {
+  if (!y || (!y.last_run && !y.open.length && !y.stats.n)) return "";
+  const s = y.stats, r = y.last_run;
+  const head = `<thead><tr><th>Coin</th><th>Conf.</th><th class="right">Entry</th><th class="right">Target / stop</th><th>Status</th><th>Thesis</th></tr></thead>`;
+  const shortlist = (r?.shortlist || []).map((c) => `<tr><td>${esc(c.asset)}</td><td class="right ${tone(c.ret_24h_pct)}">${pct(c.ret_24h_pct)}</td>
+    <td class="right">${c.volume_vs_7d_avg ?? "—"}×</td><td class="right">${usd(c.volume_24h_usd)}</td><td class="ai-dim">${esc(c.structure_4h?.trend || "—")}</td><td class="right ai-dim">${c.screen_score}</td></tr>`).join("");
+  return `<div class="ai-h">YOLO — paper day trades, no real orders · ${s.n ? `${s.wins}/${s.n} won · avg ${pct(s.avgPct)} after fees` : "nothing scored yet"}</div>
+    ${r ? `<div class="ai-dim">Last scan ${ago(r.at)} · ${r.scanned ?? "?"} USD pairs${r.error ? ` · <span class="ai-down">${esc(r.error)}</span>` : ""}</div>${r.note ? `<div>${esc(r.note)}</div>` : ""}` : ""}
+    ${y.open.length ? `<table class="ai-table">${head}<tbody>${paperRows(y.open)}</tbody></table>` : `<div class="ai-dim">No open paper calls.</div>`}
+    ${shortlist ? `<details class="ai-dim"><summary>Shortlist from the last scan</summary><table class="ai-table"><thead><tr><th>Coin</th><th class="right">24h</th><th class="right">Vol vs 7d</th><th class="right">24h $vol</th><th>4h</th><th class="right">Score</th></tr></thead><tbody>${shortlist}</tbody></table></details>` : ""}
+    ${y.closed.length ? `<details class="ai-dim"><summary>Scored calls</summary><table class="ai-table">${head}<tbody>${paperRows(y.closed)}</tbody></table></details>` : ""}`;
+}
+
 function decisionsHtml(list) {
   if (!list.length) return `<div class="ai-dim">No decisions yet.</div>`;
   return list.slice(0, 3).map((d) => `<div class="ai-decision">
@@ -109,7 +131,7 @@ function render() {
   $("ai-summary").textContent = `${c.mode === "live" ? "LIVE" : "dry run"} · ${f.status === "active" ? (f.halted ? "HALTED" : "trading") : "not funded"} · ${c.model} · ≤${c.maxPositions} pos`;
   const pauseBtn = $("ai-pause");
   if (pauseBtn) pauseBtn.textContent = f.halted ? "Resume" : "Pause";
-  ["ai-pause", "ai-report", "ai-seed-preview", "ai-reload", "ai-test-email"].forEach((id) => { const b = $(id); if (b) b.disabled = busy; });
+  ["ai-pause", "ai-report", "ai-seed-preview", "ai-reload", "ai-test-email", "ai-yolo"].forEach((id) => { const b = $(id); if (b) b.disabled = busy; });
   if ($("ai-deposit")) $("ai-deposit").style.display = f.status === "active" ? "" : "none";
   if ($("ai-deposit")) $("ai-deposit").disabled = busy;
   if ($("ai-pause")) $("ai-pause").disabled = busy || f.status !== "active";
@@ -124,6 +146,7 @@ function render() {
     ${emailHtml(f.last_email)}
     ${seedHtml()}
     ${f.status === "active" ? `<div class="ai-h">Watching (free price check every ${c.monitorMinutes}m · early AI runs ≤${c.maxEarlyRunsPerDay}/day)</div>${watchHtml(f.watchlist)}` : ""}
+    ${yoloHtml(state.yolo)}
     ${f.status === "active" ? `<div class="ai-h">Open positions</div>${positionsHtml(state.positions)}<div class="ai-h">Closed trades</div>${closedHtml(state.closed)}` : ""}`;
   $("ai-seed-exec")?.addEventListener("click", executeSeed);
 }
@@ -163,6 +186,14 @@ async function executeSeed() {
     setMsg(`Fund seeded with ${usd(r.fund.seed_usd)}.${failed.length ? ` ${failed.length} sell(s) failed: ${failed.map((x) => x.asset).join(", ")}.` : ""}`, failed.length ? "err" : "ok");
   });
 }
+
+/** YOLO: discovery over every Kraken USD pair + paper day-trade calls. Never trades. */
+const runYolo = () => act("YOLO — scanning every Kraken USD pair (~15–40s)", async () => {
+  const r = await api("/api/ai/kraken/yolo", { method: "POST", body: "{}" });
+  const n = (r.picks || []).length;
+  if (r.cached) setMsg(`Showing the scan from ${ago(r.run.created_at)} (one fresh scan per ${state?.config?.yoloCooldownMinutes ?? 10} min).`, "ok");
+  else setMsg(`Scanned ${r.run.scanned} USD pairs → ${r.run.shortlist?.length || 0} on the shortlist → ${n ? `${n} paper call${n === 1 ? "" : "s"}: ${r.picks.map((p) => p.asset).join(", ")}` : "no calls (nothing clean)"}${r.rejected?.length ? ` · ${r.rejected.length} rejected by the guardrails` : ""}. Scored automatically; results go in the daily email.`, "ok");
+});
 
 /** Top-up: USD deposited on Kraken only becomes tradeable once it's added to the fund here. */
 const addFunds = () => act("Checking Kraken for new USD", async () => {
@@ -208,6 +239,7 @@ export function initAiTrader() {
     $("ai-reload")?.addEventListener("click", () => loadState({ prompt: true }));
     $("ai-seed-preview")?.addEventListener("click", previewSeed);
     $("ai-deposit")?.addEventListener("click", addFunds);
+    $("ai-yolo")?.addEventListener("click", runYolo);
     $("ai-pause")?.addEventListener("click", togglePause);
     $("ai-report")?.addEventListener("click", sendReport);
     $("ai-test-email")?.addEventListener("click", testEmail);

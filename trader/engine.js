@@ -219,8 +219,9 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 	// ── decision run ─────────────────────────────────────────────────────────
 	async function buildContext(fund, open, cfg, hypotheticalCash) {
 		const assets = [...new Set([...cfg.universe, ...open.map((t) => t.asset)])];
-		const [market, prices, feePct, recentClosed] = await Promise.all([
+		const [market, prices, feePct, recentClosed, prevRuns, history, closedStats] = await Promise.all([
 			kraken.marketData(cfg.universe), priceMap(assets), kraken.takerFee(), store.closedTrades(10),
+			store.recentDecisions(6), store.decisionCount(), store.allClosedStats(),
 		]);
 		for (const a of cfg.universe) if (market[a]?.price) prices[a] = market[a].price;
 		const effFund = hypotheticalCash != null ? { ...fund, cash_usd: hypotheticalCash } : fund;
@@ -247,9 +248,32 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 				asset: t.asset, pnl_pct: r2(t.pnl_pct), exit_reason: t.exit_reason,
 				held_hours: r2((new Date(t.closed_at) - new Date(t.opened_at)) / HOUR), conviction: t.conviction, thesis: t.thesis,
 			})),
+			// Memory: what you saw and did on earlier runs, and how prices moved since (hindsight).
+			track_record: {
+				decision_runs_so_far: history?.n ?? 0,
+				first_run_at: history?.first ?? null,
+				trades_closed_total: closedStats.n, wins: closedStats.wins,
+			},
+			previous_runs: prevRuns.filter((d) => !d.error).map((d) => previousRun(d, prices)),
 			market_data_hourly_kraken: market,
 		};
 		return { ctx, val, prices, feePct };
+	}
+
+	/** Compact view of an earlier decision + how each coin moved since, so the model can grade its own calls. */
+	function previousRun(d, pricesNow) {
+		const results = Array.isArray(d.results) ? d.results : [];
+		const then = d.prices || null;
+		const moves = then ? Object.fromEntries(Object.entries(then)
+			.filter(([a, p]) => p > 0 && pricesNow[a] > 0)
+			.map(([a, p]) => [a, r2((pricesNow[a] / p - 1) * 100)])) : null;
+		return {
+			at: d.created_at, hours_ago: r2((Date.now() - new Date(d.created_at).getTime()) / HOUR),
+			trigger: d.trigger || null, mode: d.mode,
+			market_note: d.market_note, journal: d.journal,
+			actions: results.map((x) => `${x.action} ${x.asset || "#" + x.trade_id}: ${x.status}${x.reason ? ` (${String(x.reason).slice(0, 120)})` : ""}`),
+			price_change_since_pct: moves,
+		};
 	}
 
 	function validateOpen(o, { cfg, val, cash, feePct, openAssets, slots, info, price }) {
@@ -294,7 +318,7 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 				userContent: `Decide this run's trades (trigger: ${trigger}). Data:\n${JSON.stringify(ctx, null, 1)}`,
 			}));
 		} catch (e) {
-			await store.insertDecision({ mode: live ? "live" : "dry_run", model: cfg.model, error: e.message });
+			await store.insertDecision({ mode: live ? "live" : "dry_run", model: cfg.model, error: e.message, trigger });
 			return { ok: false, error: e.message };
 		}
 
@@ -302,6 +326,7 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 		const rec = await store.insertDecision({
 			mode: live ? "live" : "dry_run", model, market_note: decision.market_note, journal: decision.journal,
 			actions: { opens: decision.opens, closes: decision.closes, adjusts: decision.adjusts },
+			trigger, prices: Object.fromEntries(cfg.universe.filter((a) => prices[a]).map((a) => [a, prices[a]])),
 		});
 		const byId = Object.fromEntries(open.map((t) => [t.id, t]));
 
