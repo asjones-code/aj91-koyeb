@@ -387,6 +387,16 @@
     .ai-btn:disabled { opacity: 0.35; cursor: default; }
     .ai-btn.primary { border-color: rgba(74,222,128,0.5); color: var(--green); }
     a.ai-btn { text-decoration: none; display: inline-flex; align-items: center; }
+    /* YOLO: rainbow text, paper-only discovery */
+    .ai-btn.yolo { font-weight: 700; letter-spacing: 0.08em; border-color: rgba(255,255,255,0.25); }
+    .ai-btn.yolo span {
+      background: linear-gradient(90deg, #ff4d4d, #ffa64d, #ffe14d, #4dff88, #4dc3ff, #9d6bff, #ff4dd2, #ff4d4d);
+      background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+      animation: yolo-shift 3s linear infinite;
+    }
+    .ai-btn.yolo:hover:not(:disabled) { border-color: #ff4dd2; }
+    @keyframes yolo-shift { to { background-position: 200% 0; } }
+    @media (prefers-reduced-motion: reduce) { .ai-btn.yolo span { animation: none; } }
     .ai-btn.danger { border-color: rgba(248,113,113,0.6); color: var(--red); }
     .ai-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); border: 1px solid var(--border); }
     .ai-stat { padding: 0.45rem 0.7rem; border-right: 1px solid var(--border); }
@@ -452,6 +462,7 @@
       <span class="ai-actions" onclick="event.preventDefault()">
         <button class="ai-btn" id="ai-reload" title="Reload state">↺</button>
         <button class="ai-btn" id="ai-seed-preview" title="Preview the one-time seed sale (half of each coin)">Seed preview</button>
+        <button class="ai-btn yolo" id="ai-yolo" title="Scan every Kraken USD pair for risky setups and log paper day trades (no real orders)"><span>YOLO</span></button>
         <button class="ai-btn primary" id="ai-deposit" title="Add USD you've deposited on Kraken to the AI's fund">Add funds</button>
         <button class="ai-btn" id="ai-pause" title="Stop opening new trades (exits keep running)">Pause</button>
         <button class="ai-btn" id="ai-report" title="Send the daily report email now">Report</button>

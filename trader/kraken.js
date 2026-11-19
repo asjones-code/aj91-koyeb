@@ -180,7 +180,34 @@ export function createKraken({ krakenPrivatePost, krakenPublicGet, krakenUsdPric
 		return Object.fromEntries(assets.filter((a) => marketCache.has(a)).map((a) => [a, { ...marketCache.get(a).data, at: new Date(marketCache.get(a).at).toISOString() }]));
 	}
 
-	return { pairInfo, floorTo, buildSpotOrder, marketOrder, getFill, balances, takerFee, prices, marketData, marketSnapshot };
+	// ── whole-exchange discovery (public, no keys) ───────────────────────────
+	let usdPairsCache = null;
+	/** Every online USD-quoted spot pair: [{key, pair, asset}] (cached 6h). */
+	async function usdPairs() {
+		if (usdPairsCache && Date.now() - usdPairsCache.at < 6 * 3600_000) return usdPairsCache.list;
+		const res = await pub("/0/public/AssetPairs");
+		const UNALIAS = { XBT: "BTC", XDG: "DOGE" };
+		const list = Object.entries(res || {})
+			.filter(([, i]) => (i.quote === "ZUSD" || i.quote === "USD") && i.aclass_base === "currency" && (!i.status || i.status === "online") && i.wsname)
+			.map(([key, i]) => { const base = i.wsname.split("/")[0]; return { key, pair: i.altname, asset: UNALIAS[base] || base, ordermin: Number(i.ordermin || 0) }; });
+		usdPairsCache = { list, at: Date.now() };
+		return list;
+	}
+	/** One call: ticker for every pair on Kraken, keyed by pair key. */
+	const tickerAll = () => pub("/0/public/Ticker");
+	/** OHLC bars for any pair. interval in minutes; since = unix seconds. */
+	async function ohlc(pair, interval = 60, since) {
+		const res = await pub("/0/public/OHLC", since ? { pair, interval, since } : { pair, interval });
+		const key = Object.keys(res).find((k) => k !== "last");
+		return (res[key] || []).map((b) => ({ t: Number(b[0]), o: Number(b[1]), h: Number(b[2]), l: Number(b[3]), c: Number(b[4]), v: Number(b[6]) }));
+	}
+	/** Same indicator set the main universe gets, for any pair; includes bar count (listing age proxy). */
+	async function indicatorsFor(pair) {
+		const bars = await ohlcHourly(pair);
+		return { ...indicators(bars), hours_of_history: bars.length };
+	}
+
+	return { pairInfo, floorTo, buildSpotOrder, marketOrder, getFill, balances, takerFee, prices, marketData, marketSnapshot, usdPairs, tickerAll, ohlc, indicatorsFor, sleep };
 }
 
 // ── pure indicator math (exported for tests) ─────────────────────────────────

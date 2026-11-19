@@ -95,6 +95,41 @@ CREATE TABLE IF NOT EXISTS ai_decisions (
 	error TEXT
 );
 
+ALTER TABLE ai_decisions ADD COLUMN IF NOT EXISTS trigger TEXT;
+ALTER TABLE ai_decisions ADD COLUMN IF NOT EXISTS prices JSONB;   -- {asset: price} at decision time, for hindsight
+
+-- YOLO: discovery runs over every Kraken USD pair and the paper day trades they predict.
+CREATE TABLE IF NOT EXISTS ai_yolo_runs (
+	id SERIAL PRIMARY KEY,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+	model TEXT,
+	scanned INT,
+	shortlist JSONB,
+	note TEXT,
+	error TEXT
+);
+CREATE TABLE IF NOT EXISTS ai_paper (
+	id SERIAL PRIMARY KEY,
+	run_id INT,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+	asset TEXT NOT NULL,
+	pair TEXT NOT NULL,
+	confidence TEXT,
+	entry DOUBLE PRECISION NOT NULL,
+	target DOUBLE PRECISION NOT NULL,
+	stop DOUBLE PRECISION NOT NULL,
+	expires_at TIMESTAMPTZ NOT NULL,
+	thesis TEXT,
+	invalidation TEXT,
+	status TEXT NOT NULL DEFAULT 'open',               -- open | target | stop | expired
+	closed_at TIMESTAMPTZ,
+	exit_price DOUBLE PRECISION,
+	max_up_pct DOUBLE PRECISION,                       -- best move seen while open
+	pnl_pct DOUBLE PRECISION,                          -- after round-trip fees
+	fee_pct DOUBLE PRECISION
+);
+CREATE INDEX IF NOT EXISTS ai_paper_status_idx ON ai_paper (status);
+
 CREATE TABLE IF NOT EXISTS ai_jobs (
 	job TEXT NOT NULL,
 	slot TEXT NOT NULL,
@@ -123,6 +158,9 @@ export function createStore(getPool) {
 	});
 	const tradeRow = (r) => r && Object.fromEntries(Object.entries(r).map(([k, v]) =>
 		[k, typeof v === "string" && /^(qty|entry_price|cost_usd|entry_fee|take_profit|stop_loss|realized_usd|exit_price|exit_value_usd|exit_fee|pnl_usd|pnl_pct)$/.test(k) ? Number(v) : v]));
+
+	const paperRow = (r) => r && Object.fromEntries(Object.entries(r).map(([k, v]) =>
+		[k, typeof v === "string" && /^(entry|target|stop|exit_price|max_up_pct|pnl_pct|fee_pct)$/.test(k) ? Number(v) : v]));
 
 	return {
 		hasDb: () => Boolean(getPool()),
@@ -192,10 +230,63 @@ export function createStore(getPool) {
 		},
 
 		async insertDecision(d) {
-			const r = await q(`INSERT INTO ai_decisions (mode, model, market_note, journal, actions, results, error)
-				VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, created_at`,
-				[d.mode, d.model, d.market_note || null, d.journal || null, JSON.stringify(d.actions || null), JSON.stringify(d.results || null), d.error || null]);
+			const r = await q(`INSERT INTO ai_decisions (mode, model, market_note, journal, actions, results, error, trigger, prices)
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, created_at`,
+				[d.mode, d.model, d.market_note || null, d.journal || null, JSON.stringify(d.actions || null), JSON.stringify(d.results || null), d.error || null,
+					d.trigger || null, d.prices ? JSON.stringify(d.prices) : null]);
 			return r.rows[0];
+		},
+		async decisionCount() {
+			const r = await q("SELECT count(*)::int AS n, min(created_at) AS first FROM ai_decisions WHERE error IS NULL");
+			return r.rows[0];
+		},
+
+		// ── YOLO paper trades ──
+		async insertYoloRun(x) {
+			const r = await q("INSERT INTO ai_yolo_runs (model, scanned, shortlist, note, error) VALUES ($1,$2,$3,$4,$5) RETURNING *",
+				[x.model || null, x.scanned ?? null, JSON.stringify(x.shortlist || null), x.note || null, x.error || null]);
+			return r.rows[0];
+		},
+		async lastYoloRun() {
+			const r = await q("SELECT * FROM ai_yolo_runs ORDER BY created_at DESC LIMIT 1");
+			return r.rows[0] || null;
+		},
+		async insertPaper(p) {
+			const cols = Object.keys(p);
+			const r = await q(`INSERT INTO ai_paper (${cols.join(",")}) VALUES (${cols.map((_, i) => `$${i + 1}`).join(",")}) RETURNING *`, cols.map((c) => p[c]));
+			return paperRow(r.rows[0]);
+		},
+		async updatePaper(id, fields) {
+			const keys = Object.keys(fields);
+			const r = await q(`UPDATE ai_paper SET ${keys.map((k, i) => `${k} = $${i + 2}`).join(", ")} WHERE id = $1 RETURNING *`, [id, ...keys.map((k) => fields[k])]);
+			return paperRow(r.rows[0]);
+		},
+		async openPaper() {
+			const r = await q("SELECT * FROM ai_paper WHERE status = 'open' ORDER BY created_at");
+			return r.rows.map(paperRow);
+		},
+		async paperForRun(runId) {
+			const r = await q("SELECT * FROM ai_paper WHERE run_id = $1 ORDER BY id", [runId]);
+			return r.rows.map(paperRow);
+		},
+		async closedPaper(limit = 20) {
+			const r = await q("SELECT * FROM ai_paper WHERE status <> 'open' ORDER BY closed_at DESC LIMIT $1", [limit]);
+			return r.rows.map(paperRow);
+		},
+		async paperSince(ts) {
+			const r = await q("SELECT * FROM ai_paper WHERE created_at >= $1 OR closed_at >= $1 ORDER BY created_at", [ts]);
+			return r.rows.map(paperRow);
+		},
+		async paperStats() {
+			const r = await q(`SELECT count(*)::int AS n,
+				count(*) FILTER (WHERE pnl_pct > 0)::int AS wins,
+				count(*) FILTER (WHERE status = 'target')::int AS targets,
+				count(*) FILTER (WHERE status = 'stop')::int AS stops,
+				count(*) FILTER (WHERE status = 'expired')::int AS expired,
+				coalesce(avg(pnl_pct), 0) AS avg_pct, coalesce(sum(pnl_pct), 0) AS sum_pct
+				FROM ai_paper WHERE status <> 'open'`);
+			const s = r.rows[0];
+			return { n: s.n, wins: s.wins, targets: s.targets, stops: s.stops, expired: s.expired, avgPct: Number(s.avg_pct), sumPct: Number(s.sum_pct) };
 		},
 		async updateDecisionResults(id, results) {
 			await q("UPDATE ai_decisions SET results = $2 WHERE id = $1", [id, JSON.stringify(results)]);

@@ -25,7 +25,37 @@ function nextDecisionAt(hours, from = new Date()) {
 	return null;
 }
 
-export function createReporter({ cfgFn, store, engine, brain, kraken, sendEmail, emailTo, log = console }) {
+/** YOLO paper-call block for the daily email (HTML). */
+function paperHtml(p) {
+	if (!p || (!p.made.length && !p.closed.length && !p.open.length && !p.stats.n)) return "";
+	const px = (n) => (n >= 1 ? n.toLocaleString("en-US", { maximumFractionDigits: 4 }) : Number(n).toPrecision(4));
+	const outcome = { target: "hit target", stop: "stopped", expired: "expired" };
+	const row = (x) => `<tr>
+		<td style="padding:6px 8px;font-weight:600">${esc(x.asset)}</td>
+		<td style="padding:6px 8px">${esc(x.confidence)}</td>
+		<td style="padding:6px 8px">${px(x.entry)} → ${pct(r2((x.target / x.entry - 1) * 100))} / ${pct(r2((x.stop / x.entry - 1) * 100))}</td>
+		<td style="padding:6px 8px;color:${x.status === "open" ? "#555" : color(x.pnl_pct)}">${x.status === "open" ? `open · best ${pct(r2(x.max_up_pct))}` : `${outcome[x.status] || x.status} ${pct(r2(x.pnl_pct))}`}</td>
+		<td style="padding:6px 8px;font-size:12px;color:#555">${esc(x.thesis)}</td></tr>`;
+	const list = [...p.closed, ...p.open.filter((o) => !p.closed.some((c) => c.id === o.id))];
+	const s = p.stats;
+	return `<h3 style="margin:18px 0 6px;font-size:14px">🌈 YOLO paper calls <span style="font-weight:400;color:#888">(no real money)</span></h3>
+<p style="margin:0 0 6px;font-size:13px;color:#333">Last 24h: ${p.made.length} new call${p.made.length === 1 ? "" : "s"}, ${p.closed.length} scored. All-time: ${s.n ? `${s.wins}/${s.n} won (${Math.round((s.wins / s.n) * 100)}%), ${s.targets} targets, ${s.stops} stops, ${s.expired} expired, avg ${pct(r2(s.avgPct))} after fees` : "no calls scored yet"}.</p>
+${list.length ? `<table style="width:100%;border-collapse:collapse;font-size:13px;border:1px solid #eee"><tr style="background:#f5f5f3;text-align:left"><th style="padding:6px 8px">Coin</th><th style="padding:6px 8px">Conf.</th><th style="padding:6px 8px">Entry → target / stop</th><th style="padding:6px 8px">Result</th><th style="padding:6px 8px">Thesis</th></tr>${list.map(row).join("")}</table>` : ""}`;
+}
+
+export function createReporter({ cfgFn, store, engine, brain, kraken, yolo, sendEmail, emailTo, log = console }) {
+	/** YOLO paper activity: calls made / scored in the last 24h, still open, all-time stats. */
+	async function paperSummary(since) {
+		try {
+			const [recent, open, stats] = await Promise.all([store.paperSince(since), store.openPaper(), store.paperStats()]);
+			return {
+				made: recent.filter((p) => new Date(p.created_at) >= since),
+				closed: recent.filter((p) => p.status !== "open" && p.closed_at && new Date(p.closed_at) >= since),
+				open, stats,
+			};
+		} catch (e) { log.warn?.("[ai-trader] paper summary failed:", e.message); return null; }
+	}
+
 	/** Send an email and record the outcome (MailerSend failures don't throw — they return {ok:false}). */
 	async function deliver(subject, html, text) {
 		let r;
@@ -76,8 +106,8 @@ export function createReporter({ cfgFn, store, engine, brain, kraken, sendEmail,
 		const m = await metrics();
 		if (m.fund.status !== "active") return { ok: true, skipped: "fund not seeded" };
 		const since = new Date(Date.now() - 24 * HOUR);
-		const [closed24, opened24, decisions24, snaps] = await Promise.all([
-			store.closedSince(since), store.openedSince(since), store.decisionsSince(since), store.snapshots(60),
+		const [closed24, opened24, decisions24, snaps, paper] = await Promise.all([
+			store.closedSince(since), store.openedSince(since), store.decisionsSince(since), store.snapshots(60), paperSummary(since),
 		]);
 		const prev = [...snaps].reverse().find((s) => s.day < today());
 		const prevNav = prev ? prev.equity_usd / (prev.units ?? m.seed) : null;
@@ -94,6 +124,11 @@ export function createReporter({ cfgFn, store, engine, brain, kraken, sendEmail,
 			opened_last_24h: opened24.map((t) => ({ asset: t.asset, conviction: t.conviction, thesis: t.thesis })),
 			open_positions: m.val.positions.map((p) => ({ asset: p.asset, unrealized_pct: r2(p.unrealized_pct), hours_left: r2(p.hours_left) })),
 			journal_entries: decisions24.filter((d) => d.journal).map((d) => d.journal),
+			yolo_paper_calls: paper ? {
+				note: "paper only, no real money",
+				scored_last_24h: paper.closed.map((p) => ({ asset: p.asset, outcome: p.status, net_pct: r2(p.pnl_pct) })),
+				all_time: { scored: paper.stats.n, wins: paper.stats.wins, avg_net_pct: r2(paper.stats.avgPct) },
+			} : null,
 		};
 		let recap = "";
 		try { recap = await brain.recap({ cfg, summary }); } catch (e) { log.warn?.("[ai-trader] recap failed:", e.message); }
@@ -106,12 +141,12 @@ export function createReporter({ cfgFn, store, engine, brain, kraken, sendEmail,
 		let email = null;
 		if (send) {
 			const subject = `AI Trader day ${Math.max(1, Math.ceil(m.daysRunning))}: ${pct(r2(m.returnPct))} vs BTC ${pct(r2(m.btcPct))}`;
-			email = await deliver(subject, reportHtml({ cfg, m, summary, recap, dayPct, goalPct, doublings, closed24, decisions24 }), reportText({ m, summary, recap, dayPct, goalPct }));
+			email = await deliver(subject, reportHtml({ cfg, m, summary, recap, dayPct, goalPct, doublings, closed24, decisions24, paper }), reportText({ m, summary, recap, dayPct, goalPct, paper }));
 		}
 		return { ok: true, summary, recap, email };
 	}
 
-	function reportHtml({ cfg, m, summary, recap, dayPct, goalPct, doublings, closed24, decisions24 }) {
+	function reportHtml({ cfg, m, summary, recap, dayPct, goalPct, doublings, closed24, decisions24, paper }) {
 		const stat = (label, value, c) => `<td style="padding:10px 12px;border:1px solid #eee"><div style="font:600 10px monospace;color:#888;text-transform:uppercase;letter-spacing:.08em">${label}</div><div style="font-size:18px;font-weight:700;color:${c || "#111"}">${value}</div></td>`;
 		const posRows = m.val.positions.map((p) => `<tr>
 			<td style="padding:6px 8px;font-weight:600">${esc(p.asset)}</td>
@@ -144,13 +179,15 @@ ${stat("Drawdown", `${r2(m.drawdownPct).toFixed(2)}%`)}${stat("Win rate", m.winR
 <h3 style="margin:18px 0 6px;font-size:14px">Closed in the last 24h</h3>
 <table style="width:100%;border-collapse:collapse;font-size:13px;border:1px solid #eee"><tr style="background:#f5f5f3;text-align:left"><th style="padding:6px 8px">Asset</th><th style="padding:6px 8px">Result</th><th style="padding:6px 8px">Exit</th><th style="padding:6px 8px">Held</th></tr>${closedRows}</table>
 ${journal ? `<h3 style="margin:18px 0 6px;font-size:14px">AI journal</h3>${journal}` : ""}
+${paperHtml(paper)}
 <h3 style="margin:18px 0 6px;font-size:14px">Road to $1M</h3>
 <p style="margin:0;font-size:13px;color:#333">${goalPct.toFixed(4)}% of the way there · ${doublings != null ? `${doublings.toFixed(1)} more doublings to go` : ""}. All-time: ${m.stats.n} trades closed, realized ${usd(m.stats.realized)}, avg win ${pct(r2(m.stats.avgWinPct))}, avg loss ${pct(r2(m.stats.avgLossPct))}.</p>
 <p style="font-size:11px;color:#aaa;margin-top:20px">Spot only, no leverage. Max ${cfg.maxPositions} positions, ≤${cfg.maxPositionPct}% each, ≤${cfg.maxHoldHours}h holds, halts at ${(cfg.maxDrawdown * 100).toFixed(0)}% drawdown. Model: ${esc(cfg.model)}. "Hold seed coins" = value today of the coins sold to fund the AI.</p>
 </div>`;
 	}
 
-	function reportText({ m, summary, recap, dayPct, goalPct }) {
+	function reportText({ m, summary, recap, dayPct, goalPct, paper }) {
+		const s = paper?.stats;
 		return [
 			`AI TRADER — ${summary.day}`,
 			`Equity ${usd(m.val.equity)} (${pct(r2(m.returnPct))} since start, 24h ${pct(r2(dayPct))})`,
@@ -159,7 +196,10 @@ ${journal ? `<h3 style="margin:18px 0 6px;font-size:14px">AI journal</h3>${journ
 			`Open: ${m.val.positions.map((p) => `${p.asset} ${pct(r2(p.unrealized_pct))}`).join(", ") || "none"}`,
 			`Win rate ${m.winRate == null ? "—" : m.winRate.toFixed(0) + "%"} over ${m.stats.n} trades · fees ${usd(m.fund.fees_paid)}`,
 			`Road to $1M: ${goalPct.toFixed(4)}%`,
-		].join("\n");
+			paper ? `YOLO paper calls (no real money): ${paper.made.length} new, ${paper.closed.length} scored in 24h` +
+				`${paper.closed.length ? ` (${paper.closed.map((p) => `${p.asset} ${p.status} ${pct(r2(p.pnl_pct))}`).join(", ")})` : ""}` +
+				`; all-time ${s.n ? `${s.wins}/${s.n} won, avg ${pct(r2(s.avgPct))}` : "none scored yet"}` : "",
+		].filter(Boolean).join("\n");
 	}
 
 	// ── notifications ────────────────────────────────────────────────────────
@@ -179,7 +219,9 @@ ${journal ? `<h3 style="margin:18px 0 6px;font-size:14px">AI journal</h3>${journ
 	async function state() {
 		const cfg = cfgFn();
 		const fund = await store.getFund();
-		const [closed, decisions] = await Promise.all([store.closedTrades(20), store.recentDecisions(5)]);
+		const [closed, decisions, lastYolo, openPaper, closedPaper, paperStats] = await Promise.all([
+			store.closedTrades(20), store.recentDecisions(5), store.lastYoloRun(), store.openPaper(), store.closedPaper(10), store.paperStats(),
+		]);
 		let m = null;
 		if (fund.status === "active") m = await metrics();
 		return {
@@ -200,7 +242,12 @@ ${journal ? `<h3 style="margin:18px 0 6px;font-size:14px">AI journal</h3>${journ
 				hours_left: r2(p.hours_left), conviction: p.conviction, horizon: p.horizon, thesis: p.thesis,
 			})) : [],
 			closed: closed.map((t) => ({ id: t.id, asset: t.asset, opened_at: t.opened_at, closed_at: t.closed_at, pnl_pct: r2(t.pnl_pct), pnl_usd: r2(t.pnl_usd), exit_reason: t.exit_reason, thesis: t.thesis })),
-			decisions: decisions.map((d) => ({ id: d.id, at: d.created_at, mode: d.mode, journal: d.journal, market_note: d.market_note, results: d.results, error: d.error })),
+			decisions: decisions.map((d) => ({ id: d.id, at: d.created_at, mode: d.mode, trigger: d.trigger, journal: d.journal, market_note: d.market_note, results: d.results, error: d.error })),
+			yolo: {
+				running: Boolean(yolo?.isRunning()),
+				last_run: lastYolo ? { id: lastYolo.id, at: lastYolo.created_at, scanned: lastYolo.scanned, note: lastYolo.note, error: lastYolo.error, shortlist: lastYolo.shortlist || [] } : null,
+				open: openPaper, closed: closedPaper, stats: paperStats,
+			},
 		};
 	}
 
