@@ -14,7 +14,7 @@ const ago = (iso) => {
   const m = (Date.now() - new Date(iso).getTime()) / 60000;
   return m < 60 ? `${Math.max(1, Math.round(m))}m ago` : m < 2880 ? `${Math.round(m / 60)}h ago` : `${Math.round(m / 1440)}d ago`;
 };
-const STATUS_CLASS = { opened: "ai-up", closed: "ai-up", adjusted: "ai-up", would_open: "", would_close: "", would_adjust: "", rejected: "ai-dim", failed: "ai-down", partial: "ai-down" };
+const STATUS_CLASS = { opened: "ai-up", added: "ai-up", would_add: "", closed: "ai-up", adjusted: "ai-up", would_open: "", would_close: "", would_adjust: "", rejected: "ai-dim", failed: "ai-down", partial: "ai-down" };
 
 let state = null;
 let seedPreview = null;

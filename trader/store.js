@@ -70,6 +70,8 @@ CREATE TABLE IF NOT EXISTS ai_trades (
 	exit_txid TEXT
 );
 CREATE INDEX IF NOT EXISTS ai_trades_status_idx ON ai_trades (status);
+ALTER TABLE ai_trades ADD COLUMN IF NOT EXISTS entry_type TEXT NOT NULL DEFAULT 'full';  -- full | starter (half size, early reversal)
+ALTER TABLE ai_trades ADD COLUMN IF NOT EXISTS adds INT NOT NULL DEFAULT 0;              -- times added to (starter → full)
 
 CREATE TABLE IF NOT EXISTS ai_snapshots (
 	day DATE PRIMARY KEY,

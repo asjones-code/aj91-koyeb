@@ -217,11 +217,27 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 	});
 
 	// ── decision run ─────────────────────────────────────────────────────────
+	/**
+	 * Losing-streak sizing: after 2 losing trades in a row, the next 2 trades opened
+	 * are capped at half size. That's the whole penalty — no stand-down.
+	 */
+	async function riskMode() {
+		const closed = await store.closedTrades(20); // newest first
+		const lost = (t) => t.pnl_usd != null && Number(t.pnl_usd) <= 0;
+		let streak = 0;
+		for (const t of closed) { if (lost(t)) streak++; else break; }
+		const i = closed.findIndex((t, k) => k + 1 < closed.length && lost(t) && lost(closed[k + 1]));
+		if (i < 0) return { losing_streak: streak, size_multiplier: 1, halved_trades_left: 0 };
+		const openedAfter = (await store.openedSince(closed[i].closed_at)).length;
+		const left = Math.max(0, 2 - openedAfter);
+		return { losing_streak: streak, size_multiplier: left > 0 ? 0.5 : 1, halved_trades_left: left };
+	}
+
 	async function buildContext(fund, open, cfg, hypotheticalCash) {
 		const assets = [...new Set([...cfg.universe, ...open.map((t) => t.asset)])];
-		const [market, prices, feePct, recentClosed, prevRuns, history, closedStats] = await Promise.all([
+		const [market, prices, feePct, recentClosed, prevRuns, history, closedStats, risk] = await Promise.all([
 			kraken.marketData(cfg.universe), priceMap(assets), kraken.takerFee(), store.closedTrades(10),
-			store.recentDecisions(6), store.decisionCount(), store.allClosedStats(),
+			store.recentDecisions(6), store.decisionCount(), store.allClosedStats(), riskMode(),
 		]);
 		for (const a of cfg.universe) if (market[a]?.price) prices[a] = market[a].price;
 		const effFund = hypotheticalCash != null ? { ...fund, cash_usd: hypotheticalCash } : fund;
@@ -238,8 +254,15 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 				halted: fund.halted, open_slots: cfg.maxPositions - open.length,
 				min_trade_usd: cfg.minTradeUsd,
 			},
+			risk_mode: {
+				...risk,
+				note: risk.size_multiplier < 1
+					? `Full entries capped at half size for the next ${risk.halved_trades_left} trade(s) after ${risk.losing_streak >= 2 ? risk.losing_streak : 2} losses in a row. Starters are unaffected. Do not stand down.`
+					: "Normal sizing.",
+			},
 			open_positions: val.positions.map((p) => ({
 				trade_id: p.id, asset: p.asset, conviction: p.conviction, horizon: p.horizon,
+				entry_type: p.entry_type || "full", adds: p.adds || 0,
 				hours_open: r2(p.hours_open), hours_left: r2(p.hours_left),
 				entry_price: p.entry_price, price_now: p.price, unrealized_pct: r2(p.unrealized_pct),
 				stop_loss: p.stop_loss, take_profit: p.take_profit, thesis: p.thesis, invalidation: p.invalidation,
@@ -257,7 +280,7 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 			previous_runs: prevRuns.filter((d) => !d.error).map((d) => previousRun(d, prices)),
 			market_data_hourly_kraken: market,
 		};
-		return { ctx, val, prices, feePct };
+		return { ctx, val, prices, feePct, risk };
 	}
 
 	/** Compact view of an earlier decision + how each coin moved since, so the model can grade its own calls. */
@@ -276,7 +299,7 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 		};
 	}
 
-	function validateOpen(o, { cfg, val, cash, feePct, openAssets, slots, info, price }) {
+	function validateOpen(o, { cfg, val, cash, feePct, openAssets, slots, info, price, risk }) {
 		if (!cfg.universe.includes(o.asset)) return "asset not in universe";
 		if (openAssets.has(o.asset)) return "already holding this asset";
 		if (slots <= 0) return "no free position slots";
@@ -285,18 +308,29 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 		const rtPct = feePct * 2 * 100;
 		const sl = Number(o.stop_loss_pct), tp = Number(o.take_profit_pct), hold = Number(o.max_hold_hours);
 		if (!(sl >= 0.75 && sl <= 12)) return `stop ${sl}% outside 0.75–12%`;
-		if (!(tp >= Math.max(1.5 * sl, 3 * rtPct))) return `take-profit ${tp}% < max(1.5× stop, 3× fees ${(3 * rtPct).toFixed(2)}%)`;
+		const starter = o.entry_type === "starter";
+		const rr = starter ? 1.25 : 1.5; // starters use a tighter volatility stop and a nearer target
+		if (!(tp >= Math.max(rr * sl, 3 * rtPct))) return `take-profit ${tp}% < max(${rr}× stop, 3× fees ${(3 * rtPct).toFixed(2)}%)`;
 		if (tp > 40) return `take-profit ${tp}% unrealistic for ≤1 week`;
 		if (!(hold >= 1 && hold <= cfg.maxHoldHours)) return `hold ${hold}h outside 1–${cfg.maxHoldHours}h`;
-		const capPct = Math.min(Number(o.size_pct) || 0, CONVICTION_CAP_PCT[o.conviction] ?? 10, cfg.maxPositionPct);
+		// Half size if this is a starter OR a losing streak is in effect — applied once, never stacked.
+		const halve = starter || (risk?.size_multiplier ?? 1) < 1;
+		const capPct = Math.min(Number(o.size_pct) || 0, (CONVICTION_CAP_PCT[o.conviction] ?? 10) * (halve ? 0.5 : 1), cfg.maxPositionPct);
 		if (!(capPct > 0)) return "size must be > 0";
 		let usd = val.equity * capPct / 100;
 		usd = Math.min(usd, cash * (1 - feePct) * 0.995);
-		const qty = Math.floor((usd / price) * 10 ** info.lotDecimals) / 10 ** info.lotDecimals;
+		let qty = Math.floor((usd / price) * 10 ** info.lotDecimals) / 10 ** info.lotDecimals;
+		// Small funds: a half-size starter can land under Kraken's per-coin minimum. Bump it up to
+		// that minimum if it still fits inside the conviction's FULL cap and the cash available.
+		const fullCapUsd = val.equity * Math.min(CONVICTION_CAP_PCT[o.conviction] ?? 10, cfg.maxPositionPct) / 100;
+		const minCost = info.ordermin * price;
+		if (starter && qty < info.ordermin && minCost <= fullCapUsd && minCost * (1 + feePct) <= cash * 0.995) {
+			qty = Math.ceil(info.ordermin * 10 ** info.lotDecimals) / 10 ** info.lotDecimals;
+		}
 		const cost = qty * price;
 		if (qty < info.ordermin) return `size below Kraken minimum (${info.ordermin} ${o.asset})`;
 		if (cost < Math.max(cfg.minTradeUsd, info.costmin || 0)) return `size $${cost.toFixed(2)} below $${Math.max(cfg.minTradeUsd, info.costmin || 0)} minimum`;
-		return { qty, cost, sizePct: capPct, sl, tp, hold };
+		return { qty, cost, sizePct: capPct, sl, tp, hold, starter, halved: halve };
 	}
 
 	const runDecision = ({ dryRun = false, trigger = "manual" } = {}) => withLock("decision", async () => {
@@ -309,7 +343,7 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 			hypothetical = (await buildSeedPlan().catch(() => ({ est_total_usd: 0 }))).est_total_usd || 1000;
 		}
 		const open = fund.status === "active" ? await store.openTrades() : [];
-		const { ctx, val, prices, feePct } = await buildContext(fund, open, cfg, hypothetical);
+		const { ctx, val, prices, feePct, risk } = await buildContext(fund, open, cfg, hypothetical);
 
 		let decision, model;
 		try {
@@ -325,7 +359,7 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 		const results = [];
 		const rec = await store.insertDecision({
 			mode: live ? "live" : "dry_run", model, market_note: decision.market_note, journal: decision.journal,
-			actions: { opens: decision.opens, closes: decision.closes, adjusts: decision.adjusts },
+			actions: { opens: decision.opens, adds: decision.adds, closes: decision.closes, adjusts: decision.adjusts },
 			trigger, prices: Object.fromEntries(cfg.universe.filter((a) => prices[a]).map((a) => [a, prices[a]])),
 		});
 		const byId = Object.fromEntries(open.map((t) => [t.id, t]));
@@ -369,13 +403,54 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 		let slots = cfg.maxPositions - openAssets.size;
 		const info = await kraken.pairInfo(cfg.universe);
 		let exchangeUsd = live ? ((await kraken.balances()).USD || 0) : Infinity;
+
+		// 2b) adds: bring a winning starter up to a full position (once; never average down)
+		for (const a of decision.adds || []) {
+			const t = byId[a.trade_id];
+			const base = { action: "add", trade_id: a.trade_id, asset: t?.asset, conviction: a.conviction };
+			const reject = (reason) => results.push({ ...base, status: "rejected", reason });
+			if (!t) { reject("no such open trade"); continue; }
+			if (fund.halted && fund.status === "active") { reject(`fund halted: ${fund.halted_reason}`); continue; }
+			if ((t.entry_type || "full") !== "starter" || (t.adds || 0) >= 1) { reject("only a starter that hasn't been added to can be added to"); continue; }
+			// Live ticker, not the hourly close in the market data, so "only add to a winner" holds right now.
+			const px = (await priceMap([t.asset]).catch(() => ({})))[t.asset] || prices[t.asset], pi = info[t.asset];
+			if (!px || !pi) { reject("no price or pair info"); continue; }
+			if (!(px > t.entry_price)) { reject(`only add to a winner: price ${px} ≤ entry ${t.entry_price}`); continue; }
+			const capPct = Math.min(Number(a.size_pct) || 0, CONVICTION_CAP_PCT[a.conviction] ?? 10, cfg.maxPositionPct) * ((risk?.size_multiplier ?? 1) < 1 ? 0.5 : 1);
+			const usd = Math.min(val.equity * capPct / 100 - t.qty * px, cash * (1 - feePct) * 0.995);
+			if (!(usd > 0)) { reject(`position already at or above ${capPct}% of equity`); continue; }
+			const qty = Math.floor((usd / px) * 10 ** pi.lotDecimals) / 10 ** pi.lotDecimals;
+			const cost = qty * px;
+			const min = Math.max(cfg.minTradeUsd, pi.costmin || 0);
+			if (qty < pi.ordermin || cost < min) { reject(`add of $${cost.toFixed(2)} below the $${min} / ${pi.ordermin} ${t.asset} minimum`); continue; }
+			if (!live) {
+				results.push({ ...base, status: "would_add", usd: r2(cost), size_pct: capPct, reason: a.reason });
+				cash -= cost * (1 + feePct);
+				continue;
+			}
+			if (cost * (1 + feePct) > exchangeUsd) { reject(`exchange USD balance $${exchangeUsd.toFixed(2)} too low`); continue; }
+			try {
+				const fill = await kraken.marketOrder({ pair: pi.pair, side: "buy", volume: qty, lotDecimals: pi.lotDecimals });
+				if (!(fill.volExec > 0)) throw new Error(`order ${fill.status}, nothing filled`);
+				await store.adjustCash(-(fill.cost + fill.fee), fill.fee);
+				const newQty = t.qty + fill.volExec, newCost = t.cost_usd + fill.cost;
+				const updated = await store.updateTrade(t.id, {
+					qty: newQty, cost_usd: newCost, entry_fee: t.entry_fee + fill.fee,
+					entry_price: newCost / newQty, conviction: a.conviction, entry_type: "full", adds: (t.adds || 0) + 1,
+				});
+				byId[t.id] = updated;
+				cash -= fill.cost + fill.fee; exchangeUsd -= fill.cost + fill.fee;
+				results.push({ ...base, status: "added", usd: r2(fill.cost), qty: fill.volExec, new_entry: r2(newCost / newQty), reason: a.reason });
+			} catch (e) { results.push({ ...base, status: "failed", reason: e.message }); }
+		}
+
 		for (const o of decision.opens || []) {
-			const base = { action: "open", asset: o.asset, conviction: o.conviction, horizon: o.horizon };
+			const base = { action: "open", asset: o.asset, conviction: o.conviction, horizon: o.horizon, entry_type: o.entry_type || "full" };
 			if (fund.halted && fund.status === "active") { results.push({ ...base, status: "rejected", reason: `fund halted: ${fund.halted_reason}` }); continue; }
-			const v = validateOpen(o, { cfg, val, cash, feePct, openAssets, slots, info: info[o.asset], price: prices[o.asset] });
+			const v = validateOpen(o, { cfg, val, cash, feePct, openAssets, slots, info: info[o.asset], price: prices[o.asset], risk });
 			if (typeof v === "string") { results.push({ ...base, status: "rejected", reason: v }); continue; }
 			if (!live) {
-				results.push({ ...base, status: "would_open", usd: r2(v.cost), size_pct: v.sizePct, stop_loss_pct: v.sl, take_profit_pct: v.tp, max_hold_hours: v.hold, signal_basis: o.signal_basis });
+				results.push({ ...base, status: "would_open", usd: r2(v.cost), size_pct: v.sizePct, halved: v.halved, stop_loss_pct: v.sl, take_profit_pct: v.tp, max_hold_hours: v.hold, signal_basis: o.signal_basis });
 				cash -= v.cost * (1 + feePct); slots--; openAssets.add(o.asset);
 				continue;
 			}
@@ -391,7 +466,7 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 					take_profit: entry * (1 + v.tp / 100), stop_loss: entry * (1 - v.sl / 100),
 					max_hold_until: new Date(Date.now() + v.hold * HOUR),
 					conviction: o.conviction, horizon: o.horizon, thesis: o.signal_basis, invalidation: o.invalidation,
-					decision_id: rec.id, entry_txid: fill.txid,
+					decision_id: rec.id, entry_txid: fill.txid, entry_type: v.starter ? "starter" : "full",
 				});
 				cash -= fill.cost + fill.fee; exchangeUsd -= fill.cost + fill.fee; slots--; openAssets.add(o.asset);
 				results.push({ ...base, status: "opened", trade_id: t.id, usd: r2(fill.cost), qty: fill.volExec, entry, stop_loss: t.stop_loss, take_profit: t.take_profit });
@@ -404,7 +479,7 @@ export function createEngine({ cfgFn, store, kraken, brain, notify, log = consol
 		if (live) {
 			const after = valuation(await store.getFund(), await store.openTrades(), prices);
 			await checkDrawdown(await store.getFund(), after.equity);
-			const traded = results.filter((r) => ["opened", "closed", "partial"].includes(r.status));
+			const traded = results.filter((r) => ["opened", "added", "closed", "partial"].includes(r.status));
 			if (traded.length) await notify.trades(decision, results);
 		}
 		return { ok: true, decision_id: rec.id, mode: live ? "live" : "dry_run", hypothetical_cash: hypothetical, market_note: decision.market_note, journal: decision.journal, results, watch };
