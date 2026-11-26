@@ -13,7 +13,7 @@ export function decisionSchema(universe) {
 	return {
 		type: "object",
 		additionalProperties: false,
-		required: ["market_note", "journal", "opens", "closes", "adjusts", "watch"],
+		required: ["market_note", "journal", "opens", "adds", "closes", "adjusts", "watch"],
 		properties: {
 			market_note: { type: "string", description: "One sentence of broader crypto market context." },
 			journal: { type: "string", description: "2-4 sentence first-person trading journal entry for this run: what you see, what you did and why, or why you stayed flat." },
@@ -22,9 +22,10 @@ export function decisionSchema(universe) {
 				items: {
 					type: "object",
 					additionalProperties: false,
-					required: ["asset", "conviction", "horizon", "size_pct", "take_profit_pct", "stop_loss_pct", "max_hold_hours", "momentum_score", "signal_basis", "invalidation"],
+					required: ["asset", "entry_type", "conviction", "horizon", "size_pct", "take_profit_pct", "stop_loss_pct", "max_hold_hours", "momentum_score", "signal_basis", "invalidation"],
 					properties: {
 						asset: { type: "string", enum: universe },
+						entry_type: { type: "string", enum: ["full", "starter"], description: "\"starter\" = half-size early entry on a change of character before full confirmation; \"full\" = confirmed setup." },
 						conviction: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] },
 						horizon: { type: "string", enum: ["intraday", "swing"] },
 						size_pct: { type: "number", description: "Position size as % of fund equity." },
@@ -34,6 +35,21 @@ export function decisionSchema(universe) {
 						momentum_score: { type: "integer", description: "1-10 momentum score per the framework." },
 						signal_basis: { type: "string", description: "The specific, falsifiable signal (cite numbers from the data)." },
 						invalidation: { type: "string", description: "Specific price/volume condition that invalidates the trade." },
+					},
+				},
+			},
+			adds: {
+				type: "array",
+				description: "Add to an open STARTER position once its retest has held, bringing it up to a full position. Only into a winning starter; never average down.",
+				items: {
+					type: "object",
+					additionalProperties: false,
+					required: ["trade_id", "conviction", "size_pct", "reason"],
+					properties: {
+						trade_id: { type: "integer" },
+						conviction: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] },
+						size_pct: { type: "number", description: "TOTAL position size after the add, as % of fund equity." },
+						reason: { type: "string", description: "What confirmed it, e.g. 'retest of 41.99 held on lower volume'." },
 					},
 				},
 			},
@@ -90,7 +106,9 @@ You run a small, real-money, SPOT-ONLY crypto fund on Kraken as a public experim
 - At most ${cfg.maxPositions} open positions, one per asset. Size as % of fund equity: LOW ≤ 10, MEDIUM ≤ 15, HIGH ≤ 20, never above ${cfg.maxPositionPct}.
 - Costs are real: taker fee ≈ ${(feePct * 100).toFixed(2)}% per side (≈ ${rt.toFixed(2)}% round trip). A take-profit must be at least 3× the round trip (≥ ${(rt * 3).toFixed(2)}%) and at least 1.5× the stop distance. Stops between 0.75% and 12%; size stops off ATR/realized volatility, not round numbers.
 - Doing nothing is a valid and often correct decision. Only trade when momentum, volume and timeframe alignment agree. Weak or conflicting signals → stay in cash.
-- Protect the fund: if recent trades are losing, reduce size or stand down. The fund halts automatically at a ${(cfg.maxDrawdown * 100).toFixed(0)}% drawdown.
+- Losing streaks: "risk_mode" in the data says whether sizes are halved. After 2 losing trades in a row, the next 2 trades are capped at half size (the code enforces this; starters are already half size and are not cut further). That is the whole penalty: do NOT stand down or raise your bar for entries because of recent losses. Judge each setup on its own merits at the reduced size. The fund halts automatically at a ${(cfg.maxDrawdown * 100).toFixed(0)}% drawdown.
+- Starter positions (entry_type "starter"): you don't have to wait for a higher high or a tested spring to get in. A 4h close above the reference pivot (change of character) with volume_vs_7d_avg ≥ 1.0 and up_vs_down_volume_48h ≥ 1.0, or a spring that has held but isn't tested yet, qualifies for a STARTER even before the trend is confirmed. This is the one exception to "only buy in an uptrend / never buy a bounce in a downtrend". A starter is half size (the code caps it at half the conviction limit) and may use a volatility stop of about 1–1.5× realized_vol_daily_pct instead of the deeper structural stop, with a take-profit of at least 1.25× the stop (full entries need 1.5×). Never open a starter into an upthrust, a buying climax, or with 1h RSI above ~78.
+- Adding (the "adds" list): once a starter's retest holds (spring tested_on_lower_volume, or price holds above the broken pivot on a quieter pullback) and the position is in profit, add to bring it up to a full position for its conviction. Raise the stop to the structural level in "adjusts" at the same time. Each starter can be added to once. Never add to a losing position.
 - You may close open positions early (thesis broken) or tighten stops to lock in profit. Stops can only be raised, never lowered.
 - Learn from the recent closed trades you are shown: name what worked and what didn't in your journal.
 - You have memory. "track_record" says how many runs you have made; "previous_runs" holds your last runs (trigger, what you wrote, what you did) and "price_change_since_pct" shows how each coin moved after each one. Grade your earlier calls against it: if you stayed flat and the coins fell, say staying flat was right; if a setup you passed on ran, say what you missed and whether your rule should change. Refer back to levels you set before. Never describe a run as a first run or say you have no history unless previous_runs is empty.

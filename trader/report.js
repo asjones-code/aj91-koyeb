@@ -240,6 +240,7 @@ ${paperHtml(paper)}
 				id: p.id, asset: p.asset, qty: p.qty, entry_price: p.entry_price, price: p.price, value_usd: r2(p.value),
 				unrealized_pct: r2(p.unrealized_pct), stop_loss: p.stop_loss, take_profit: p.take_profit,
 				hours_left: r2(p.hours_left), conviction: p.conviction, horizon: p.horizon, thesis: p.thesis,
+				entry_type: p.entry_type || "full", adds: p.adds || 0,
 			})) : [],
 			closed: closed.map((t) => ({ id: t.id, asset: t.asset, opened_at: t.opened_at, closed_at: t.closed_at, pnl_pct: r2(t.pnl_pct), pnl_usd: r2(t.pnl_usd), exit_reason: t.exit_reason, thesis: t.thesis })),
 			decisions: decisions.map((d) => ({ id: d.id, at: d.created_at, mode: d.mode, trigger: d.trigger, journal: d.journal, market_note: d.market_note, results: d.results, error: d.error })),
